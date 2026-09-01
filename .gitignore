@@ -6,3 +6,8 @@ node_modules
 *.log
 
 .vercel
+
+*.gs
+google-apps-script/
+*.txt
+

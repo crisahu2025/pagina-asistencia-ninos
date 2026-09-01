@@ -1,0 +1,5 @@
+
+*.gs
+google-apps-script/
+*.txt
+

@@ -6,7 +6,7 @@
  * ====================================================================================
  */
 
-const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbywEabgv6_WYrSWH2yV08cruUvlRK6cu1iHDnwKt8koTzFUcqo6S4oYpBQiilCdNCG9/exec";
+const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7LkmZC6-HpqOzw9oNWEatJS_0MNeaETfGWT6Btnty0BtvmUsIs2UFoL2_OrzON3U/exec";
 
 // Global State
 const state = {
