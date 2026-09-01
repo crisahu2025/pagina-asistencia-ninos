@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal de Asistencia Infantil - Ministerio de Niños</title>
+  <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fffdf0',   // Crema suave pastel
+              100: '#fef9c3',  // Amarillo pastel muy suave
+              200: '#fef08a',  // Pastel manteca
+              300: '#fde047',  // Amarillo suave
+              400: '#facc15',  // Amarillo dorado
+              500: '#eab308',  // Dorado miel
+              600: '#ca8a04',  // Ámbar dorado principal
+              700: '#a16207',  // Contraste para textos
+              800: '#854d0e',  // Ámbar oscuro
+              900: '#713f12',  // Texto de alta legibilidad
+            },
+            pastel: {
+              yellow: '#FEF9C3',
+              butter: '#FFFBEB',
+              warm: '#FFFDF5',
+              border: '#FEF08A',
+              accent: '#EAB308',
+              card: '#FFFFFF'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  
+  <!-- SheetJS (xlsx export) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
+  <!-- jsPDF & AutoTable (PDF export) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
+
+  <!-- ========================================================================= -->
+  <!-- PORTAL DE INGRESO / LOGIN SCREEN (PROTEGIDO POR GOOGLE APPS SCRIPT)        -->
+  <!-- ========================================================================= -->
+  <div id="loginScreen" class="fixed inset-0 z-50 bg-gradient-to-b from-[#FFFDF5] via-[#FFFBEB] to-[#FEF9C3] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+    <div class="max-w-md w-full bg-white rounded-3xl p-7 sm:p-9 shadow-xl shadow-amber-900/5 border border-amber-100/80 relative overflow-hidden animate-fadeIn">
+      
+      <!-- Pastel Yellow Decorative Top Accent -->
+      <div class="absolute -top-12 -right-12 w-36 h-36 bg-amber-100/60 rounded-full blur-2xl pointer-events-none"></div>
+      <div class="absolute -bottom-12 -left-12 w-36 h-36 bg-yellow-200/40 rounded-full blur-2xl pointer-events-none"></div>
+
+      <!-- Icon & Portal Header -->
+      <div class="text-center relative z-10">
+        <div class="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-amber-400 via-amber-300 to-yellow-200 text-amber-900 flex items-center justify-center shadow-lg shadow-amber-300/30 mb-4 border border-white/60">
+          <i class="fa-solid fa-hands-holding-child text-3xl"></i>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-900 tracking-tight">
+          Portal de Asistencia
+        </h2>
+        <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+          Ministerio de Niños • Control & Seguridad
+        </p>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" onsubmit="handleLogin(event)" class="mt-7 space-y-4 relative z-10">
+        
+        <!-- Usuario Input -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <i class="fa-solid fa-user-shield text-amber-600"></i> Usuario
+          </label>
+          <div class="relative">
+            <input 
+              type="text" 
+              id="loginUsuario" 
+              required 
+              placeholder="Ingresa el usuario..." 
+              autocomplete="username"
+              class="w-full px-4 py-3 bg-amber-50/40 border border-amber-200/80 rounded-2xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white outline-none transition-all placeholder-slate-400"
+            >
+          </div>
+        </div>
+
+        <!-- Contraseña Input -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <i class="fa-solid fa-lock text-amber-600"></i> Contraseña
+          </label>
+          <div class="relative">
+            <input 
+              type="password" 
+              id="loginPassword" 
+              required 
+              placeholder="Ingresa la contraseña..." 
+              autocomplete="current-password"
+              class="w-full px-4 py-3 pr-11 bg-amber-50/40 border border-amber-200/80 rounded-2xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white outline-none transition-all placeholder-slate-400"
+            >
+            <button 
+              type="button" 
+              onclick="togglePasswordVisibility()" 
+              class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-amber-700 transition-colors"
+              title="Mostrar/ocultar contraseña"
+            >
+              <i id="passwordEyeIcon" class="fa-regular fa-eye text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Security Note -->
+        <div class="p-3 bg-amber-50/60 rounded-2xl border border-amber-100 flex items-start gap-2.5 text-[11px] text-amber-900 leading-relaxed">
+          <i class="fa-solid fa-shield-check text-amber-600 text-sm mt-0.5 shrink-0"></i>
+          <span>Acceso cifrado y protegido en el servidor de Google Apps Script para resguardar los datos de las familias.</span>
+        </div>
+
+        <!-- Error Message Container (Hidden by default) -->
+        <div id="loginErrorMsg" class="hidden p-3 bg-red-50 text-red-700 border border-red-200 rounded-2xl text-xs font-semibold flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          <span id="loginErrorText">Usuario o contraseña incorrectos.</span>
+        </div>
+
+        <!-- Submit Button -->
+        <button 
+          type="submit" 
+          id="btnLoginSubmit" 
+          class="w-full py-3.5 px-4 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 font-bold text-sm rounded-2xl shadow-lg shadow-amber-400/25 hover:shadow-amber-400/35 active:scale-[0.98] transition-all flex items-center justify-center gap-2 border border-amber-300/40"
+        >
+          <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>
+          <span id="btnLoginText">Ingresar al Sistema</span>
+        </button>
+
+      </form>
+
+      <!-- Connection / Settings quick link -->
+      <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+        <span class="flex items-center gap-1">
+          <i class="fa-solid fa-cloud text-amber-500 text-xs"></i> Google Sheets API
+        </span>
+        <button onclick="openConfigModal()" class="text-amber-800 font-semibold hover:underline flex items-center gap-1">
+          <i class="fa-solid fa-gear text-[11px]"></i> Ajustes de Conexión
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MAIN APPLICATION CONTENT (VISIBLE ONLY AFTER LOGIN)                       -->
+  <!-- ========================================================================= -->
+  <div id="appContainer" class="hidden flex-1 flex flex-col">
+
+    <!-- TOP NOTIFICATION BANNER (Offline / Demo status) -->
+    <div id="statusBanner" class="hidden py-2 px-4 text-center text-xs font-semibold text-amber-900 bg-amber-100/90 border-b border-amber-200 transition-all">
+      <div class="max-w-7xl mx-auto flex items-center justify-center gap-2">
+        <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
+        <span id="statusBannerText">Modo de demostración activo con datos de prueba. Configura tu URL de Google Apps Script para sincronizar en vivo.</span>
+        <button onclick="openConfigModal()" class="underline font-bold hover:text-amber-800 ml-2">Configurar ahora</button>
+      </div>
+    </div>
+
+    <!-- MAIN HEADER (Pastel Yellow / Pure White) -->
+    <header class="bg-white border-b border-amber-100/80 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-white/95">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-20">
+          
+          <!-- Logo & Title -->
+          <div class="flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 via-amber-300 to-yellow-200 flex items-center justify-center text-amber-950 shadow-md shadow-amber-300/30 border border-amber-200/60">
+              <i class="fa-solid fa-hands-holding-child text-2xl"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-xl sm:text-2xl font-bold font-['Outfit'] tracking-tight text-slate-900 leading-none">
+                  Kids Check-In
+                </h1>
+                <span id="connectionBadge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-200">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span id="connectionText">Online</span>
+                </span>
+              </div>
+              <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+                Control de Asistencia & Seguridad de Niños
+              </p>
+            </div>
+          </div>
+
+          <!-- Date picker & Quick Controls -->
+          <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Date selector -->
+            <div class="relative flex items-center bg-amber-50/50 rounded-2xl p-1 border border-amber-200/80 shadow-sm">
+              <i class="fa-regular fa-calendar-days text-amber-600 ml-2 text-sm"></i>
+              <input type="date" id="selectedDate" class="bg-transparent border-0 text-xs sm:text-sm font-semibold text-slate-700 focus:ring-0 py-1 px-2 cursor-pointer outline-none">
+              <button onclick="setTodayDate()" title="Ir a hoy" class="px-2.5 py-1 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-xl transition-all shadow-sm">
+                Hoy
+              </button>
+            </div>
+
+            <!-- Sync Button -->
+            <button id="btnSync" onclick="fetchData(true)" title="Sincronizar con Google Sheets" class="w-10 h-10 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-all shadow-sm">
+              <i id="syncIcon" class="fa-solid fa-arrows-rotate text-sm"></i>
+            </button>
+
+            <!-- Settings Button -->
+            <button onclick="openConfigModal()" title="Configuración de conexión" class="w-10 h-10 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-all shadow-sm">
+              <i class="fa-solid fa-gear text-sm"></i>
+            </button>
+
+            <!-- Logout Button -->
+            <button onclick="handleLogout()" title="Cerrar sesión" class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 border border-slate-200 flex items-center justify-center transition-all shadow-sm">
+              <i class="fa-solid fa-power-off text-sm"></i>
+            </button>
+
+            <!-- New Child Button (Desktop) -->
+            <button onclick="switchTab('nuevo')" class="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-amber-950 text-sm font-bold rounded-2xl shadow-md shadow-amber-400/20 border border-amber-300 transition-all">
+              <i class="fa-solid fa-user-plus text-xs"></i>
+              <span>Nuevo Niño</span>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- NAVIGATION TABS -->
+        <nav class="flex space-x-2 border-t border-amber-100/60 overflow-x-auto py-2.5 no-scrollbar">
+          <button onclick="switchTab('asistencia')" id="tabBtn-asistencia" class="tab-btn active-tab flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-2xl transition-all">
+            <i class="fa-solid fa-clipboard-user text-base"></i>
+            <span>Toma de Asistencia</span>
+            <span id="badgeTotalNinos" class="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-amber-200 text-amber-950 font-bold">0</span>
+          </button>
+
+          <button onclick="switchTab('presentes')" id="tabBtn-presentes" class="tab-btn flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
+            <i class="fa-solid fa-circle-check text-amber-600 text-base"></i>
+            <span>Presentes Hoy</span>
+            <span id="badgeTotalPresentes" class="ml-1.5 px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">0</span>
+          </button>
+
+          <button onclick="switchTab('reportes')" id="tabBtn-reportes" class="tab-btn flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
+            <i class="fa-solid fa-file-arrow-down text-amber-700 text-base"></i>
+            <span>Reportes & Descargas</span>
+          </button>
+
+          <button onclick="switchTab('nuevo')" id="tabBtn-nuevo" class="tab-btn flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
+            <i class="fa-solid fa-plus text-base"></i>
+            <span>Registrar Niño</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <!-- STATS OVERVIEW CARDS (Pastel Yellow / Warm Butter & White) -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2 w-full">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        
+        <!-- Total Registrados -->
+        <div class="bg-white p-4 rounded-3xl border border-amber-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Registro</p>
+            <h3 id="statTotal" class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-900 mt-1">0</h3>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-users"></i>
+          </div>
+        </div>
+
+        <!-- Presentes Hoy -->
+        <div class="bg-gradient-to-br from-white to-[#F0FDF4] p-4 rounded-3xl border border-emerald-200/80 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-emerald-800">Presentes Hoy</p>
+            <h3 id="statPresentes" class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-emerald-800 mt-1">0</h3>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-500/20">
+            <i class="fa-solid fa-user-check"></i>
+          </div>
+        </div>
+
+        <!-- Ausentes -->
+        <div class="bg-white p-4 rounded-3xl border border-amber-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Sin Ingresar</p>
+            <h3 id="statAusentes" class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-700 mt-1">0</h3>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-user-xmark"></i>
+          </div>
+        </div>
+
+        <!-- Porcentaje Asistencia -->
+        <div class="bg-gradient-to-br from-white to-[#FFFBEB] p-4 rounded-3xl border border-amber-200/80 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-amber-900">% Asistencia</p>
+            <h3 id="statPorcentaje" class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-amber-800 mt-1">0%</h3>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-amber-400 text-amber-950 flex items-center justify-center text-xl shadow-md shadow-amber-400/20 border border-amber-300">
+            <i class="fa-solid fa-chart-pie"></i>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
+
+      <!-- ============================================================= -->
+      <!-- TAB 1: TOMA DE ASISTENCIA / CHECK-IN                          -->
+      <!-- ============================================================= -->
+      <section id="tab-asistencia" class="tab-content block space-y-5">
+        
+        <!-- Filter and Search Header -->
+        <div class="bg-white p-4 sm:p-5 rounded-3xl border border-amber-100 shadow-sm space-y-4">
+          
+          <!-- Search bar with auto-focus -->
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-amber-600">
+              <i class="fa-solid fa-magnifying-glass text-lg"></i>
+            </div>
+            <input 
+              type="text" 
+              id="searchInput" 
+              placeholder="Buscar por nombre del niño, papás o teléfono..." 
+              class="w-full pl-12 pr-12 py-3.5 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-base font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all"
+              autocomplete="off"
+            >
+            <button id="btnClearSearch" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600">
+              <i class="fa-solid fa-circle-xmark text-lg"></i>
+            </button>
+          </div>
+
+          <!-- Filter pills: Salas y Estados -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <!-- Sala Filters -->
+            <div class="flex flex-wrap items-center gap-1.5" id="roomFilters">
+              <button onclick="setFilterSala('TODAS')" class="filter-pill active-pill px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all" data-sala="TODAS">
+                Todas las Salas
+              </button>
+              <button onclick="setFilterSala('Sala Cunas (0-2 años)')" class="filter-pill px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all" data-sala="Sala Cunas (0-2 años)">
+                👶 Sala Cunas (0-2)
+              </button>
+              <button onclick="setFilterSala('Párvulos (3-5 años)')" class="filter-pill px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all" data-sala="Párvulos (3-5 años)">
+                🎨 Párvulos (3-5)
+              </button>
+              <button onclick="setFilterSala('Primarios (6-8 años)')" class="filter-pill px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all" data-sala="Primarios (6-8 años)">
+                📚 Primarios (6-8)
+              </button>
+              <button onclick="setFilterSala('Pre-Adolescentes (9-12 años)')" class="filter-pill px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all" data-sala="Pre-Adolescentes (9-12 años)">
+                🚀 Pre-Adolescentes (9-12)
+              </button>
+            </div>
+
+            <!-- Attendance filter & view toggle -->
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+              <!-- Estado dropdown -->
+              <select id="filterEstado" onchange="renderKidsList()" class="bg-amber-50/60 border border-amber-200 text-xs font-bold text-slate-700 rounded-xl py-2 px-3 focus:ring-2 focus:ring-amber-400 outline-none">
+                <option value="TODOS">Todos (Presentes y Ausentes)</option>
+                <option value="SOLO_AUSENTES">Solo Ausentes (Por ingresar)</option>
+                <option value="SOLO_PRESENTES">Solo Presentes (Ya ingresados)</option>
+              </select>
+
+              <!-- View toggle (Grid / List) -->
+              <div class="flex items-center bg-amber-50/60 rounded-xl p-0.5 border border-amber-200">
+                <button id="viewGridBtn" onclick="setViewMode('grid')" class="p-1.5 rounded-lg text-amber-900 bg-white shadow-sm font-bold" title="Vista Cuadrícula">
+                  <i class="fa-solid fa-grip text-sm"></i>
+                </button>
+                <button id="viewTableBtn" onclick="setViewMode('table')" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-800" title="Vista Tabla">
+                  <i class="fa-solid fa-list text-sm"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Quick Action Feedback Bar -->
+        <div class="flex items-center justify-between text-xs text-slate-500 px-1 font-medium">
+          <span id="resultsCount">Mostrando 0 niños</span>
+          <span class="flex items-center gap-1.5">
+            <i class="fa-regular fa-lightbulb text-amber-500"></i>
+            Tip: Presiona el botón verde para registrar el ingreso con hora exacta.
+          </span>
+        </div>
+
+        <!-- Cards Grid Container -->
+        <div id="kidsGridContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Dynamic Cards rendered by JS -->
+        </div>
+
+        <!-- Table View Container -->
+        <div id="kidsTableContainer" class="hidden bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-[#FFFDF5] text-slate-700 font-bold uppercase text-xs border-b border-amber-100">
+                <tr>
+                  <th class="py-3.5 px-4">Niño / Niña</th>
+                  <th class="py-3.5 px-4">Sala / Edad</th>
+                  <th class="py-3.5 px-4">Padres / Contacto</th>
+                  <th class="py-3.5 px-4">Estado Asistencia</th>
+                  <th class="py-3.5 px-4 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="kidsTableBody" class="divide-y divide-slate-100">
+                <!-- Dynamic Rows rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden bg-white rounded-3xl border border-amber-100 p-12 text-center">
+          <div class="w-16 h-16 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto text-amber-500 text-2xl mb-4 border border-amber-100">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </div>
+          <h4 class="text-lg font-bold text-slate-800">No se encontraron niños</h4>
+          <p class="text-sm text-slate-500 max-w-md mx-auto mt-1 mb-6">No hay resultados para el término de búsqueda o filtros seleccionados.</p>
+          <button onclick="switchTab('nuevo')" class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 text-amber-950 text-sm font-bold rounded-2xl hover:from-amber-500 hover:to-amber-600 shadow-md">
+            <i class="fa-solid fa-plus"></i>
+            Registrar a este niño ahora
+          </button>
+        </div>
+
+      </section>
+
+      <!-- ============================================================= -->
+      <!-- TAB 2: PRESENTES HOY (LIVE SUNDAY CHECK-IN LIST)              -->
+      <!-- ============================================================= -->
+      <section id="tab-presentes" class="tab-content hidden space-y-5">
+        <div class="bg-white p-5 rounded-3xl border border-amber-100 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold font-['Outfit'] text-slate-900 flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+              Niños Ingresados Hoy
+            </h2>
+            <p class="text-sm text-slate-500 mt-0.5">Control de seguridad, retiro y contacto rápido con familias presentes.</p>
+          </div>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button onclick="exportToExcel()" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-sm transition-all">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>Exportar Excel</span>
+            </button>
+            <button onclick="printAttendanceRoster()" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-sm transition-all">
+              <i class="fa-solid fa-print"></i>
+              <span>Imprimir Roster</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Present List Container -->
+        <div class="bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-emerald-50/80 text-emerald-950 font-bold uppercase text-xs border-b border-emerald-100">
+                <tr>
+                  <th class="py-3.5 px-4">#</th>
+                  <th class="py-3.5 px-4">Niño / Niña</th>
+                  <th class="py-3.5 px-4">Hora de Ingreso</th>
+                  <th class="py-3.5 px-4">Sala</th>
+                  <th class="py-3.5 px-4">Padres</th>
+                  <th class="py-3.5 px-4">Teléfono</th>
+                  <th class="py-3.5 px-4 text-center">Acciones Rápidas</th>
+                </tr>
+              </thead>
+              <tbody id="presentesTableBody" class="divide-y divide-slate-100">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Empty state for Presentes -->
+          <div id="presentesEmptyState" class="p-12 text-center hidden">
+            <div class="w-16 h-16 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto text-amber-500 text-2xl mb-4 border border-amber-100">
+              <i class="fa-regular fa-clipboard"></i>
+            </div>
+            <h4 class="text-base font-bold text-slate-800">Aún no hay niños marcados como presentes hoy</h4>
+            <p class="text-xs text-slate-500 mt-1">Ve a la pestaña "Toma de Asistencia" para comenzar a marcar los ingresos del domingo.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================= -->
+      <!-- TAB 3: REPORTES & DESCARGAS                                   -->
+      <!-- ============================================================= -->
+      <section id="tab-reportes" class="tab-content hidden space-y-6">
+        <div class="bg-white p-6 sm:p-7 rounded-3xl border border-amber-100 shadow-sm">
+          <h2 class="text-xl font-bold font-['Outfit'] text-slate-900">Centro de Reportes & Exportaciones</h2>
+          <p class="text-sm text-slate-500 mt-1">Genera reportes de asistencia en Excel, listas para imprimir en PDF o resúmenes de WhatsApp para coordinadores y pastores.</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-6">
+            
+            <!-- Report Card: Excel -->
+            <div class="bg-gradient-to-br from-white to-[#F0FDF4] border border-emerald-200/80 rounded-3xl p-5 flex flex-col justify-between shadow-sm">
+              <div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-600/20 mb-4">
+                  <i class="fa-solid fa-file-excel"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900">Planilla Excel (.XLSX)</h3>
+                <p class="text-xs text-slate-600 mt-1">Descarga el reporte detallado con nombres, horas de llegada, datos de contacto de los padres y salas asignadas.</p>
+              </div>
+              <button onclick="exportToExcel()" class="mt-6 w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-2xl shadow-md transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-download"></i>
+                Descargar Excel Hoy
+              </button>
+            </div>
+
+            <!-- Report Card: PDF Printable -->
+            <div class="bg-gradient-to-br from-white to-[#FFFBEB] border border-amber-200/80 rounded-3xl p-5 flex flex-col justify-between shadow-sm">
+              <div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-500 text-amber-950 flex items-center justify-center text-xl shadow-md shadow-amber-500/20 mb-4 border border-amber-300">
+                  <i class="fa-solid fa-file-pdf"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900">Roster PDF Imprimible</h3>
+                <p class="text-xs text-slate-600 mt-1">Genera una hoja limpia en formato A4 lista para imprimir o archivar en secretaría del ministerio de niños.</p>
+              </div>
+              <button onclick="exportToPDF()" class="mt-6 w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs sm:text-sm font-bold rounded-2xl shadow-md transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-file-arrow-down"></i>
+                Descargar PDF
+              </button>
+            </div>
+
+            <!-- Report Card: WhatsApp Summary -->
+            <div class="bg-gradient-to-br from-white to-green-50 border border-green-200/80 rounded-3xl p-5 flex flex-col justify-between shadow-sm">
+              <div>
+                <div class="w-12 h-12 rounded-2xl bg-green-600 text-white flex items-center justify-center text-xl shadow-md shadow-green-600/20 mb-4">
+                  <i class="fa-brands fa-whatsapp"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900">Resumen para WhatsApp</h3>
+                <p class="text-xs text-slate-600 mt-1">Copia un resumen formateado con totales por sala listo para enviar al grupo de líderes y maestros.</p>
+              </div>
+              <button onclick="copyWhatsAppReport()" class="mt-6 w-full py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold rounded-2xl shadow-md transition-all flex items-center justify-center gap-2">
+                <i class="fa-regular fa-copy"></i>
+                Copiar Resumen WhatsApp
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================= -->
+      <!-- TAB 4: REGISTRAR NUEVO NIÑO                                   -->
+      <!-- ============================================================= -->
+      <section id="tab-nuevo" class="tab-content hidden max-w-2xl mx-auto">
+        <div class="bg-white p-6 sm:p-8 rounded-3xl border border-amber-100 shadow-sm">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center text-xl">
+              <i class="fa-solid fa-user-plus"></i>
+            </div>
+            <div>
+              <h2 class="text-xl font-bold font-['Outfit'] text-slate-900">Registrar Nuevo Niño</h2>
+              <p class="text-xs text-slate-500">Se agregará directamente a la hoja "Registro de NIÑOS" en Google Sheets.</p>
+            </div>
+          </div>
+
+          <form id="formNuevoNino" onsubmit="handleNuevoNino(event)" class="space-y-4">
+            <!-- Nombre del Niño -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Nombre y Apellido del Niño / Niña *</label>
+              <input type="text" id="nuevoNombre" required placeholder="Ej. Felipe Ahumada" class="w-full px-4 py-3 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-sm focus:ring-2 focus:ring-amber-400 focus:bg-white outline-none transition-all font-medium">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- Edad / Nacimiento -->
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Edad o Fecha de Nacimiento</label>
+                <input type="text" id="nuevaEdad" placeholder="Ej. 4 años (15/03/2022)" class="w-full px-4 py-3 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-sm focus:ring-2 focus:ring-amber-400 focus:bg-white outline-none transition-all font-medium">
+              </div>
+
+              <!-- Sala Sugerida -->
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Sala Asignada *</label>
+                <select id="nuevaSala" required class="w-full px-4 py-3 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-sm focus:ring-2 focus:ring-amber-400 focus:bg-white outline-none transition-all font-semibold text-slate-700">
+                  <option value="Sala Cunas (0-2 años)">👶 Sala Cunas (0-2 años)</option>
+                  <option value="Párvulos (3-5 años)">🎨 Párvulos (3-5 años)</option>
+                  <option value="Primarios (6-8 años)">📚 Primarios (6-8 años)</option>
+                  <option value="Pre-Adolescentes (9-12 años)">🚀 Pre-Adolescentes (9-12 años)</option>
+                  <option value="General">General</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Nombre de los Papás -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Nombre de los Papás / Tutores *</label>
+              <input type="text" id="nuevosPapas" required placeholder="Ej. Carlos Ahumada y Laura Díaz" class="w-full px-4 py-3 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-sm focus:ring-2 focus:ring-amber-400 focus:bg-white outline-none transition-all font-medium">
+            </div>
+
+            <!-- Teléfono -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Teléfono de Contacto (WhatsApp) *</label>
+              <input type="tel" id="nuevoTelefono" required placeholder="Ej. 11 3456 7890 o 5491134567890" class="w-full px-4 py-3 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-sm focus:ring-2 focus:ring-amber-400 focus:bg-white outline-none transition-all font-mono font-medium">
+              <p class="text-[11px] text-slate-400 mt-1">Este número se usará para enviar avisos de WhatsApp con un solo clic si el nene necesita a sus padres.</p>
+            </div>
+
+            <!-- Observaciones Médicas / Alergias -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Observaciones Médicas / Alergias / Permisos</label>
+              <textarea id="nuevasObservaciones" rows="2" placeholder="Ej. Alérgico al maní, celíaco, no toma leche entera..." class="w-full px-4 py-2.5 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-sm focus:ring-2 focus:ring-amber-400 focus:bg-white outline-none transition-all"></textarea>
+            </div>
+
+            <!-- Auto-marcar presente checkbox -->
+            <div class="flex items-center gap-2 pt-2">
+              <input type="checkbox" id="checkMarcarPresente" checked class="w-4 h-4 text-amber-500 rounded focus:ring-amber-400 accent-amber-500">
+              <label for="checkMarcarPresente" class="text-xs font-bold text-slate-700 cursor-pointer">Marcar como PRESENTE hoy inmediatamente al guardar</label>
+            </div>
+
+            <div class="pt-4 flex items-center justify-end gap-3">
+              <button type="button" onclick="switchTab('asistencia')" class="px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-2xl transition-all">
+                Cancelar
+              </button>
+              <button type="submit" id="btnGuardarNino" class="px-6 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-amber-950 text-sm font-bold rounded-2xl shadow-md shadow-amber-400/20 transition-all flex items-center gap-2 border border-amber-300">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Guardar en Google Sheets</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-white border-t border-amber-100/80 py-5 text-center text-xs text-slate-400 mt-auto">
+      <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p>© 2026 Code Ahumada — Sistema de Asistencia y Seguridad Infantil</p>
+        <div class="flex items-center gap-4 text-slate-500 font-medium">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle text-[8px] text-emerald-500"></i> Sesión Activa</span>
+          <span>•</span>
+          <button onclick="openConfigModal()" class="hover:text-amber-700 underline">Ajustes</button>
+          <span>•</span>
+          <button onclick="handleLogout()" class="hover:text-red-600 text-slate-400">Salir</button>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- MODAL: ENVIAR MENSAJE A LOS PADRES (WHATSAPP)                -->
+  <!-- ============================================================= -->
+  <div id="whatsappModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-amber-100 animate-fadeIn">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl border border-emerald-100">
+            <i class="fa-brands fa-whatsapp"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold font-['Outfit'] text-slate-900">Avisar a los Padres</h3>
+            <p id="waModalSubtitle" class="text-xs text-slate-500 font-medium">Niño: Felipe Ahumada</p>
+          </div>
+        </div>
+        <button onclick="closeWhatsAppModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Recipient Info -->
+      <div class="my-4 p-3 bg-amber-50/50 rounded-2xl border border-amber-100 flex items-center justify-between text-xs">
+        <div>
+          <span class="text-slate-400 font-medium">Destinatario:</span>
+          <span id="waModalPapas" class="font-bold text-slate-800 ml-1">Carlos Ahumada</span>
+        </div>
+        <div>
+          <span class="text-slate-400 font-medium">Teléfono:</span>
+          <span id="waModalPhone" class="font-mono font-bold text-amber-800 ml-1">11-3456-7890</span>
+        </div>
+      </div>
+
+      <!-- Quick Preset Messages -->
+      <div class="space-y-2">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Selecciona un mensaje predefinido:</label>
+        
+        <div class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+          <button onclick="selectWaPreset(1)" class="wa-preset-btn text-left p-2.5 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-xs text-slate-700 transition-all flex items-start gap-2.5">
+            <span class="text-base">📍</span>
+            <span><strong>Acercarse a la sala:</strong> "Hola, necesitamos que por favor te acerques a la sala de niños por tu hijo/a."</span>
+          </button>
+
+          <button onclick="selectWaPreset(2)" class="wa-preset-btn text-left p-2.5 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-xs text-slate-700 transition-all flex items-start gap-2.5">
+            <span class="text-base">🚼</span>
+            <span><strong>Cambio de pañal / ropa:</strong> "Hola, tu hijo/a necesita un cambio de pañal/ropa, te esperamos en la sala."</span>
+          </button>
+
+          <button onclick="selectWaPreset(3)" class="wa-preset-btn text-left p-2.5 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-xs text-slate-700 transition-all flex items-start gap-2.5">
+            <span class="text-base">😢</span>
+            <span><strong>No se calma / Extraña:</strong> "Hola, tu hijo/a está un poco triste/llorando y pide por ustedes, ¿podrían acercarse?"</span>
+          </button>
+
+          <button onclick="selectWaPreset(4)" class="wa-preset-btn text-left p-2.5 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-xs text-slate-700 transition-all flex items-start gap-2.5">
+            <span class="text-base">🚪</span>
+            <span><strong>Fin de la clase / Retiro:</strong> "¡Hola! La reunión ha finalizado, ya pueden pasar a retirar a los niños por la sala."</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Editable Text Area -->
+      <div class="mt-4">
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Mensaje final a enviar:</label>
+        <textarea id="waCustomMessage" rows="3" class="w-full p-3 bg-amber-50/30 border border-amber-200/80 rounded-2xl text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="mt-5 flex items-center justify-end gap-3">
+        <button onclick="closeWhatsAppModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-2xl">
+          Cancelar
+        </button>
+        <button onclick="sendWhatsAppNow()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-2xl shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all">
+          <i class="fa-brands fa-whatsapp text-base"></i>
+          <span>Abrir WhatsApp y Enviar</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- MODAL: CONFIGURACIÓN GOOGLE APPS SCRIPT                       -->
+  <!-- ============================================================= -->
+  <div id="configModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-amber-100 animate-fadeIn">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-sliders"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold font-['Outfit'] text-slate-900">Configuración de Conexión</h3>
+            <p class="text-xs text-slate-500">Conexión con tu Google Sheets</p>
+          </div>
+        </div>
+        <button onclick="closeConfigModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="mt-4 space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">URL de la Web App de Google Apps Script</label>
+          <input type="url" id="configScriptUrl" placeholder="https://script.google.com/macros/s/AKfycbx.../exec" class="w-full px-4 py-3 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-xs font-mono focus:ring-2 focus:ring-amber-400 focus:bg-white outline-none">
+          <p class="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+            Pega aquí el enlace de la Aplicación Web generada al implementar el archivo <code class="bg-amber-50 text-amber-900 px-1 py-0.5 rounded border border-amber-200 font-mono">Code.gs</code> en tu hoja de Google Sheets.
+          </p>
+        </div>
+
+        <!-- Google Sheet Link Reference -->
+        <div class="p-3 bg-amber-50/60 rounded-2xl border border-amber-100 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2 text-amber-950">
+            <i class="fa-solid fa-table text-amber-600 text-sm"></i>
+            <span>Hoja de Cálculo Vinculada: <strong>Registro de NIÑOS</strong></span>
+          </div>
+          <a href="https://docs.google.com/spreadsheets/d/19XrXo04KUeNyiYnizL_ehYV_ODnnFlv3br6AlRBXjLg/edit" target="_blank" class="text-amber-800 font-bold hover:underline">
+            Abrir Sheet <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+          </a>
+        </div>
+
+        <!-- Demo Mode Toggle -->
+        <div class="flex items-center justify-between p-3 bg-[#FFFDF5] rounded-2xl border border-amber-200/80">
+          <div>
+            <h5 class="text-xs font-bold text-slate-800">Modo Demo / Datos de Ejemplo</h5>
+            <p class="text-[11px] text-slate-500">Úsalo si aún no has publicado el Apps Script o para probar la interfaz.</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="configDemoMode" class="sr-only peer" onchange="toggleDemoModeSetting(this.checked)">
+            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+          </label>
+        </div>
+
+        <!-- Test Connection Button -->
+        <div class="pt-2 flex items-center justify-between">
+          <button type="button" onclick="testConnection()" class="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold rounded-2xl transition-all flex items-center gap-2">
+            <i class="fa-solid fa-bolt text-amber-600"></i>
+            <span>Probar Conexión</span>
+          </button>
+          
+          <button type="button" onclick="saveConfiguration()" class="px-6 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-amber-950 text-xs font-bold rounded-2xl shadow-md transition-all border border-amber-300">
+            Guardar Cambios
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Main JavaScript Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
