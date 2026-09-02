@@ -156,7 +156,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V42)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V43)
 // ==========================================================================
 let deferredInstallPrompt = null;
 
@@ -219,9 +219,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=42')
+      navigator.serviceWorker.register('./sw.js?v=43')
         .then(reg => {
-          console.log('[PWA v42] Service Worker registrado:', reg.scope);
+          console.log('[PWA v43] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -229,7 +229,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v42] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v43] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -351,57 +351,56 @@ function showLoginView() {
 }
 
 // ==========================================================================
-// RESILIENT GOOGLE APPS SCRIPT API CALLER (FETCH + JSONP FALLBACK)
+// ULTRA-FAST GOOGLE APPS SCRIPT CALLER (DIRECT HIGH-SPEED JSONP)
 // ==========================================================================
-async function callGoogleAppsScript(params) {
+function callGoogleAppsScript(params) {
   const urlBase = state.scriptUrl || DEFAULT_SCRIPT_URL;
-  if (!urlBase) throw new Error('No hay URL de Google Apps Script configurada');
-  
-  const searchParams = new URLSearchParams(params);
-  const url = `${urlBase}${urlBase.includes('?') ? '&' : '?'}${searchParams.toString()}`;
+  if (!urlBase) return Promise.reject(new Error('No hay URL de Google Apps Script configurada'));
 
-  try {
-    const response = await fetch(url, { method: 'GET', mode: 'cors' });
-    const text = await response.text();
+  return new Promise((resolve, reject) => {
+    const callbackName = 'gas_cb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    const searchParams = new URLSearchParams(params);
+    searchParams.set('callback', callbackName);
     
-    // Check if Google redirected to a sign-in HTML page
-    if (text.trim().startsWith('<') || text.includes('accounts.google.com')) {
-      throw new Error('GOOGLE_AUTH_PAGE');
-    }
-    return JSON.parse(text);
-  } catch (fetchErr) {
-    // If standard fetch failed or was redirected, try JSONP
-    return new Promise((resolve, reject) => {
-      const callbackName = 'gas_cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-      const jsonpUrl = `${url}&callback=${callbackName}`;
-      
-      const script = document.createElement('script');
-      script.src = jsonpUrl;
-      
-      const timeoutId = setTimeout(() => {
+    const jsonpUrl = `${urlBase}${urlBase.includes('?') ? '&' : '?'}${searchParams.toString()}`;
+    
+    let isSettled = false;
+    const script = document.createElement('script');
+    script.src = jsonpUrl;
+    script.async = true;
+
+    const timeoutId = setTimeout(() => {
+      if (!isSettled) {
+        isSettled = true;
         cleanup();
-        reject(fetchErr || new Error('Tiempo de espera agotado al conectar con Google Apps Script.'));
-      }, 7000);
-
-      function cleanup() {
-        clearTimeout(timeoutId);
-        if (script.parentNode) script.parentNode.removeChild(script);
-        delete window[callbackName];
+        reject(new Error('Tiempo de espera agotado al conectar con Google Sheets (8s).'));
       }
+    }, 8000);
 
-      window[callbackName] = function(data) {
+    function cleanup() {
+      clearTimeout(timeoutId);
+      if (script.parentNode) script.parentNode.removeChild(script);
+      delete window[callbackName];
+    }
+
+    window[callbackName] = function(data) {
+      if (!isSettled) {
+        isSettled = true;
         cleanup();
         resolve(data);
-      };
+      }
+    };
 
-      script.onerror = function() {
+    script.onerror = function() {
+      if (!isSettled) {
+        isSettled = true;
         cleanup();
-        reject(fetchErr || new Error('Error de conexión con Google Apps Script.'));
-      };
+        reject(new Error('Error de red al conectar con Google Apps Script.'));
+      }
+    };
 
-      document.body.appendChild(script);
-    });
-  }
+    document.head.appendChild(script);
+  });
 }
 
 // ==========================================================================
@@ -671,6 +670,14 @@ function setTodayDate() {
 
 async function fetchData(showToast = false) {
   if (!state.isAuthenticated) return;
+
+  // ⚡ 1. Renderizado INSTANTÁNEO (0 ms) desde Respaldo Local si la lista está vacía
+  const cached = getLocalDataBackup(state.selectedDate, state.selectedTurno) || getLocalDataBackup(state.selectedDate);
+  if (cached && Array.isArray(cached) && cached.length > 0 && state.ninos.length === 0) {
+    state.ninos = cached;
+    updateUI();
+  }
+
   setLoadingState(true);
 
   if (state.demoMode || !state.scriptUrl) {
@@ -704,7 +711,7 @@ async function fetchData(showToast = false) {
       token: state.sessionToken || ''
     });
 
-    if (data.success && Array.isArray(data.ninos)) {
+    if (data && data.success && Array.isArray(data.ninos)) {
       state.ninos = data.ninos;
       saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
       updateUI();
@@ -712,15 +719,15 @@ async function fetchData(showToast = false) {
         showToastNotification(`Sincronizado con Google Sheets (${state.selectedTurno})`, 'success');
       }
     } else {
-      throw new Error(data.message || 'Error al obtener datos');
+      throw new Error(data ? data.message : 'Error al obtener datos');
     }
   } catch (error) {
     console.warn('Error al conectar con Google Sheets, usando respaldo local:', error);
-    const cached = getLocalDataBackup(state.selectedDate, state.selectedTurno);
-    if (cached && cached.length > 0) {
-      state.ninos = cached;
-      showToastNotification(`Modo sin conexión: datos guardados para ${state.selectedTurno}`, 'warning');
-    } else {
+    const cachedBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno);
+    if (cachedBackup && cachedBackup.length > 0) {
+      state.ninos = cachedBackup;
+      showToastNotification(`Modo sin conexión: datos cargados (${state.selectedTurno})`, 'warning');
+    } else if (state.ninos.length === 0) {
       state.ninos = DEMO_NINOS;
       showToastNotification('No se pudo conectar a Google Sheets. Verifique la URL en Configuración.', 'error');
     }
