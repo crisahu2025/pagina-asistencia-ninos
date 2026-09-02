@@ -156,7 +156,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V44)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V45)
 // ==========================================================================
 let deferredInstallPrompt = null;
 
@@ -219,9 +219,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=44')
+      navigator.serviceWorker.register('./sw.js?v=45')
         .then(reg => {
-          console.log('[PWA v44] Service Worker registrado:', reg.scope);
+          console.log('[PWA v45] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -229,7 +229,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v44] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v45] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -868,14 +868,16 @@ function updateStats() {
   document.getElementById('badgeTotalPresentes').textContent = presentes;
 }
 
-function normalizeStr(str) {
-  return (str || '')
+function normalizarTexto(str) {
+  if (!str) return '';
+  return str
     .toString()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
 }
+const normalizeStr = normalizarTexto; // Retrocompatibilidad
 
 function getFilteredKids() {
   const filterSelect = document.getElementById('filterEstado');
@@ -883,8 +885,9 @@ function getFilteredKids() {
     state.filterEstado = filterSelect.value;
   }
 
-  const term = normalizeStr(state.searchTerm);
+  const normSearch = normalizarTexto(state.searchTerm);
   const searchDigits = (state.searchTerm || '').replace(/\D/g, '');
+  const searchWords = normSearch ? normSearch.split(/\s+/).filter(Boolean) : [];
 
   return state.ninos.filter(nino => {
     // Room Filter
@@ -897,11 +900,17 @@ function getFilteredKids() {
     if (state.filterEstado === 'SOLO_AUSENTES' && nino.presente) return false;
 
     // Search Query (Name, Parents, Phone) - Accent-normalized real-time
-    if (term) {
-      const matchName = normalizeStr(nino.nombre).includes(term);
-      const matchPapas = normalizeStr(nino.nombrePapas).includes(term);
-      const matchPhone = searchDigits.length > 0 && (nino.telefono || '').replace(/\D/g, '').includes(searchDigits);
-      if (!matchName && !matchPapas && !matchPhone) return false;
+    if (normSearch) {
+      const normName = normalizarTexto(nino.nombre);
+      const normPapas = normalizarTexto(nino.nombrePapas);
+      const kidPhone = (nino.telefono || '').replace(/\D/g, '');
+
+      const matchName = normName.includes(normSearch);
+      const matchPapas = normPapas.includes(normSearch);
+      const matchWords = searchWords.length > 1 && searchWords.every(word => normName.includes(word) || normPapas.includes(word));
+      const matchPhone = searchDigits.length > 0 && kidPhone.includes(searchDigits);
+
+      if (!matchName && !matchPapas && !matchWords && !matchPhone) return false;
     }
 
     return true;
@@ -1702,13 +1711,16 @@ function getAvatarColor(name) {
 
 function highlightMatch(text, term) {
   if (!text) return '';
-  if (!term) return String(text);
-  const termNorm = normalizeStr(term);
+  if (!term || !term.trim()) return String(text);
+
+  const termNorm = normalizarTexto(term);
   if (!termNorm) return String(text);
 
-  // Diacritics-insensitive regex replacement preserving original case
-  const pattern = termNorm.split('').map(c => {
-    const map = {
+  try {
+    const rawWords = termNorm.split(/\s+/).filter(w => w.length > 0);
+    if (rawWords.length === 0) return String(text);
+
+    const charMap = {
       'a': '[aáàäâã]',
       'e': '[eéèëê]',
       'i': '[iíìïî]',
@@ -1717,11 +1729,14 @@ function highlightMatch(text, term) {
       'n': '[nñ]',
       'c': '[cç]'
     };
-    return map[c] || c.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-  }).join('');
 
-  try {
-    const regex = new RegExp(`(${pattern})`, 'gi');
+    const patterns = rawWords.map(word => {
+      return word.split('').map(ch => {
+        return charMap[ch] || ch.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+      }).join('');
+    });
+
+    const regex = new RegExp(`(${patterns.join('|')})`, 'gi');
     return String(text).replace(regex, '<mark class="search-highlight">$1</mark>');
   } catch (e) {
     return String(text);

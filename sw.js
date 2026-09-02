@@ -1,18 +1,18 @@
 /**
  * ====================================================================================
- * SERVICE WORKER - SISTEMA KIDS CHECK-IN (PROTOCOLO CORPORATIVO V44)
+ * SERVICE WORKER - SISTEMA KIDS CHECK-IN (PROTOCOLO CORPORATIVO V45)
  * Code Ahumada 2026
  * ====================================================================================
  */
 
-const CACHE_NAME = 'kids-checkin-v44';
+const CACHE_NAME = 'kids-checkin-v45';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=44',
-  './app.js?v=44',
-  './manifest.json?v=44',
+  './styles.css?v=45',
+  './app.js?v=45',
+  './manifest.json?v=45',
   './icons/icon.svg',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
@@ -29,7 +29,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW v44] Pre-caching partial warning:', err);
+        console.warn('[SW v45] Pre-caching partial warning:', err);
       });
     })
   );
@@ -42,7 +42,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[SW v44] Eliminando caché antiguo:', cacheName);
+            console.log('[SW v45] Eliminando caché antiguo:', cacheName);
             return caches.delete(cacheName);
           }
         })
