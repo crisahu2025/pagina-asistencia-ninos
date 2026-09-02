@@ -156,8 +156,61 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V40)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V41)
 // ==========================================================================
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btnInstall = document.getElementById('btnInstallPwa');
+  const mobileBanner = document.getElementById('mobilePwaInstallBanner');
+  if (btnInstall) btnInstall.classList.remove('hidden');
+  if (mobileBanner) mobileBanner.classList.remove('hidden');
+});
+
+function promptInstallPwa() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        showToastNotification('¡Instalando Kids Check-In!', 'success');
+      }
+      deferredInstallPrompt = null;
+    });
+  } else {
+    // Detección de iOS Safari vs Escritorio
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    if (isIos) {
+      Swal.fire({
+        title: '📲 Instalar en tu iPhone',
+        html: `
+          <div class="text-left text-sm space-y-3 p-2 text-slate-700">
+            <p>1. Toca el botón <strong>Compartir</strong> <i class="fa-solid fa-arrow-up-from-bracket text-amber-600"></i> en la barra inferior de Safari.</p>
+            <p>2. Desliza hacia abajo y toca en <strong>"Agregar a Inicio"</strong> <i class="fa-solid fa-plus-square text-amber-600"></i>.</p>
+            <p>3. Toca <strong>Agregar</strong> arriba a la derecha y tendrás el ícono en tu pantalla como app nativa.</p>
+          </div>
+        `,
+        confirmButtonColor: '#ca8a04',
+        confirmButtonText: 'Entendido'
+      });
+    } else {
+      Swal.fire({
+        title: '📲 App Instalable (PWA)',
+        html: `
+          <div class="text-left text-sm space-y-2 p-2 text-slate-700">
+            <p>Para tener Kids Check-In como una app en tu pantalla:</p>
+            <p>• <strong>Android / Chrome:</strong> Toca el menú de 3 puntos <i class="fa-solid fa-ellipsis-vertical text-amber-600"></i> y selecciona <strong>"Instalar aplicación"</strong> o <strong>"Agregar a pantalla principal"</strong>.</p>
+            <p>• <strong>Computadora:</strong> Haz clic en el ícono de instalación <i class="fa-solid fa-download text-amber-600"></i> en la barra del navegador.</p>
+          </div>
+        `,
+        confirmButtonColor: '#ca8a04',
+        confirmButtonText: 'Entendido'
+      });
+    }
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
   initPWA();
@@ -166,9 +219,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=40')
+      navigator.serviceWorker.register('./sw.js?v=41')
         .then(reg => {
-          console.log('[PWA v40] Service Worker registrado:', reg.scope);
+          console.log('[PWA v41] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -176,7 +229,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v40] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v41] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -854,92 +907,138 @@ function renderKidsList() {
   }
 }
 
+/**
+ * Formatea cadenas o fechas crudas de edad en un texto legible
+ */
+function formatearEdad(edadRaw) {
+  if (!edadRaw) return '';
+  const str = String(edadRaw).trim();
+  if (!str) return '';
+
+  // Si ya es un texto simple tipo "4 años", "2 meses", etc.
+  if (/^\d+\s*(años|meses|ano|mes|año)$/i.test(str)) {
+    return str;
+  }
+
+  // Si es un número puro "4"
+  if (/^\d+$/.test(str)) {
+    const num = parseInt(str, 10);
+    return `${num} ${num === 1 ? 'año' : 'años'}`;
+  }
+
+  // Si contiene fecha ISO o formato de objeto Date con GMT / hora
+  if (str.includes('GMT') || str.includes('00:00:00') || str.match(/^\d{4}-\d{2}-\d{2}/) || str.includes('/')) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const today = new Date();
+      let years = today.getFullYear() - d.getFullYear();
+      let months = today.getMonth() - d.getMonth();
+      if (months < 0 || (months === 0 && today.getDate() < d.getDate())) {
+        years--;
+        months += 12;
+      }
+      if (years > 0) {
+        if (years < 3 && months > 0) {
+          return `${years} ${years === 1 ? 'año' : 'años'} y ${months} ${months === 1 ? 'mes' : 'meses'}`;
+        }
+        return `${years} ${years === 1 ? 'año' : 'años'}`;
+      } else if (months > 0) {
+        return `${months} ${months === 1 ? 'mes' : 'meses'}`;
+      }
+      return 'Bebé (< 1 mes)';
+    }
+  }
+
+  return str;
+}
+
 function createKidCardHTML(nino) {
   const isPresent = nino.presente;
   const initials = getInitials(nino.nombre);
   const colorClass = getAvatarColor(nino.nombre);
   const highlightedName = highlightMatch(nino.nombre, state.searchTerm);
   const highlightedPapas = highlightMatch(nino.nombrePapas, state.searchTerm);
+  const edadLimpia = formatearEdad(nino.edad);
 
   return `
     <div class="kid-card rounded-3xl p-4 sm:p-5 shadow-sm relative flex flex-col justify-between transition-all ${isPresent ? 'kid-card-present' : 'bg-white border-amber-100'}">
       
       <!-- Top Card Section -->
       <div>
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex items-center gap-3">
-            <div class="w-11 h-11 rounded-2xl ${colorClass} text-amber-950 font-extrabold flex items-center justify-center text-sm shadow-sm border border-amber-200/80">
+        <div class="flex items-start justify-between gap-2.5">
+          <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl ${colorClass} text-amber-950 font-extrabold flex items-center justify-center text-sm shadow-sm border border-amber-200/80 shrink-0">
               ${initials}
             </div>
-            <div>
-              <h4 class="text-base font-bold text-slate-900 leading-snug">${highlightedName}</h4>
-              <div class="flex items-center gap-1.5 mt-0.5">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200/70">
+            <div class="min-w-0">
+              <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-snug truncate">${highlightedName}</h4>
+              <div class="flex items-center flex-wrap gap-1.5 mt-0.5">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200/70">
                   ${nino.salaSugerida || 'General'}
                 </span>
-                ${nino.edad ? `<span class="text-xs text-slate-400 font-medium">• ${nino.edad}</span>` : ''}
+                ${edadLimpia ? `<span class="text-[11px] sm:text-xs text-slate-500 font-medium">• ${edadLimpia}</span>` : ''}
               </div>
             </div>
           </div>
 
           <!-- Status Indicator Badge -->
           ${isPresent ? `
-            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 animate-fadeIn">
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 animate-fadeIn">
               <i class="fa-solid fa-circle-check text-emerald-600 text-xs"></i>
               <span>${nino.horaIngreso || 'Ingresó'}</span>
             </span>
           ` : `
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-400">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-slate-100 text-slate-400 shrink-0">
               No ingresó
             </span>
           `}
         </div>
 
         <!-- Parents and Contact info -->
-        <div class="mt-4 pt-3 border-t border-amber-100/60 space-y-1.5 text-xs text-slate-600">
+        <div class="mt-3.5 pt-3 border-t border-amber-100/60 space-y-1.5 text-xs text-slate-600">
           <div class="flex items-center justify-between">
-            <span class="text-slate-400 font-medium flex items-center gap-1.5">
+            <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
               <i class="fa-solid fa-user-group text-amber-600/70"></i> Papás:
             </span>
-            <span class="font-semibold text-slate-800 text-right truncate max-w-[180px]">${highlightedPapas || 'No especificado'}</span>
+            <span class="font-semibold text-slate-800 text-right truncate max-w-[170px] text-[11px] sm:text-xs">${highlightedPapas || 'No especificado'}</span>
           </div>
 
           <div class="flex items-center justify-between">
-            <span class="text-slate-400 font-medium flex items-center gap-1.5">
+            <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
               <i class="fa-solid fa-phone text-amber-600/70"></i> Teléfono:
             </span>
-            <span class="font-mono font-bold text-amber-900">${nino.telefono || 'Sin teléfono'}</span>
+            <span class="font-mono font-bold text-amber-900 text-[11px] sm:text-xs">${nino.telefono || 'Sin teléfono'}</span>
           </div>
 
           ${nino.observacionesMedicas ? `
             <div class="mt-2 p-2 bg-amber-50/70 rounded-xl text-amber-950 text-[11px] flex items-start gap-1.5 border border-amber-200/60 font-medium">
-              <i class="fa-solid fa-notes-medical text-amber-600 mt-0.5"></i>
-              <span>${nino.observacionesMedicas}</span>
+              <i class="fa-solid fa-notes-medical text-amber-600 mt-0.5 shrink-0"></i>
+              <span class="line-clamp-2">${nino.observacionesMedicas}</span>
             </div>
           ` : ''}
         </div>
       </div>
 
       <!-- Action Buttons Footer -->
-      <div class="mt-4 pt-3 border-t border-amber-100/60 flex items-center gap-2">
+      <div class="mt-3.5 pt-3 border-t border-amber-100/60 flex items-center gap-2">
         <!-- Main Check-in Toggle Button -->
         <button 
           onclick="toggleAsistencia('${nino.id}')" 
-          class="flex-1 py-2 px-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm ${
+          class="flex-1 py-2 px-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer ${
             isPresent 
-              ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200' 
+              ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 active:scale-95' 
               : 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 shadow-emerald-600/20'
           }"
         >
           <i class="fa-solid ${isPresent ? 'fa-user-xmark' : 'fa-check'}"></i>
-          <span>${isPresent ? 'Desmarcar Asistencia' : 'Marcar Presente'}</span>
+          <span>${isPresent ? 'Desmarcar' : 'Marcar Presente'}</span>
         </button>
 
         <!-- WhatsApp Parents Button -->
         <button 
           onclick="openWhatsAppModal('${nino.id}')" 
           title="Avisar a los padres por WhatsApp" 
-          class="w-9 h-9 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center transition-all"
+          class="w-9 h-9 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center transition-all shrink-0 cursor-pointer active:scale-95"
         >
           <i class="fa-brands fa-whatsapp text-base"></i>
         </button>
@@ -953,6 +1052,7 @@ function createKidTableRowHTML(nino) {
   const isPresent = nino.presente;
   const highlightedName = highlightMatch(nino.nombre, state.searchTerm);
   const highlightedPapas = highlightMatch(nino.nombrePapas, state.searchTerm);
+  const edadLimpia = formatearEdad(nino.edad);
 
   return `
     <tr class="hover:bg-amber-50/30 transition-colors ${isPresent ? 'bg-emerald-50/30' : ''}">
@@ -962,7 +1062,7 @@ function createKidTableRowHTML(nino) {
       </td>
       <td class="py-3 px-4">
         <span class="inline-block px-2.5 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">${nino.salaSugerida}</span>
-        ${nino.edad ? `<div class="text-xs text-slate-400 mt-0.5">${nino.edad}</div>` : ''}
+        ${edadLimpia ? `<div class="text-xs text-slate-400 mt-0.5">${edadLimpia}</div>` : ''}
       </td>
       <td class="py-3 px-4 text-xs">
         <div class="font-bold text-slate-800">${highlightedPapas}</div>
@@ -1245,7 +1345,7 @@ function exportToExcel() {
     'Turno / Reunión': state.selectedTurno,
     'Hora Ingreso': n.horaIngreso || '',
     'Nombre Niño/a': n.nombre,
-    'Edad': n.edad || '',
+    'Edad': formatearEdad(n.edad) || '',
     'Sala / Grupo': n.salaActual || n.salaSugerida || 'General',
     'Papás / Tutores': n.nombrePapas || '',
     'Teléfono': n.telefono || '',

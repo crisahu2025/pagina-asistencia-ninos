@@ -433,7 +433,8 @@ function obtenerTodosLosNinos() {
     slotsNinos.forEach(slot => {
       const nombreNino = String(fila[slot.colNombre] || "").trim();
       if (nombreNino && nombreNino.length > 1 && !nombreNino.toLowerCase().includes("nombre")) {
-        const edadDetalle = String(fila[slot.colEdad] || "").trim();
+        const edadRaw = fila[slot.colEdad];
+        const edadDetalle = formatearEdadBackend(edadRaw);
         const extraInfo = String(fila[slot.colExtra] || "").trim();
 
         let salaSugerida = determinarSala(edadDetalle, extraInfo);
@@ -1041,6 +1042,45 @@ function normalizarTelefono(tel) {
   if (!tel) return "";
   let limpio = String(tel).replace(/[^0-9+]/g, "").trim();
   return limpio;
+}
+
+/**
+ * Formatea valores de edad o fechas de nacimiento en textos limpios de edad
+ */
+function formatearEdadBackend(val) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    const today = new Date();
+    let years = today.getFullYear() - val.getFullYear();
+    let months = today.getMonth() - val.getMonth();
+    if (months < 0 || (months === 0 && today.getDate() < val.getDate())) {
+      years--;
+      months += 12;
+    }
+    if (years > 0) {
+      if (years < 3 && months > 0) {
+        return years + " años y " + months + " meses";
+      }
+      return years + " años";
+    } else if (months > 0) {
+      return months + " meses";
+    }
+    return "Bebé (< 1 mes)";
+  }
+
+  const str = String(val).trim();
+  if (str.includes("GMT") || str.includes("00:00:00") || (str.match(/^\d{4}-\d{2}-\d{2}/) && !str.includes("años"))) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return formatearEdadBackend(d);
+    }
+  }
+
+  if (str.match(/^\d+$/)) {
+    return str + " años";
+  }
+
+  return str;
 }
 
 function sanitizarId(texto) {

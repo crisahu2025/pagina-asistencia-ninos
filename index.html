@@ -7,7 +7,7 @@
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
   
   <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=40">
+  <link rel="manifest" href="manifest.json?v=41">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -71,7 +71,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=40">
+  <link rel="stylesheet" href="styles.css?v=41">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -289,108 +289,124 @@
       </div>
     </div>
 
-    <!-- MAIN HEADER (Pastel Yellow / Pure White) -->
-    <header class="bg-white border-b border-amber-100/80 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-white/95">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-20">
+    <!-- MAIN HEADER (Pastel Yellow / Pure White - Responsive Agency Grade) -->
+    <header class="bg-white/95 border-b border-amber-100/80 sticky top-0 z-30 shadow-sm backdrop-blur-md">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        
+        <!-- ROW 1: Brand & User Controls -->
+        <div class="flex items-center justify-between py-2.5 sm:py-3.5 border-b border-amber-50 gap-2">
           
-          <!-- Logo & Title -->
-          <div class="flex items-center gap-3.5">
-            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 via-amber-300 to-yellow-200 flex items-center justify-center text-amber-950 shadow-md shadow-amber-300/30 border border-amber-200/60">
-              <i class="fa-solid fa-hands-holding-child text-2xl"></i>
+          <!-- Logo & App Name -->
+          <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-amber-400 via-amber-300 to-yellow-200 flex items-center justify-center text-amber-950 shadow-md shadow-amber-300/30 border border-amber-200/60 shrink-0">
+              <i class="fa-solid fa-hands-holding-child text-lg sm:text-2xl"></i>
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h1 class="text-xl sm:text-2xl font-bold font-['Outfit'] tracking-tight text-slate-900 leading-none">
+                <h1 class="text-base sm:text-xl font-black font-['Outfit'] tracking-tight text-slate-900 leading-none whitespace-nowrap">
                   Kids Check-In
                 </h1>
-                <span id="connectionBadge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-200">
-                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="connectionBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-200">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span id="connectionText">Online</span>
                 </span>
               </div>
-              <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-                Control de Asistencia & Seguridad de Niños
+              <p class="hidden md:block text-xs text-slate-400 font-medium mt-0.5">
+                Control de Asistencia & Seguridad Infantil
               </p>
             </div>
           </div>
 
-          <!-- Date picker & Quick Controls -->
-          <div class="flex items-center flex-wrap gap-2 sm:gap-3">
+          <!-- User Badge & Actions -->
+          <div class="flex items-center gap-1.5 sm:gap-2">
             
             <!-- Logged-in Teacher / User Badge -->
-            <div id="userBadgeHeader" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50/80 rounded-2xl border border-amber-200/80 text-xs font-bold text-amber-950 shadow-sm">
-              <i class="fa-solid fa-user-check text-amber-600"></i>
-              <span id="currentUserLabel">Equipo IgrKids</span>
+            <div id="userBadgeHeader" class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-50/90 rounded-2xl border border-amber-200/80 text-xs font-bold text-amber-950 shadow-sm max-w-[150px] sm:max-w-[240px] truncate">
+              <i class="fa-solid fa-user-shield text-amber-600 shrink-0 text-xs"></i>
+              <span id="currentUserLabel" class="truncate">Equipo IgrKids</span>
             </div>
 
-            <!-- Date selector -->
-            <div class="relative flex items-center bg-amber-50/50 rounded-2xl p-1 border border-amber-200/80 shadow-sm">
-              <i class="fa-regular fa-calendar-days text-amber-600 ml-2 text-sm"></i>
-              <input type="date" id="selectedDate" class="bg-transparent border-0 text-xs sm:text-sm font-semibold text-slate-700 focus:ring-0 py-1 px-2 cursor-pointer outline-none">
-              <button onclick="setTodayDate()" title="Ir a hoy" class="px-2.5 py-1 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-xl transition-all shadow-sm">
-                Hoy
-              </button>
-            </div>
-
-            <!-- Turno / Reunión Selector -->
-            <div class="relative flex items-center bg-amber-50/50 rounded-2xl p-1 border border-amber-200/80 shadow-sm">
-              <i class="fa-solid fa-clock text-amber-600 ml-2 text-xs"></i>
-              <select id="selectedTurno" onchange="handleTurnoChange(this.value)" class="bg-transparent border-0 text-xs sm:text-sm font-bold text-amber-950 focus:ring-0 py-1 px-2 cursor-pointer outline-none font-['Inter']">
-                <option value="10:00 hs (Mañana)">10:00 hs (Mañana)</option>
-                <option value="18:00 hs (Tarde)">18:00 hs (Tarde)</option>
-                <option value="20:00 hs (Noche)">20:00 hs (Noche)</option>
-              </select>
-            </div>
+            <!-- Install PWA Button -->
+            <button id="btnInstallPwa" onclick="promptInstallPwa()" title="Instalar App en el Celular" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-yellow-500 active:scale-95 text-amber-950 text-xs font-extrabold rounded-2xl shadow-sm border border-amber-300 transition-all cursor-pointer">
+              <i class="fa-solid fa-mobile-screen-button text-xs"></i>
+              <span class="hidden sm:inline">Instalar App</span>
+            </button>
 
             <!-- Sync Button -->
-            <button id="btnSync" onclick="fetchData(true)" title="Sincronizar con Google Sheets" class="w-10 h-10 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-all shadow-sm">
-              <i id="syncIcon" class="fa-solid fa-arrows-rotate text-sm"></i>
+            <button id="btnSync" onclick="fetchData(true)" title="Sincronizar con Google Sheets" class="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-all shadow-sm">
+              <i id="syncIcon" class="fa-solid fa-arrows-rotate text-xs sm:text-sm"></i>
             </button>
 
             <!-- Settings Button -->
-            <button onclick="openConfigModal()" title="Configuración de conexión" class="w-10 h-10 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-all shadow-sm">
-              <i class="fa-solid fa-gear text-sm"></i>
+            <button onclick="openConfigModal()" title="Configuración de conexión" class="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-all shadow-sm">
+              <i class="fa-solid fa-gear text-xs sm:text-sm"></i>
             </button>
 
             <!-- Logout Button -->
-            <button onclick="handleLogout()" title="Cerrar sesión" class="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 border border-slate-200 flex items-center justify-center transition-all shadow-sm">
-              <i class="fa-solid fa-power-off text-sm"></i>
-            </button>
-
-            <!-- New Child Button (Desktop) -->
-            <button onclick="switchTab('nuevo')" class="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-amber-950 text-sm font-bold rounded-2xl shadow-md shadow-amber-400/20 border border-amber-300 transition-all">
-              <i class="fa-solid fa-user-plus text-xs"></i>
-              <span>Nuevo Niño</span>
+            <button onclick="handleLogout()" title="Cerrar sesión" class="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 border border-slate-200 flex items-center justify-center transition-all shadow-sm">
+              <i class="fa-solid fa-power-off text-xs sm:text-sm"></i>
             </button>
           </div>
 
         </div>
 
-        <!-- NAVIGATION TABS -->
-        <nav class="flex space-x-2 border-t border-amber-100/60 overflow-x-auto py-2.5 no-scrollbar">
-          <button onclick="switchTab('asistencia')" id="tabBtn-asistencia" class="tab-btn active-tab flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-2xl transition-all">
-            <i class="fa-solid fa-clipboard-user text-base"></i>
+        <!-- ROW 2: Date & Turno Controls Strip -->
+        <div class="flex flex-wrap items-center justify-between gap-2 py-2">
+          
+          <div class="flex items-center flex-wrap gap-2">
+            <!-- Date selector -->
+            <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs">
+              <i class="fa-regular fa-calendar-days text-amber-600 ml-2"></i>
+              <input type="date" id="selectedDate" class="bg-transparent border-0 text-xs sm:text-sm font-semibold text-slate-700 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none">
+              <button onclick="setTodayDate()" title="Ir a hoy" class="px-2 py-1 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-xl transition-all shadow-sm">
+                Hoy
+              </button>
+            </div>
+
+            <!-- Turno Dominical Selector -->
+            <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs">
+              <i class="fa-solid fa-clock text-amber-600 ml-2"></i>
+              <select id="selectedTurno" onchange="handleTurnoChange(this.value)" class="bg-transparent border-0 text-xs sm:text-sm font-bold text-amber-950 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none font-['Inter']">
+                <option value="10:00 hs (Mañana)">10:00 hs (Mañana)</option>
+                <option value="18:00 hs (Tarde)">18:00 hs (Tarde)</option>
+                <option value="20:00 hs (Noche)">20:00 hs (Noche)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Quick Action CTA -->
+          <button onclick="switchTab('nuevo')" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-amber-950 text-xs font-bold rounded-2xl shadow-sm border border-amber-300 transition-all">
+            <i class="fa-solid fa-user-plus text-xs"></i>
+            <span>Nuevo Niño</span>
+          </button>
+
+        </div>
+
+        <!-- ROW 3: NAVIGATION TABS -->
+        <nav class="flex space-x-2 border-t border-amber-100/60 overflow-x-auto py-2 no-scrollbar">
+          <button onclick="switchTab('asistencia')" id="tabBtn-asistencia" class="tab-btn active-tab flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-2xl transition-all">
+            <i class="fa-solid fa-clipboard-user text-sm"></i>
             <span>Toma de Asistencia</span>
-            <span id="badgeTotalNinos" class="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-amber-200 text-amber-950 font-bold">0</span>
+            <span id="badgeTotalNinos" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-amber-200 text-amber-950 font-bold">0</span>
           </button>
 
-          <button onclick="switchTab('presentes')" id="tabBtn-presentes" class="tab-btn flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
-            <i class="fa-solid fa-circle-check text-amber-600 text-base"></i>
+          <button onclick="switchTab('presentes')" id="tabBtn-presentes" class="tab-btn flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
+            <i class="fa-solid fa-circle-check text-amber-600 text-sm"></i>
             <span>Presentes Hoy</span>
-            <span id="badgeTotalPresentes" class="ml-1.5 px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">0</span>
+            <span id="badgeTotalPresentes" class="ml-1 px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">0</span>
           </button>
 
-          <button onclick="switchTab('reportes')" id="tabBtn-reportes" class="tab-btn flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
-            <i class="fa-solid fa-file-arrow-down text-amber-700 text-base"></i>
+          <button onclick="switchTab('reportes')" id="tabBtn-reportes" class="tab-btn flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
+            <i class="fa-solid fa-file-arrow-down text-amber-700 text-sm"></i>
             <span>Reportes & Descargas</span>
           </button>
 
-          <button onclick="switchTab('nuevo')" id="tabBtn-nuevo" class="tab-btn flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
-            <i class="fa-solid fa-plus text-base"></i>
+          <button onclick="switchTab('nuevo')" id="tabBtn-nuevo" class="tab-btn flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
+            <i class="fa-solid fa-plus text-sm"></i>
             <span>Registrar Niño</span>
           </button>
         </nav>
+
       </div>
     </header>
 
@@ -930,7 +946,28 @@
     </div>
   </div>
 
+  <!-- Mobile PWA Install Floating Banner -->
+  <div id="mobilePwaInstallBanner" class="hidden sm:hidden fixed bottom-4 inset-x-3 z-40 bg-slate-900/95 text-white p-3 rounded-2xl shadow-xl flex items-center justify-between border border-amber-400/40 backdrop-blur-md animate-fadeIn">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center font-bold text-sm shrink-0">
+        <i class="fa-solid fa-hands-holding-child"></i>
+      </div>
+      <div>
+        <h6 class="text-xs font-bold leading-tight">Instalar Kids Check-In</h6>
+        <p class="text-[10px] text-slate-300">Acceso rápido en tu pantalla de inicio</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <button onclick="promptInstallPwa()" class="px-3 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-md active:scale-95">
+        Instalar
+      </button>
+      <button onclick="document.getElementById('mobilePwaInstallBanner').classList.add('hidden')" class="text-slate-400 hover:text-white p-1 text-xs">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=40"></script>
+  <script src="app.js?v=41"></script>
 </body>
 </html>

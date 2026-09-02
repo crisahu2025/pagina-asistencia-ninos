@@ -122,6 +122,23 @@ mark.search-highlight {
   font-weight: 700;
 }
 
+/* Mobile & Touch Optimizations */
+button, a, input, select {
+  touch-action: manipulation;
+}
+
+body {
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+}
+
+/* Card layout responsive clamp */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Print Styles */
 @media print {
   body {
@@ -129,7 +146,7 @@ mark.search-highlight {
     color: #000000 !important;
   }
 
-  header, nav, #statusBanner, footer, .no-print, button, input, select, #loginScreen {
+  header, nav, #statusBanner, footer, .no-print, button, input, select, #loginScreen, #mobilePwaInstallBanner {
     display: none !important;
   }
 
