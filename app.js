@@ -156,7 +156,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V45)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V46)
 // ==========================================================================
 let deferredInstallPrompt = null;
 
@@ -174,7 +174,7 @@ function promptInstallPwa() {
     deferredInstallPrompt.prompt();
     deferredInstallPrompt.userChoice.then((choiceResult) => {
       if (choiceResult.outcome === 'accepted') {
-        showToastNotification('¡Instalando Kids Check-In!', 'success');
+        showToastNotification('¡Instalando IGR KIDS!', 'success');
       }
       deferredInstallPrompt = null;
     });
@@ -199,7 +199,7 @@ function promptInstallPwa() {
         title: '📲 App Instalable (PWA)',
         html: `
           <div class="text-left text-sm space-y-2 p-2 text-slate-700">
-            <p>Para tener Kids Check-In como una app en tu pantalla:</p>
+            <p>Para tener IGR KIDS como una app en tu pantalla:</p>
             <p>• <strong>Android / Chrome:</strong> Toca el menú de 3 puntos <i class="fa-solid fa-ellipsis-vertical text-amber-600"></i> y selecciona <strong>"Instalar aplicación"</strong> o <strong>"Agregar a pantalla principal"</strong>.</p>
             <p>• <strong>Computadora:</strong> Haz clic en el ícono de instalación <i class="fa-solid fa-download text-amber-600"></i> en la barra del navegador.</p>
           </div>
@@ -219,9 +219,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=45')
+      navigator.serviceWorker.register('./sw.js?v=46')
         .then(reg => {
-          console.log('[PWA v45] Service Worker registrado:', reg.scope);
+          console.log('[PWA v46] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -229,7 +229,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v45] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v46] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -434,7 +434,7 @@ async function handleLogin(event) {
   }
 
   btn.disabled = true;
-  btnText.textContent = 'Verificando con Google Sheets...';
+  btnText.textContent = 'INGRESANDO...';
 
   try {
     let loginSucceeded = false;
@@ -455,7 +455,7 @@ async function handleLogin(event) {
         if (data && data.success && data.token) {
           loginSucceeded = true;
           token = data.token;
-          authUser = data.user || { usuario: usuarioInput, nombre: 'Equipo IgrKids', rol: 'Maestra' };
+          authUser = data.user || { usuario: usuarioInput, nombre: 'Equipo IGR KIDS', rol: 'Maestra' };
           expiresAt = data.expiresAt;
         } else if (data && !data.success) {
           throw new Error(data.message || 'Usuario o contraseña incorrectos.');
@@ -467,7 +467,7 @@ async function handleLogin(event) {
             (passwordInput === 'IgrKids*2026!Seguro' || passwordInput === 'asistencianinos')) {
           loginSucceeded = true;
           token = 'TOKEN_SECURE_' + Date.now();
-          authUser = { usuario: 'igrkids2026', nombre: 'Equipo IgrKids', rol: 'Administrador' };
+          authUser = { usuario: 'igrkids2026', nombre: 'Equipo IGR KIDS', rol: 'Administrador' };
           expiresAt = new Date(Date.now() + 24*3600*1000).toISOString();
         } else {
           throw serverErr;
@@ -479,7 +479,7 @@ async function handleLogin(event) {
           (passwordInput === 'IgrKids*2026!Seguro' || passwordInput === 'asistencianinos')) {
         loginSucceeded = true;
         token = 'TOKEN_SECURE_' + Date.now();
-        authUser = { usuario: 'igrkids2026', nombre: 'Equipo IgrKids (Modo Local)', rol: 'Administrador' };
+        authUser = { usuario: 'igrkids2026', nombre: 'Equipo IGR KIDS (Modo Local)', rol: 'Administrador' };
         expiresAt = new Date(Date.now() + 24*3600*1000).toISOString();
       } else {
         throw new Error('Credenciales incorrectas.');
@@ -538,7 +538,7 @@ async function handleRegister(event) {
   }
 
   btn.disabled = true;
-  btnText.textContent = 'Guardando usuario en Google Sheets...';
+  btnText.textContent = 'INGRESANDO...';
 
   try {
     const payload = {
@@ -1399,7 +1399,7 @@ function exportToExcel() {
   XLSX.utils.book_append_sheet(workbook, worksheet, "Asistencia");
 
   const cleanTurno = state.selectedTurno.replace(/[^a-zA-Z0-9]/g, '_');
-  const fileName = `Asistencia_Ninos_${state.selectedDate}_${cleanTurno}.xlsx`;
+  const fileName = `Asistencia_IGR_KIDS_${state.selectedDate}_${cleanTurno}.xlsx`;
   XLSX.writeFile(workbook, fileName);
 
   showToastNotification(`Descargando ${fileName}`, 'success');
@@ -1422,7 +1422,7 @@ function exportToPDF() {
   // Header in warm amber / yellow accent
   doc.setFontSize(18);
   doc.setTextColor(202, 138, 4);
-  doc.text("Planilla de Asistencia - Ministerio de Niños", 14, 18);
+  doc.text("Planilla de Asistencia - IGR KIDS", 14, 18);
 
   doc.setFontSize(10);
   doc.setTextColor(100, 116, 139);
@@ -1448,7 +1448,7 @@ function exportToPDF() {
   });
 
   const cleanTurno = state.selectedTurno.replace(/[^a-zA-Z0-9]/g, '_');
-  doc.save(`Asistencia_Ninos_${state.selectedDate}_${cleanTurno}.pdf`);
+  doc.save(`Asistencia_IGR_KIDS_${state.selectedDate}_${cleanTurno}.pdf`);
   showToastNotification('Generando Roster PDF...', 'success');
 }
 
@@ -1457,28 +1457,25 @@ function printAttendanceRoster() {
 }
 
 function copyWhatsAppReport() {
-  const total = state.ninos.length;
   const presentes = state.ninos.filter(n => n.presente);
   
-  const porSala = {};
-  presentes.forEach(n => {
-    const s = n.salaActual || n.salaSugerida || 'General';
-    porSala[s] = (porSala[s] || 0) + 1;
-  });
-
-  let breakdownText = '';
-  Object.keys(porSala).forEach(sala => {
-    breakdownText += `  • ${sala}: *${porSala[sala]}*\n`;
-  });
+  let attendeesList = '';
+  if (presentes.length === 0) {
+    attendeesList = '_(Sin asistentes registrados)_';
+  } else {
+    attendeesList = presentes.map((n, idx) => {
+      const sala = n.salaActual || n.salaSugerida || 'General';
+      const hora = n.horaIngreso ? (n.horaIngreso.includes('hs') ? n.horaIngreso : `${n.horaIngreso} hs`) : `${getCurrentTime()} hs`;
+      return `${idx + 1}. *${n.nombre}* - ${sala} (${hora})`;
+    }).join('\n');
+  }
 
   const message = `📊 *REPORTE DE ASISTENCIA DE NIÑOS*\n` +
     `🗓 *Fecha:* ${state.selectedDate}\n` +
     `⏰ *Turno / Reunión:* ${state.selectedTurno}\n\n` +
-    `✅ *Total Presentes:* ${presentes.length}\n` +
-    `❌ *Ausentes:* ${total - presentes.length}\n` +
-    `👥 *Total Padrón:* ${total}\n\n` +
-    `📍 *Desglose por Sala:*\n${breakdownText || '  (Sin ingresos registrados)\n'}\n` +
-    `_Generado automáticamente desde Sistema Kids Check-In_`;
+    `✅ *Total Presentes:* ${presentes.length}\n\n` +
+    `📍 *Asistentes:*\n${attendeesList}\n\n` +
+    `_Generado automáticamente desde IGR KIDS_`;
 
   navigator.clipboard.writeText(message).then(() => {
     Swal.fire({

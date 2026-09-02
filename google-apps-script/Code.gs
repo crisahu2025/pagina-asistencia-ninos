@@ -38,7 +38,7 @@ const TURNO_DEFAULT = "10:00 hs (Mañana)";
 const AUTH_CONFIG = {
   usuarioMaster: "igrkids2026",          // Usuario general por defecto
   passwordMaster: "IgrKids*2026!Seguro", // Contraseña segura generada
-  nombreUsuario: "Equipo IgrKids",      // Nombre que se mostrará al ingresar
+  nombreUsuario: "Equipo IGR KIDS",      // Nombre que se mostrará al ingresar
   rol: "Administrador / Recepción",
   sessionExpiryHours: 24,                // Duración de la sesión activa en horas
   secretSalt: "SECURE_KIDS_ACCESS_2026_CODE_AHUMADA"

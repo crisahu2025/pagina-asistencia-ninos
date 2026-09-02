@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portal de Asistencia Infantil - Ministerio de Niños</title>
+  <title>IGR KIDS - Portal de Asistencia Infantil</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
-  
-  <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=45">
+    <!-- PWA & Mobile Web App Meta -->
+  <link rel="manifest" href="manifest.json?v=46">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Kids Check-In">
+  <meta name="apple-mobile-web-app-title" content="IGR KIDS">
   <link rel="apple-touch-icon" href="icons/icon.svg">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   
@@ -71,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=44">
+  <link rel="stylesheet" href="styles.css?v=46">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -91,10 +90,10 @@
           <i class="fa-solid fa-hands-holding-child text-3xl"></i>
         </div>
         <h2 class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-900 tracking-tight">
-          Portal de Asistencia
+          IGR KIDS
         </h2>
         <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-          Ministerio de Niños • Control & Seguridad
+          Portal de Asistencia & Seguridad Infantil
         </p>
       </div>
 
@@ -156,8 +155,8 @@
         <!-- Security Note -->
         <div class="p-3 bg-amber-50/60 rounded-2xl border border-amber-100 flex items-start gap-2.5 text-[11px] text-amber-900 leading-relaxed">
           <i class="fa-solid fa-shield-check text-amber-600 text-sm mt-0.5 shrink-0"></i>
-          <span>Acceso cifrado y protegido en Google Sheets con registro de accesos en tiempo real.</span>
-        </div>
+          <span>Acceso seguro cifrado para maestros y coordinadores de IGR KIDS</span>
+        </div>     </div>
 
         <!-- Error Message Container (Hidden by default) -->
         <div id="loginErrorMsg" class="hidden p-3 bg-red-50 text-red-700 border border-red-200 rounded-2xl text-xs font-semibold flex items-center gap-2">
@@ -304,7 +303,7 @@
             <div>
               <div class="flex items-center gap-2">
                 <h1 class="text-base sm:text-xl font-black font-['Outfit'] tracking-tight text-slate-900 leading-none whitespace-nowrap">
-                  Kids Check-In
+                  IGR KIDS
                 </h1>
                 <span id="connectionBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-200">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -323,7 +322,7 @@
             <!-- Logged-in Teacher / User Badge -->
             <div id="userBadgeHeader" class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-50/90 rounded-2xl border border-amber-200/80 text-xs font-bold text-amber-950 shadow-sm max-w-[150px] sm:max-w-[240px] truncate">
               <i class="fa-solid fa-user-shield text-amber-600 shrink-0 text-xs"></i>
-              <span id="currentUserLabel" class="truncate">Equipo IgrKids</span>
+              <span id="currentUserLabel" class="truncate">Equipo IGR KIDS</span>
             </div>
 
             <!-- Install PWA Button -->
@@ -672,7 +671,7 @@
                   <i class="fa-solid fa-file-pdf"></i>
                 </div>
                 <h3 class="text-lg font-bold text-slate-900">Roster PDF Imprimible</h3>
-                <p class="text-xs text-slate-600 mt-1">Genera una hoja limpia en formato A4 lista para imprimir o archivar en secretaría del ministerio de niños.</p>
+                <p class="text-xs text-slate-600 mt-1">Genera una hoja limpia en formato A4 lista para imprimir o archivar en secretaría de IGR KIDS.</p>
               </div>
               <button onclick="exportToPDF()" class="mt-6 w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs sm:text-sm font-bold rounded-2xl shadow-md transition-all flex items-center justify-center gap-2">
                 <i class="fa-solid fa-file-arrow-down"></i>
@@ -784,7 +783,7 @@
     <!-- FOOTER -->
     <footer class="bg-white border-t border-amber-100/80 py-5 text-center text-xs text-slate-400 mt-auto">
       <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <p>© 2026 Code Ahumada — Sistema de Asistencia y Seguridad Infantil</p>
+        <p>© 2026 Code Ahumada — IGR KIDS</p>
         <div class="flex items-center gap-4 text-slate-500 font-medium">
           <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle text-[8px] text-emerald-500"></i> Sesión Activa</span>
           <span>•</span>
@@ -955,7 +954,7 @@
         <i class="fa-solid fa-hands-holding-child"></i>
       </div>
       <div>
-        <h6 class="text-xs font-bold leading-tight">Instalar Kids Check-In</h6>
+        <h6 class="text-xs font-bold leading-tight">Instalar IGR KIDS</h6>
         <p class="text-[10px] text-slate-300">Acceso rápido en tu pantalla de inicio</p>
       </div>
     </div>
@@ -970,6 +969,6 @@
   </div>
 
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=45"></script>
+  <script src="app.js?v=46"></script>
 </body>
 </html>

@@ -1,18 +1,18 @@
 /**
  * ====================================================================================
- * SERVICE WORKER - SISTEMA KIDS CHECK-IN (PROTOCOLO CORPORATIVO V45)
+ * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V46)
  * Code Ahumada 2026
  * ====================================================================================
  */
 
-const CACHE_NAME = 'kids-checkin-v45';
+const CACHE_NAME = 'igr-kids-v46';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=45',
-  './app.js?v=45',
-  './manifest.json?v=45',
+  './styles.css?v=46',
+  './app.js?v=46',
+  './manifest.json?v=46',
   './icons/icon.svg',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',

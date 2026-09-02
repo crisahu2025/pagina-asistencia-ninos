@@ -1,6 +1,6 @@
 {
-  "name": "Kids Check-In — Ministerio de Niños",
-  "short_name": "Kids Check-In",
+  "name": "IGR KIDS — Control de Asistencia Infantil",
+  "short_name": "IGR KIDS",
   "description": "Portal de control de asistencia de niños y seguridad infantil",
   "start_url": "./index.html",
   "scope": "./",
