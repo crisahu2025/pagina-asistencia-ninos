@@ -6,9 +6,16 @@
  * ====================================================================================
  */
 
-const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7LkmZC6-HpqOzw9oNWEatJS_0MNeaETfGWT6Btnty0BtvmUsIs2UFoL2_OrzON3U/exec";
+const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyI_8DR4fiOHcj-iUsPlCUJ_B6sAfQpwSBfCN07NU3wGMGqhCLKOMu28B8982BjwdPB/exec";
 
 // Global State
+const savedUrl = localStorage.getItem('asistencia_script_url');
+// Auto-migrar URL si tiene la URL anterior
+const activeScriptUrl = (!savedUrl || savedUrl.includes('AKfycby7LkmZC6')) ? DEFAULT_SCRIPT_URL : savedUrl;
+if (activeScriptUrl === DEFAULT_SCRIPT_URL) {
+  localStorage.setItem('asistencia_script_url', DEFAULT_SCRIPT_URL);
+}
+
 const state = {
   isAuthenticated: false,
   currentUser: null,
@@ -20,7 +27,7 @@ const state = {
   filterEstado: 'TODOS',
   searchTerm: '',
   viewMode: 'grid', // 'grid' | 'table'
-  scriptUrl: localStorage.getItem('asistencia_script_url') || DEFAULT_SCRIPT_URL,
+  scriptUrl: activeScriptUrl,
   demoMode: localStorage.getItem('asistencia_demo_mode') === 'true',
   activeTab: 'asistencia',
   selectedChildForWa: null,
@@ -149,7 +156,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V39)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V40)
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
@@ -159,9 +166,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=39')
+      navigator.serviceWorker.register('./sw.js?v=40')
         .then(reg => {
-          console.log('[PWA v39] Service Worker registrado:', reg.scope);
+          console.log('[PWA v40] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -169,7 +176,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v39] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v40] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }

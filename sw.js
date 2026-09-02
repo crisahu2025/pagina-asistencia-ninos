@@ -5,14 +5,14 @@
  * ====================================================================================
  */
 
-const CACHE_NAME = 'kids-checkin-v39';
+const CACHE_NAME = 'kids-checkin-v40';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=39',
-  './app.js?v=39',
-  './manifest.json?v=39',
+  './styles.css?v=40',
+  './app.js?v=40',
+  './manifest.json?v=40',
   './icons/icon.svg',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
