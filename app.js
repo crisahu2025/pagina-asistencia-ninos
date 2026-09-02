@@ -149,7 +149,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V38)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V39)
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
@@ -159,9 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=38')
+      navigator.serviceWorker.register('./sw.js?v=39')
         .then(reg => {
-          console.log('[PWA v38] Service Worker registrado:', reg.scope);
+          console.log('[PWA v39] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -169,7 +169,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v38] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v39] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -453,8 +453,8 @@ async function handleRegister(event) {
   const nombre = document.getElementById('regNombre').value.trim();
   const usuario = document.getElementById('regUsuario').value.trim().toLowerCase();
   const password = document.getElementById('regPassword').value.trim();
-  const rol = document.getElementById('regRol').value;
-  const sala = document.getElementById('regSala').value;
+  const rol = document.getElementById('regRol') ? document.getElementById('regRol').value : 'Maestro';
+  const sala = 'General';
 
   const errorBox = document.getElementById('regErrorMsg');
   const errorText = document.getElementById('regErrorText');

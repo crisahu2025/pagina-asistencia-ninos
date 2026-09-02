@@ -915,8 +915,8 @@ function registrarNuevoUsuario(datos) {
     const usuarioLimpio = String(datos.usuario || "").trim().toLowerCase();
     const password = String(datos.password || "").trim();
     const nombre = String(datos.nombre || "").trim();
-    const rol = String(datos.rol || "Maestra").trim();
-    const sala = String(datos.sala || "Todas").trim();
+    const rol = String(datos.rol || "Maestro").trim();
+    const sala = String(datos.sala || "General").trim();
     const userAgent = String(datos.userAgent || "");
     const turno = String(datos.turno || TURNO_DEFAULT);
 

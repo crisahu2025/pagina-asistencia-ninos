@@ -7,7 +7,7 @@
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
   
   <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=38">
+  <link rel="manifest" href="manifest.json?v=39">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -71,7 +71,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=38">
+  <link rel="stylesheet" href="styles.css?v=39">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -233,27 +233,16 @@
           </div>
         </div>
 
-        <!-- Sala / Rol -->
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Rol</label>
-            <select id="regRol" class="w-full px-3 py-2.5 bg-amber-50/40 border border-amber-200/80 rounded-2xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-amber-400 outline-none">
-              <option value="Maestra">Maestra</option>
-              <option value="Coordinadora">Coordinadora</option>
-              <option value="Recepción">Recepción</option>
-              <option value="Ayudante">Ayudante</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Sala</label>
-            <select id="regSala" class="w-full px-3 py-2.5 bg-amber-50/40 border border-amber-200/80 rounded-2xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-amber-400 outline-none">
-              <option value="Todas">Todas</option>
-              <option value="Sala Cunas (0-2 años)">Sala Cunas (0-2)</option>
-              <option value="Párvulos (3-5 años)">Párvulos (3-5)</option>
-              <option value="Primarios (6-8 años)">Primarios (6-8)</option>
-              <option value="Pre-Adolescentes (9-12 años)">Pre-Adol (9-12)</option>
-            </select>
-          </div>
+        <!-- Rol Selector -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-user-tag text-amber-600"></i> Rol Asignado
+          </label>
+          <select id="regRol" class="w-full px-4 py-2.5 bg-amber-50/40 border border-amber-200/80 rounded-2xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-400 outline-none">
+            <option value="Maestro">Maestro</option>
+            <option value="Ayudante">Ayudante</option>
+            <option value="Auxiliar">Auxiliar</option>
+          </select>
         </div>
 
         <!-- Error Container Register -->
@@ -942,6 +931,6 @@
   </div>
 
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=38"></script>
+  <script src="app.js?v=39"></script>
 </body>
 </html>
