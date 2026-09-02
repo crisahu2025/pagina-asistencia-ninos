@@ -7,7 +7,7 @@
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
   
   <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=43">
+  <link rel="manifest" href="manifest.json?v=44">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -71,7 +71,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=43">
+  <link rel="stylesheet" href="styles.css?v=44">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -480,6 +480,8 @@
             <input 
               type="text" 
               id="searchInput" 
+              oninput="handleSearchInput(this.value)"
+              onkeyup="handleSearchInput(this.value)"
               placeholder="Buscar por nombre del niño, papás o teléfono..." 
               class="w-full pl-12 pr-12 py-3.5 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-base font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all"
               autocomplete="off"
@@ -513,7 +515,7 @@
             <!-- Attendance filter & view toggle -->
             <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
               <!-- Estado dropdown -->
-              <select id="filterEstado" onchange="renderKidsList()" class="bg-amber-50/60 border border-amber-200 text-xs font-bold text-slate-700 rounded-xl py-2 px-3 focus:ring-2 focus:ring-amber-400 outline-none">
+              <select id="filterEstado" onchange="handleFilterEstadoChange(this.value)" class="bg-amber-50/60 border border-amber-200 text-xs font-bold text-slate-700 rounded-xl py-2 px-3 focus:ring-2 focus:ring-amber-400 outline-none">
                 <option value="TODOS">Todos (Presentes y Ausentes)</option>
                 <option value="SOLO_AUSENTES">Solo Ausentes (Por ingresar)</option>
                 <option value="SOLO_PRESENTES">Solo Presentes (Ya ingresados)</option>
@@ -968,6 +970,6 @@
   </div>
 
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=43"></script>
+  <script src="app.js?v=44"></script>
 </body>
 </html>

@@ -156,7 +156,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V43)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V44)
 // ==========================================================================
 let deferredInstallPrompt = null;
 
@@ -219,9 +219,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=43')
+      navigator.serviceWorker.register('./sw.js?v=44')
         .then(reg => {
-          console.log('[PWA v43] Service Worker registrado:', reg.scope);
+          console.log('[PWA v44] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -229,7 +229,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v43] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v44] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -252,12 +252,21 @@ function initApp() {
     turnoSelect.value = state.selectedTurno;
   }
 
+  // Filter estado listener
+  const filterEstadoSelect = document.getElementById('filterEstado');
+  if (filterEstadoSelect) {
+    filterEstadoSelect.addEventListener('change', (e) => {
+      state.filterEstado = e.target.value;
+      renderKidsList();
+    });
+  }
+
   // Search input listeners
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
-      state.searchTerm = e.target.value.trim().toLowerCase();
-      toggleClearSearchBtn(state.searchTerm.length > 0);
+      state.searchTerm = e.target.value;
+      toggleClearSearchBtn(state.searchTerm.trim().length > 0);
       renderKidsList();
     });
   }
@@ -859,7 +868,24 @@ function updateStats() {
   document.getElementById('badgeTotalPresentes').textContent = presentes;
 }
 
+function normalizeStr(str) {
+  return (str || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 function getFilteredKids() {
+  const filterSelect = document.getElementById('filterEstado');
+  if (filterSelect) {
+    state.filterEstado = filterSelect.value;
+  }
+
+  const term = normalizeStr(state.searchTerm);
+  const searchDigits = (state.searchTerm || '').replace(/\D/g, '');
+
   return state.ninos.filter(nino => {
     // Room Filter
     if (state.filterSala !== 'TODAS' && nino.salaSugerida !== state.filterSala && nino.salaActual !== state.filterSala) {
@@ -870,11 +896,11 @@ function getFilteredKids() {
     if (state.filterEstado === 'SOLO_PRESENTES' && !nino.presente) return false;
     if (state.filterEstado === 'SOLO_AUSENTES' && nino.presente) return false;
 
-    // Search Query (Name, Parents, Phone)
-    if (state.searchTerm) {
-      const matchName = nino.nombre.toLowerCase().includes(state.searchTerm);
-      const matchPapas = (nino.nombrePapas || '').toLowerCase().includes(state.searchTerm);
-      const matchPhone = (nino.telefono || '').replace(/\D/g, '').includes(state.searchTerm.replace(/\D/g, ''));
+    // Search Query (Name, Parents, Phone) - Accent-normalized real-time
+    if (term) {
+      const matchName = normalizeStr(nino.nombre).includes(term);
+      const matchPapas = normalizeStr(nino.nombrePapas).includes(term);
+      const matchPhone = searchDigits.length > 0 && (nino.telefono || '').replace(/\D/g, '').includes(searchDigits);
       if (!matchName && !matchPapas && !matchPhone) return false;
     }
 
@@ -1606,6 +1632,17 @@ function setViewMode(mode) {
   renderKidsList();
 }
 
+function handleSearchInput(val) {
+  state.searchTerm = val || '';
+  toggleClearSearchBtn(state.searchTerm.trim().length > 0);
+  renderKidsList();
+}
+
+function handleFilterEstadoChange(val) {
+  state.filterEstado = val || 'TODOS';
+  renderKidsList();
+}
+
 function clearSearch() {
   const input = document.getElementById('searchInput');
   if (input) {
@@ -1665,9 +1702,30 @@ function getAvatarColor(name) {
 
 function highlightMatch(text, term) {
   if (!text) return '';
-  if (!term) return text;
-  const regex = new RegExp(`(${term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')})`, 'gi');
-  return text.replace(regex, '<mark class="search-highlight">$1</mark>');
+  if (!term) return String(text);
+  const termNorm = normalizeStr(term);
+  if (!termNorm) return String(text);
+
+  // Diacritics-insensitive regex replacement preserving original case
+  const pattern = termNorm.split('').map(c => {
+    const map = {
+      'a': '[aáàäâã]',
+      'e': '[eéèëê]',
+      'i': '[iíìïî]',
+      'o': '[oóòöôõ]',
+      'u': '[uúùüû]',
+      'n': '[nñ]',
+      'c': '[cç]'
+    };
+    return map[c] || c.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+  }).join('');
+
+  try {
+    const regex = new RegExp(`(${pattern})`, 'gi');
+    return String(text).replace(regex, '<mark class="search-highlight">$1</mark>');
+  } catch (e) {
+    return String(text);
+  }
 }
 
 function showToastNotification(title, icon = 'success') {
