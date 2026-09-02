@@ -22,6 +22,8 @@
 const SPREADSHEET_ID_DEFAULT = "19XrXo04KUeNyiYnizL_ehYV_ODnnFlv3br6AlRBXjLg";
 const SHEET_REGISTRO_NINOS = "Registro de NIÑOS";
 const SHEET_ASISTENCIAS = "Asistencias";
+const SHEET_USUARIOS = "Usuarios";
+const SHEET_REGISTRO_ACCESOS = "Registro_Accesos";
 
 // LISTA DE TURNOS DOMINICALES ESTÁNDAR
 const TURNOS_VALIDOS = [
@@ -58,7 +60,7 @@ function getSpreadsheet() {
 }
 
 /**
- * Endpoint GET para la aplicación web (Lectura, Login y Acciones)
+ * Endpoint GET para la aplicación web (Lectura, Login, Registro de Usuarios y Acciones)
  */
 function doGet(e) {
   try {
@@ -68,7 +70,14 @@ function doGet(e) {
 
     // --- ACCIÓN DE AUTENTICACIÓN / LOGIN ---
     if (action === "login") {
-      responseData = autenticarUsuario(params.usuario, params.password);
+      responseData = autenticarUsuario(
+        params.usuario, 
+        params.password, 
+        params.userAgent, 
+        params.turno
+      );
+    } else if (action === "crearUsuario" || action === "registroUsuario") {
+      responseData = registrarNuevoUsuario(params);
     } else if (action === "verificarToken") {
       responseData = validarToken(params.token);
     } 
@@ -117,7 +126,7 @@ function doGet(e) {
     } else if (action === "ping") {
       responseData = { 
         success: true, 
-        message: "Conexión exitosa con Google Apps Script (Multi-Reunión y LockService activos)", 
+        message: "Conexión exitosa con Google Apps Script (Usuarios en Sheet, Multi-Reunión y LockService activos)", 
         authRequired: true,
         turnos: TURNOS_VALIDOS,
         defaultTurno: TURNO_DEFAULT,
@@ -136,7 +145,7 @@ function doGet(e) {
 }
 
 /**
- * Endpoint POST para registrar asistencia, nuevos niños y login seguro
+ * Endpoint POST para registrar asistencia, nuevos niños, login y creación de usuarios
  */
 function doPost(e) {
   try {
@@ -155,7 +164,14 @@ function doPost(e) {
     let responseData = { success: false, message: "Acción no reconocida" };
 
     if (action === "login") {
-      responseData = autenticarUsuario(payload.usuario, payload.password);
+      responseData = autenticarUsuario(
+        payload.usuario, 
+        payload.password, 
+        payload.userAgent, 
+        payload.turno
+      );
+    } else if (action === "crearUsuario" || action === "registroUsuario") {
+      responseData = registrarNuevoUsuario(payload);
     } else if (action === "marcarAsistencia") {
       responseData = registrarAsistencia(payload);
     } else if (action === "desmarcarAsistencia") {
@@ -178,21 +194,13 @@ function doPost(e) {
   }
 }
 
-// ----------------------------------------------------
-// MÓDULO DE AUTENTICACIÓN Y SEGURIDAD EN EL SERVIDOR
-// ----------------------------------------------------
-
 /**
  * Autentica usuario y contraseña de forma segura en el servidor
+ * Consulta primero la hoja "Usuarios" y luego fallback de contingencia Master
  */
-function autenticarUsuario(usuarioIngresado, passwordIngresado) {
-  const user = String(usuarioIngresado || "").trim();
+function autenticarUsuario(usuarioIngresado, passwordIngresado, userAgent, turno) {
+  const user = String(usuarioIngresado || "").trim().toLowerCase();
   const pass = String(passwordIngresado || "").trim();
-
-  // Obtener credenciales desde Script Properties si están configuradas, sino usar las de AUTH_CONFIG
-  const scriptProps = PropertiesService.getScriptProperties();
-  const userEsperado = scriptProps.getProperty("APP_USER") || AUTH_CONFIG.usuarioMaster;
-  const passEsperada = scriptProps.getProperty("APP_PASSWORD") || AUTH_CONFIG.passwordMaster;
 
   if (!user || !pass) {
     return {
@@ -201,8 +209,65 @@ function autenticarUsuario(usuarioIngresado, passwordIngresado) {
     };
   }
 
-  // Comparación segura
-  if (user.toLowerCase() === userEsperado.toLowerCase() && pass === passEsperada) {
+  // 1. Buscar en la hoja Usuarios de Google Sheets
+  try {
+    const sheet = asegurarHojaUsuarios();
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      const uFila = String(data[i][2] || "").trim().toLowerCase();
+      const pFila = String(data[i][3] || "").trim();
+      const nombreFila = String(data[i][4] || "").trim() || "Maestra/o";
+      const rolFila = String(data[i][5] || "").trim() || "Maestra";
+      const salaFila = String(data[i][6] || "").trim() || "Todas";
+      const estadoFila = String(data[i][7] || "Activo").trim();
+
+      if (uFila === user) {
+        if (estadoFila.toLowerCase() === "inactivo") {
+          return { success: false, message: "Tu usuario se encuentra inactivo. Consulta con la coordinación." };
+        }
+
+        if (pFila === pass) {
+          // Actualizar último acceso (Columna I / índice 9)
+          try {
+            sheet.getRange(i + 1, 9).setValue(new Date());
+          } catch (e) {}
+
+          // Registrar en auditoría de accesos
+          registrarLogAcceso(user, nombreFila, rolFila, userAgent, turno, "Inicio de Sesión");
+
+          const expiresAt = new Date(Date.now() + AUTH_CONFIG.sessionExpiryHours * 60 * 60 * 1000).toISOString();
+          const token = generarTokenSesion(user, expiresAt);
+
+          return {
+            success: true,
+            message: "Autenticación exitosa",
+            token: token,
+            expiresAt: expiresAt,
+            user: {
+              usuario: user,
+              nombre: nombreFila,
+              rol: rolFila,
+              sala: salaFila
+            }
+          };
+        } else {
+          return { success: false, message: "Contraseña incorrecta. Verifica los datos e intenta nuevamente." };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Error leyendo hoja Usuarios:", err);
+  }
+
+  // 2. Fallback con credenciales maestras
+  const scriptProps = PropertiesService.getScriptProperties();
+  const userEsperado = scriptProps.getProperty("APP_USER") || AUTH_CONFIG.usuarioMaster;
+  const passEsperada = scriptProps.getProperty("APP_PASSWORD") || AUTH_CONFIG.passwordMaster;
+
+  if (user === userEsperado.toLowerCase() && pass === passEsperada) {
+    registrarLogAcceso(userEsperado, AUTH_CONFIG.nombreUsuario, AUTH_CONFIG.rol, userAgent, turno, "Inicio de Sesión (Master)");
+
     const expiresAt = new Date(Date.now() + AUTH_CONFIG.sessionExpiryHours * 60 * 60 * 1000).toISOString();
     const token = generarTokenSesion(user, expiresAt);
 
@@ -214,15 +279,16 @@ function autenticarUsuario(usuarioIngresado, passwordIngresado) {
       user: {
         usuario: userEsperado,
         nombre: AUTH_CONFIG.nombreUsuario,
-        rol: AUTH_CONFIG.rol
+        rol: AUTH_CONFIG.rol,
+        sala: "Todas"
       }
     };
-  } else {
-    return {
-      success: false,
-      message: "Usuario o contraseña incorrectos. Verifica los datos e intenta nuevamente."
-    };
   }
+
+  return {
+    success: false,
+    message: "Usuario o contraseña incorrectos. Verifica los datos e intenta nuevamente."
+  };
 }
 
 /**
@@ -737,6 +803,190 @@ function asegurarHojaAsistencias() {
   }
 
   return sheet;
+}
+
+/**
+ * Asegura la existencia de la hoja Usuarios con credenciales seguras
+ */
+function asegurarHojaUsuarios() {
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_USUARIOS);
+
+  const headers = [
+    "ID Usuario",
+    "Fecha Registro",
+    "Usuario",
+    "Contraseña",
+    "Nombre Completo",
+    "Rol",
+    "Sala Asignada",
+    "Estado",
+    "Último Acceso"
+  ];
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_USUARIOS);
+    sheet.appendRow(headers);
+    sheet.getRange("1:1").setFontWeight("bold").setBackground("#CA8A04").setFontColor("#FFFFFF");
+    sheet.setFrozenRows(1);
+
+    // Usuario Master inicial por defecto
+    const rowMaster = [
+      "USR_MASTER",
+      new Date(),
+      AUTH_CONFIG.usuarioMaster.toLowerCase(),
+      AUTH_CONFIG.passwordMaster,
+      AUTH_CONFIG.nombreUsuario,
+      AUTH_CONFIG.rol,
+      "Todas",
+      "Activo",
+      ""
+    ];
+    sheet.appendRow(rowMaster);
+  }
+
+  return sheet;
+}
+
+/**
+ * Asegura la existencia de la hoja Registro_Accesos para logs de auditoría
+ */
+function asegurarHojaAccesos() {
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_REGISTRO_ACCESOS);
+
+  const headers = [
+    "Timestamp",
+    "Fecha (AAAA-MM-DD)",
+    "Hora",
+    "Usuario",
+    "Nombre Completo",
+    "Rol",
+    "Dispositivo / Navegador",
+    "Turno",
+    "Acción"
+  ];
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_REGISTRO_ACCESOS);
+    sheet.appendRow(headers);
+    sheet.getRange("1:1").setFontWeight("bold").setBackground("#CA8A04").setFontColor("#FFFFFF");
+    sheet.setFrozenRows(1);
+  }
+
+  return sheet;
+}
+
+/**
+ * Registra un evento de acceso / auditoría en la hoja Registro_Accesos
+ */
+function registrarLogAcceso(usuario, nombre, rol, userAgent, turno, accion) {
+  try {
+    const sheet = asegurarHojaAccesos();
+    const fila = [
+      new Date(),
+      getFechaActual(),
+      getHoraActual(),
+      String(usuario || "").trim(),
+      String(nombre || "").trim(),
+      String(rol || "").trim(),
+      String(userAgent || "Web App").substring(0, 150),
+      normalizarTurno(turno || TURNO_DEFAULT),
+      String(accion || "Inicio de Sesión")
+    ];
+    sheet.appendRow(fila);
+  } catch (err) {
+    console.warn("No se pudo registrar log de acceso:", err);
+  }
+}
+
+/**
+ * Registra un nuevo usuario en la hoja Usuarios con LockService
+ */
+function registrarNuevoUsuario(datos) {
+  const lock = LockService.getScriptLock();
+  const hasLock = lock.tryLock(30000);
+  if (!hasLock) {
+    return { success: false, message: "El servidor está ocupado. Intenta de nuevo en unos segundos." };
+  }
+
+  try {
+    const sheet = asegurarHojaUsuarios();
+    const usuarioLimpio = String(datos.usuario || "").trim().toLowerCase();
+    const password = String(datos.password || "").trim();
+    const nombre = String(datos.nombre || "").trim();
+    const rol = String(datos.rol || "Maestra").trim();
+    const sala = String(datos.sala || "Todas").trim();
+    const userAgent = String(datos.userAgent || "");
+    const turno = String(datos.turno || TURNO_DEFAULT);
+
+    if (!usuarioLimpio || usuarioLimpio.length < 3) {
+      return { success: false, message: "El usuario debe tener al menos 3 caracteres." };
+    }
+    if (!password || password.length < 4) {
+      return { success: false, message: "La contraseña debe tener al menos 4 caracteres." };
+    }
+    if (!nombre) {
+      return { success: false, message: "El nombre completo es requerido." };
+    }
+
+    // Verificar si ya existe en la hoja Usuarios o es usuario Master
+    if (usuarioLimpio === AUTH_CONFIG.usuarioMaster.toLowerCase()) {
+      return { success: false, message: "Este nombre de usuario ya está reservado." };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      const uFila = String(data[i][2] || "").trim().toLowerCase();
+      if (uFila === usuarioLimpio) {
+        return { success: false, message: "El nombre de usuario '" + usuarioLimpio + "' ya está registrado. Elige otro." };
+      }
+    }
+
+    const idUsuario = "USR_" + Date.now();
+    const timestamp = new Date();
+    const nuevaFila = [
+      idUsuario,
+      timestamp,
+      usuarioLimpio,
+      password,
+      nombre,
+      rol,
+      sala,
+      "Activo",
+      ""
+    ];
+
+    sheet.appendRow(nuevaFila);
+    SpreadsheetApp.flush();
+
+    // Registrar en auditoría
+    registrarLogAcceso(usuarioLimpio, nombre, rol, userAgent, turno, "Cuenta Creada");
+
+    const expiresAt = new Date(Date.now() + AUTH_CONFIG.sessionExpiryHours * 60 * 60 * 1000).toISOString();
+    const token = generarTokenSesion(usuarioLimpio, expiresAt);
+
+    return {
+      success: true,
+      message: `¡Usuario ${nombre} creado con éxito!`,
+      token: token,
+      expiresAt: expiresAt,
+      user: {
+        usuario: usuarioLimpio,
+        nombre: nombre,
+        rol: rol,
+        sala: sala
+      }
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.toString(),
+      stack: err.stack
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ----------------------------------------------------

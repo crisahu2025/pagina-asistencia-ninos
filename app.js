@@ -149,7 +149,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V37)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V38)
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
@@ -159,9 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=37')
+      navigator.serviceWorker.register('./sw.js?v=38')
         .then(reg => {
-          console.log('[PWA v37] Service Worker registrado:', reg.scope);
+          console.log('[PWA v38] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -169,7 +169,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v37] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v38] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -206,6 +206,34 @@ function initApp() {
   checkSavedSession();
 }
 
+function switchAuthMode(mode) {
+  const loginBtn = document.getElementById('tabAuthLoginBtn');
+  const regBtn = document.getElementById('tabAuthRegisterBtn');
+  const loginForm = document.getElementById('loginForm');
+  const regForm = document.getElementById('registerForm');
+  const loginErr = document.getElementById('loginErrorMsg');
+  const regErr = document.getElementById('regErrorMsg');
+
+  if (loginErr) loginErr.classList.add('hidden');
+  if (regErr) regErr.classList.add('hidden');
+
+  if (mode === 'login') {
+    if (loginBtn) loginBtn.className = 'flex-1 py-2 rounded-xl transition-all bg-white text-amber-950 shadow-sm';
+    if (regBtn) regBtn.className = 'flex-1 py-2 rounded-xl transition-all text-slate-500 hover:text-slate-800';
+    if (loginForm) loginForm.classList.remove('hidden');
+    if (regForm) regForm.classList.add('hidden');
+    const u = document.getElementById('loginUsuario');
+    if (u) u.focus();
+  } else {
+    if (regBtn) regBtn.className = 'flex-1 py-2 rounded-xl transition-all bg-white text-amber-950 shadow-sm';
+    if (loginBtn) loginBtn.className = 'flex-1 py-2 rounded-xl transition-all text-slate-500 hover:text-slate-800';
+    if (loginForm) loginForm.classList.add('hidden');
+    if (regForm) regForm.classList.remove('hidden');
+    const n = document.getElementById('regNombre');
+    if (n) n.focus();
+  }
+}
+
 function handleTurnoChange(newTurno) {
   state.selectedTurno = newTurno;
   showToastNotification(`Turno cambiado: ${newTurno}`, 'info');
@@ -226,10 +254,11 @@ function checkSavedSession() {
       try {
         state.currentUser = JSON.parse(userStr);
       } catch (e) {
-        state.currentUser = { usuario: 'admin', nombre: 'Equipo de Niños' };
+        state.currentUser = { usuario: 'admin', nombre: 'Equipo de Niños', rol: 'Maestra' };
       }
       unlockAppView();
       updateConnectionBadge();
+      updateUserBadge();
       fetchData(false);
       return;
     }
@@ -239,9 +268,19 @@ function checkSavedSession() {
   showLoginView();
 }
 
+function updateUserBadge() {
+  const badge = document.getElementById('userBadgeHeader');
+  const label = document.getElementById('currentUserLabel');
+  if (label && state.currentUser) {
+    label.textContent = `${state.currentUser.nombre || state.currentUser.usuario} (${state.currentUser.rol || 'Maestra'})`;
+    if (badge) badge.classList.remove('hidden');
+  }
+}
+
 function unlockAppView() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appContainer').classList.remove('hidden');
+  updateUserBadge();
 }
 
 function showLoginView() {
@@ -306,7 +345,7 @@ async function callGoogleAppsScript(params) {
 }
 
 // ==========================================================================
-// LOGIN & LOGOUT HANDLERS (VALIDACIÓN SEGURA EN GOOGLE APPS SCRIPT)
+// LOGIN, LOGOUT & REGISTRATION (AUTENTICACIÓN EN GOOGLE SHEETS & LOGS)
 // ==========================================================================
 async function handleLogin(event) {
   event.preventDefault();
@@ -327,7 +366,7 @@ async function handleLogin(event) {
   }
 
   btn.disabled = true;
-  btnText.textContent = 'Verificando con el servidor...';
+  btnText.textContent = 'Verificando con Google Sheets...';
 
   try {
     let loginSucceeded = false;
@@ -340,13 +379,15 @@ async function handleLogin(event) {
         const data = await callGoogleAppsScript({
           action: 'login',
           usuario: usuarioInput,
-          password: passwordInput
+          password: passwordInput,
+          userAgent: navigator.userAgent,
+          turno: state.selectedTurno
         });
 
         if (data && data.success && data.token) {
           loginSucceeded = true;
           token = data.token;
-          authUser = data.user || { usuario: usuarioInput, nombre: 'Equipo IgrKids' };
+          authUser = data.user || { usuario: usuarioInput, nombre: 'Equipo IgrKids', rol: 'Maestra' };
           expiresAt = data.expiresAt;
         } else if (data && !data.success) {
           throw new Error(data.message || 'Usuario o contraseña incorrectos.');
@@ -373,7 +414,7 @@ async function handleLogin(event) {
         authUser = { usuario: 'igrkids2026', nombre: 'Equipo IgrKids (Modo Local)', rol: 'Administrador' };
         expiresAt = new Date(Date.now() + 24*3600*1000).toISOString();
       } else {
-        throw new Error('Credenciales incorrectas. Usuario: "igrkids2026", Contraseña: "IgrKids*2026!Seguro".');
+        throw new Error('Credenciales incorrectas.');
       }
     }
 
@@ -386,13 +427,13 @@ async function handleLogin(event) {
       sessionStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
       sessionStorage.setItem('asistencia_auth_expires', expiresAt || new Date(Date.now() + 24*3600*1000).toISOString());
 
-      // Limpieza de claves viejas en localStorage
       localStorage.removeItem('asistencia_auth_token');
       localStorage.removeItem('asistencia_auth_user');
       localStorage.removeItem('asistencia_auth_expires');
 
       unlockAppView();
       updateConnectionBadge();
+      updateUserBadge();
       playChimeSound();
       showToastNotification(`¡Bienvenido/a, ${state.currentUser.nombre}!`, 'success');
       fetchData(false);
@@ -403,6 +444,98 @@ async function handleLogin(event) {
   } finally {
     btn.disabled = false;
     btnText.textContent = 'Ingresar al Sistema';
+  }
+}
+
+async function handleRegister(event) {
+  event.preventDefault();
+
+  const nombre = document.getElementById('regNombre').value.trim();
+  const usuario = document.getElementById('regUsuario').value.trim().toLowerCase();
+  const password = document.getElementById('regPassword').value.trim();
+  const rol = document.getElementById('regRol').value;
+  const sala = document.getElementById('regSala').value;
+
+  const errorBox = document.getElementById('regErrorMsg');
+  const errorText = document.getElementById('regErrorText');
+  const btn = document.getElementById('btnRegSubmit');
+  const btnText = document.getElementById('btnRegText');
+
+  errorBox.classList.add('hidden');
+
+  if (!nombre || !usuario || !password) {
+    errorText.textContent = 'Por favor completa todos los campos requeridos.';
+    errorBox.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btnText.textContent = 'Guardando usuario en Google Sheets...';
+
+  try {
+    const payload = {
+      action: 'crearUsuario',
+      nombre: nombre,
+      usuario: usuario,
+      password: password,
+      rol: rol,
+      sala: sala,
+      userAgent: navigator.userAgent,
+      turno: state.selectedTurno
+    };
+
+    let registerSucceeded = false;
+    let authUser = null;
+    let token = null;
+    let expiresAt = null;
+
+    if (state.scriptUrl && !state.demoMode) {
+      const data = await callGoogleAppsScript(payload);
+      if (data && data.success) {
+        registerSucceeded = true;
+        token = data.token;
+        authUser = data.user || { usuario: usuario, nombre: nombre, rol: rol, sala: sala };
+        expiresAt = data.expiresAt;
+      } else {
+        throw new Error(data.message || 'No se pudo crear la cuenta.');
+      }
+    } else {
+      registerSucceeded = true;
+      token = 'TOKEN_LOCAL_' + Date.now();
+      authUser = { usuario: usuario, nombre: nombre, rol: rol, sala: sala };
+      expiresAt = new Date(Date.now() + 24*3600*1000).toISOString();
+    }
+
+    if (registerSucceeded) {
+      state.isAuthenticated = true;
+      state.sessionToken = token;
+      state.currentUser = authUser;
+
+      sessionStorage.setItem('asistencia_auth_token', token);
+      sessionStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
+      sessionStorage.setItem('asistencia_auth_expires', expiresAt || new Date(Date.now() + 24*3600*1000).toISOString());
+
+      unlockAppView();
+      updateConnectionBadge();
+      updateUserBadge();
+      playChimeSound();
+      triggerMiniConfetti();
+
+      Swal.fire({
+        icon: 'success',
+        title: '¡Cuenta Creada!',
+        text: `Hola ${nombre}, tu cuenta fue creada y guardada en la hoja Usuarios de Google Sheets.`,
+        confirmButtonColor: '#ca8a04'
+      });
+
+      fetchData(false);
+    }
+  } catch (err) {
+    errorText.textContent = err.message || 'Error al procesar el registro.';
+    errorBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Crear Cuenta y Acceder';
   }
 }
 
@@ -437,9 +570,9 @@ function handleLogout() {
   });
 }
 
-function togglePasswordVisibility() {
-  const input = document.getElementById('loginPassword');
-  const icon = document.getElementById('passwordEyeIcon');
+function togglePasswordVisibility(fieldId = 'loginPassword', iconId = 'passwordEyeIcon') {
+  const input = document.getElementById(fieldId);
+  const icon = document.getElementById(iconId);
   if (!input || !icon) return;
 
   if (input.type === 'password') {
@@ -610,6 +743,7 @@ async function toggleAsistencia(childId) {
   if (!state.demoMode && state.scriptUrl) {
     try {
       const action = newState ? 'marcarAsistencia' : 'desmarcarAsistencia';
+      const registradoPorNombre = state.currentUser ? (state.currentUser.nombre || state.currentUser.usuario) : 'Recepción';
       const params = new URLSearchParams({
         action: action,
         idNino: child.id,
@@ -621,6 +755,7 @@ async function toggleAsistencia(childId) {
         hora: newTime || getCurrentTime(),
         turno: state.selectedTurno,
         estado: newState ? 'Presente' : 'Ausente',
+        registradoPor: registradoPorNombre,
         token: state.sessionToken || ''
       });
 
@@ -1047,6 +1182,7 @@ async function handleNuevoNino(event) {
       });
 
       if (autoMarcar) {
+        const registradoPorNombre = state.currentUser ? (state.currentUser.nombre || state.currentUser.usuario) : 'Recepción';
         const asisParams = new URLSearchParams({
           action: 'marcarAsistencia',
           idNino: newChildObj.id,
@@ -1058,6 +1194,7 @@ async function handleNuevoNino(event) {
           hora: newChildObj.horaIngreso,
           turno: state.selectedTurno,
           estado: 'Presente',
+          registradoPor: registradoPorNombre,
           token: state.sessionToken || ''
         });
         fetch(`${state.scriptUrl}?${asisParams.toString()}`, { mode: 'no-cors' });

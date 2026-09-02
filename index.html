@@ -7,7 +7,7 @@
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
   
   <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=37">
+  <link rel="manifest" href="manifest.json?v=38">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -71,7 +71,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=37">
+  <link rel="stylesheet" href="styles.css?v=38">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -98,8 +98,18 @@
         </p>
       </div>
 
+      <!-- Tab Switcher: Iniciar Sesión / Registrar Maestra -->
+      <div class="mt-6 flex rounded-2xl bg-amber-50/70 p-1 border border-amber-200/80 relative z-10 text-xs font-bold">
+        <button type="button" id="tabAuthLoginBtn" onclick="switchAuthMode('login')" class="flex-1 py-2 rounded-xl transition-all bg-white text-amber-950 shadow-sm">
+          <i class="fa-solid fa-right-to-bracket mr-1"></i> Iniciar Sesión
+        </button>
+        <button type="button" id="tabAuthRegisterBtn" onclick="switchAuthMode('register')" class="flex-1 py-2 rounded-xl transition-all text-slate-500 hover:text-slate-800">
+          <i class="fa-solid fa-user-plus mr-1"></i> Crear Cuenta
+        </button>
+      </div>
+
       <!-- Login Form -->
-      <form id="loginForm" onsubmit="handleLogin(event)" class="mt-7 space-y-4 relative z-10">
+      <form id="loginForm" onsubmit="handleLogin(event)" class="mt-5 space-y-4 relative z-10">
         
         <!-- Usuario Input -->
         <div>
@@ -134,7 +144,7 @@
             >
             <button 
               type="button" 
-              onclick="togglePasswordVisibility()" 
+              onclick="togglePasswordVisibility('loginPassword', 'passwordEyeIcon')" 
               class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-amber-700 transition-colors"
               title="Mostrar/ocultar contraseña"
             >
@@ -146,7 +156,7 @@
         <!-- Security Note -->
         <div class="p-3 bg-amber-50/60 rounded-2xl border border-amber-100 flex items-start gap-2.5 text-[11px] text-amber-900 leading-relaxed">
           <i class="fa-solid fa-shield-check text-amber-600 text-sm mt-0.5 shrink-0"></i>
-          <span>Acceso cifrado y protegido en el servidor de Google Apps Script para resguardar los datos de las familias.</span>
+          <span>Acceso cifrado y protegido en Google Sheets con registro de accesos en tiempo real.</span>
         </div>
 
         <!-- Error Message Container (Hidden by default) -->
@@ -165,6 +175,102 @@
           <span id="btnLoginText">Ingresar al Sistema</span>
         </button>
 
+      </form>
+
+      <!-- Formulario 2: Registro de Usuario / Maestra (Oculto por defecto) -->
+      <form id="registerForm" onsubmit="handleRegister(event)" class="mt-5 space-y-3.5 relative z-10 hidden">
+        <!-- Nombre Completo -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-user text-amber-600"></i> Nombre y Apellido
+          </label>
+          <input 
+            type="text" 
+            id="regNombre" 
+            required 
+            placeholder="Ej: Laura Ahumada" 
+            class="w-full px-4 py-2.5 bg-amber-50/40 border border-amber-200/80 rounded-2xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white outline-none transition-all placeholder-slate-400"
+          >
+        </div>
+
+        <!-- Usuario Deseado -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-at text-amber-600"></i> Nombre de Usuario
+          </label>
+          <input 
+            type="text" 
+            id="regUsuario" 
+            required 
+            placeholder="Ej: laura.a" 
+            autocomplete="username"
+            class="w-full px-4 py-2.5 bg-amber-50/40 border border-amber-200/80 rounded-2xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white outline-none transition-all placeholder-slate-400 lowercase"
+          >
+        </div>
+
+        <!-- Contraseña -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-lock text-amber-600"></i> Contraseña
+          </label>
+          <div class="relative">
+            <input 
+              type="password" 
+              id="regPassword" 
+              required 
+              placeholder="Crea una contraseña..." 
+              autocomplete="new-password"
+              class="w-full px-4 py-2.5 pr-11 bg-amber-50/40 border border-amber-200/80 rounded-2xl text-sm font-medium text-slate-800 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:bg-white outline-none transition-all placeholder-slate-400"
+            >
+            <button 
+              type="button" 
+              onclick="togglePasswordVisibility('regPassword', 'regPasswordEyeIcon')" 
+              class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-amber-700 transition-colors"
+              title="Mostrar/ocultar contraseña"
+            >
+              <i id="regPasswordEyeIcon" class="fa-regular fa-eye text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sala / Rol -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Rol</label>
+            <select id="regRol" class="w-full px-3 py-2.5 bg-amber-50/40 border border-amber-200/80 rounded-2xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-amber-400 outline-none">
+              <option value="Maestra">Maestra</option>
+              <option value="Coordinadora">Coordinadora</option>
+              <option value="Recepción">Recepción</option>
+              <option value="Ayudante">Ayudante</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Sala</label>
+            <select id="regSala" class="w-full px-3 py-2.5 bg-amber-50/40 border border-amber-200/80 rounded-2xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-amber-400 outline-none">
+              <option value="Todas">Todas</option>
+              <option value="Sala Cunas (0-2 años)">Sala Cunas (0-2)</option>
+              <option value="Párvulos (3-5 años)">Párvulos (3-5)</option>
+              <option value="Primarios (6-8 años)">Primarios (6-8)</option>
+              <option value="Pre-Adolescentes (9-12 años)">Pre-Adol (9-12)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Error Container Register -->
+        <div id="regErrorMsg" class="hidden p-3 bg-red-50 text-red-700 border border-red-200 rounded-2xl text-xs font-semibold flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          <span id="regErrorText">Error al registrar usuario.</span>
+        </div>
+
+        <!-- Submit Button Register -->
+        <button 
+          type="submit" 
+          id="btnRegSubmit" 
+          class="w-full py-3 px-4 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 font-bold text-sm rounded-2xl shadow-lg shadow-amber-400/25 hover:shadow-amber-400/35 active:scale-[0.98] transition-all flex items-center justify-center gap-2 border border-amber-300/40"
+        >
+          <i class="fa-solid fa-user-plus text-sm"></i>
+          <span id="btnRegText">Crear Cuenta y Acceder</span>
+        </button>
       </form>
 
       <!-- Connection / Settings quick link -->
@@ -222,6 +328,13 @@
 
           <!-- Date picker & Quick Controls -->
           <div class="flex items-center flex-wrap gap-2 sm:gap-3">
+            
+            <!-- Logged-in Teacher / User Badge -->
+            <div id="userBadgeHeader" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50/80 rounded-2xl border border-amber-200/80 text-xs font-bold text-amber-950 shadow-sm">
+              <i class="fa-solid fa-user-check text-amber-600"></i>
+              <span id="currentUserLabel">Equipo IgrKids</span>
+            </div>
+
             <!-- Date selector -->
             <div class="relative flex items-center bg-amber-50/50 rounded-2xl p-1 border border-amber-200/80 shadow-sm">
               <i class="fa-regular fa-calendar-days text-amber-600 ml-2 text-sm"></i>
@@ -829,6 +942,6 @@
   </div>
 
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=37"></script>
+  <script src="app.js?v=38"></script>
 </body>
 </html>
