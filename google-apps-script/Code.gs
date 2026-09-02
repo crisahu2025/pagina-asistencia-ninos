@@ -5,28 +5,57 @@
  * 
  * ID Hoja de Cálculo: 19XrXo04KUeNyiYnizL_ehYV_ODnnFlv3br6AlRBXjLg
  * Hoja de Datos de Niños: "Registro de NIÑOS"
- * Hoja de Asistencias: "Asistencias" (Se crea automáticamente)
+ * Hoja de Asistencias: "Asistencias" (Se crea / actualiza automáticamente con soporte Multi-Turno)
  * 
- * SEGURIDAD Y CREDENCIALES:
- * El usuario y contraseña se validan del lado del servidor en este script.
- * De esta manera las contraseñas nunca quedan expuestas en el código público de la web.
+ * TURNOS / REUNIONES DOMINICALES SOPORTADOS:
+ * - 10:00 hs (Mañana) [Por defecto]
+ * - 18:00 hs (Tarde)
+ * - 20:00 hs (Noche)
+ * 
+ * SEGURIDAD, CREDENCIALES Y CONCURRENCIA:
+ * - Tokens y propiedades privadas respaldadas en PropertiesService.getScriptProperties().
+ * - Escrituras concurrentes protegidas con LockService.getScriptLock().
+ * - CORS y compatibilidad JSONP / REST.
  * ====================================================================================
  */
 
-const SPREADSHEET_ID = "19XrXo04KUeNyiYnizL_ehYV_ODnnFlv3br6AlRBXjLg";
+const SPREADSHEET_ID_DEFAULT = "19XrXo04KUeNyiYnizL_ehYV_ODnnFlv3br6AlRBXjLg";
 const SHEET_REGISTRO_NINOS = "Registro de NIÑOS";
 const SHEET_ASISTENCIAS = "Asistencias";
 
+// LISTA DE TURNOS DOMINICALES ESTÁNDAR
+const TURNOS_VALIDOS = [
+  "10:00 hs (Mañana)",
+  "18:00 hs (Tarde)",
+  "20:00 hs (Noche)"
+];
+const TURNO_DEFAULT = "10:00 hs (Mañana)";
+
 // CREDENCIALES DE ACCESO GENERAL PROTEGIDAS EN EL SERVIDOR
-// Puedes cambiar el usuario y contraseña aquí o mediante ScriptProperties
+// Puedes configurar APP_USER, APP_PASSWORD y SPREADSHEET_ID en PropertiesService.getScriptProperties()
 const AUTH_CONFIG = {
-  usuarioMaster: "igrkids2026",          // Usuario general
+  usuarioMaster: "igrkids2026",          // Usuario general por defecto
   passwordMaster: "IgrKids*2026!Seguro", // Contraseña segura generada
   nombreUsuario: "Equipo IgrKids",      // Nombre que se mostrará al ingresar
   rol: "Administrador / Recepción",
   sessionExpiryHours: 24,                // Duración de la sesión activa en horas
   secretSalt: "SECURE_KIDS_ACCESS_2026_CODE_AHUMADA"
 };
+
+/**
+ * Obtiene el ID de la hoja de cálculo desde ScriptProperties o constante por defecto
+ */
+function getSpreadsheetId() {
+  const scriptProps = PropertiesService.getScriptProperties();
+  return scriptProps.getProperty("SPREADSHEET_ID") || SPREADSHEET_ID_DEFAULT;
+}
+
+/**
+ * Obtiene la instancia de SpreadsheetApp activa
+ */
+function getSpreadsheet() {
+  return SpreadsheetApp.openById(getSpreadsheetId());
+}
 
 /**
  * Endpoint GET para la aplicación web (Lectura, Login y Acciones)
@@ -43,16 +72,21 @@ function doGet(e) {
     } else if (action === "verificarToken") {
       responseData = validarToken(params.token);
     } 
-    // --- OBTENCIÓN DE DATOS Y ASISTENCIAS ---
+    // --- OBTENCIÓN DE DATOS Y ASISTENCIAS (MULTI-TURNO) ---
     else if (action === "getDatos" || action === "getNiños") {
       const fecha = params.fecha || getFechaActual();
-      responseData = obtenerDatosCompletos(fecha);
+      const turno = params.turno || TURNO_DEFAULT;
+      responseData = obtenerDatosCompletos(fecha, turno);
     } else if (action === "getAsistencias") {
       const fecha = params.fecha || getFechaActual();
+      const turno = params.turno || "";
+      const asistencias = obtenerAsistenciasPorFecha(fecha, turno);
       responseData = {
         success: true,
         fecha: fecha,
-        asistencias: obtenerAsistenciasPorFecha(fecha)
+        turno: turno || "Todos",
+        totalPresentes: asistencias.length,
+        asistencias: asistencias
       };
     } else if (action === "marcarAsistencia") {
       responseData = registrarAsistencia({
@@ -63,17 +97,30 @@ function doGet(e) {
         sala: params.sala || "General",
         fecha: params.fecha || getFechaActual(),
         hora: params.hora || getHoraActual(),
+        turno: params.turno || TURNO_DEFAULT,
         observaciones: params.observaciones || "",
         estado: params.estado || "Presente",
         registradoPor: params.registradoPor || "Recepción"
       });
     } else if (action === "desmarcarAsistencia") {
-      responseData = eliminarAsistencia(params.idNino, params.fecha || getFechaActual());
+      responseData = eliminarAsistencia(
+        params.idNino, 
+        params.fecha || getFechaActual(), 
+        params.turno || TURNO_DEFAULT
+      );
+    } else if (action === "getTurnos") {
+      responseData = {
+        success: true,
+        turnos: TURNOS_VALIDOS,
+        defaultTurno: TURNO_DEFAULT
+      };
     } else if (action === "ping") {
       responseData = { 
         success: true, 
-        message: "Conexión exitosa con Google Apps Script", 
+        message: "Conexión exitosa con Google Apps Script (Multi-Reunión y LockService activos)", 
         authRequired: true,
+        turnos: TURNOS_VALIDOS,
+        defaultTurno: TURNO_DEFAULT,
         timestamp: new Date().toISOString() 
       };
     }
@@ -112,7 +159,11 @@ function doPost(e) {
     } else if (action === "marcarAsistencia") {
       responseData = registrarAsistencia(payload);
     } else if (action === "desmarcarAsistencia") {
-      responseData = eliminarAsistencia(payload.idNino, payload.fecha || getFechaActual());
+      responseData = eliminarAsistencia(
+        payload.idNino, 
+        payload.fecha || getFechaActual(), 
+        payload.turno || TURNO_DEFAULT
+      );
     } else if (action === "agregarNino") {
       responseData = agregarNuevoNino(payload);
     }
@@ -138,7 +189,7 @@ function autenticarUsuario(usuarioIngresado, passwordIngresado) {
   const user = String(usuarioIngresado || "").trim();
   const pass = String(passwordIngresado || "").trim();
 
-  // Obtener credenciales desde Script Properties si están configuradas, sino usar las del script
+  // Obtener credenciales desde Script Properties si están configuradas, sino usar las de AUTH_CONFIG
   const scriptProps = PropertiesService.getScriptProperties();
   const userEsperado = scriptProps.getProperty("APP_USER") || AUTH_CONFIG.usuarioMaster;
   const passEsperada = scriptProps.getProperty("APP_PASSWORD") || AUTH_CONFIG.passwordMaster;
@@ -225,7 +276,7 @@ function validarToken(token) {
 }
 
 // ----------------------------------------------------
-// GESTIÓN DE DATOS Y ASISTENCIAS
+// GESTIÓN DE DATOS Y ASISTENCIAS (MULTI-TURNO & LOCKSERVICE)
 // ----------------------------------------------------
 
 /**
@@ -247,12 +298,13 @@ function crearRespuestaJSON(data, callback) {
 }
 
 /**
- * Obtiene la lista de todos los niños del Registro + Asistencias del día
+ * Obtiene la lista de todos los niños del Registro + Asistencias filtradas por Fecha y Turno
  */
-function obtenerDatosCompletos(fecha) {
-  const fechaConsulta = fecha || getFechaActual();
+function obtenerDatosCompletos(fecha, turno) {
+  const fechaConsulta = normalizarFecha(fecha || getFechaActual());
+  const turnoConsulta = normalizarTurno(turno || TURNO_DEFAULT);
   const ninos = obtenerTodosLosNinos();
-  const asistencias = obtenerAsistenciasPorFecha(fechaConsulta);
+  const asistencias = obtenerAsistenciasPorFecha(fechaConsulta, turnoConsulta);
 
   const mapaAsistencias = {};
   asistencias.forEach(a => {
@@ -267,13 +319,16 @@ function obtenerDatosCompletos(fecha) {
       horaIngreso: asis ? asis.hora : null,
       salaActual: asis ? asis.sala : nino.salaSugerida,
       observacionesIngreso: asis ? asis.observaciones : "",
-      estadoAsistencia: asis ? asis.estado : "Ausente"
+      estadoAsistencia: asis ? asis.estado : "Ausente",
+      turno: turnoConsulta
     };
   });
 
   return {
     success: true,
     fecha: fechaConsulta,
+    turno: turnoConsulta,
+    turnosDisponibles: TURNOS_VALIDOS,
     totalNinos: ninos.length,
     totalPresentes: asistencias.length,
     ninos: ninosConEstado,
@@ -285,7 +340,7 @@ function obtenerDatosCompletos(fecha) {
  * Lee la hoja "Registro de NIÑOS" y extrae individualmente a cada niño
  */
 function obtenerTodosLosNinos() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_REGISTRO_NINOS);
   if (!sheet) {
     throw new Error("No se encontró la hoja: " + SHEET_REGISTRO_NINOS);
@@ -340,24 +395,31 @@ function obtenerTodosLosNinos() {
 }
 
 /**
- * Obtiene las asistencias para una fecha específica (YYYY-MM-DD)
+ * Obtiene las asistencias para una fecha específica (YYYY-MM-DD) y opcionalmente un turno
  */
-function obtenerAsistenciasPorFecha(fecha) {
+function obtenerAsistenciasPorFecha(fecha, turno) {
   const sheetAsis = asegurarHojaAsistencias();
   const data = sheetAsis.getDataRange().getValues();
   if (data.length <= 1) return [];
 
   const asistencias = [];
   const fechaBuscada = normalizarFecha(fecha);
+  const turnoBuscado = (turno && String(turno).trim() !== "" && String(turno).toLowerCase() !== "todos") 
+    ? normalizarTurno(turno) 
+    : null;
 
   for (let i = 1; i < data.length; i++) {
     const fila = data[i];
     const fechaFila = normalizarFecha(fila[1]);
+    const turnoFila = fila.length > 11 && fila[11] ? normalizarTurno(fila[11]) : TURNO_DEFAULT;
     
-    if (fechaFila === fechaBuscada) {
+    const matchFecha = (fechaFila === fechaBuscada);
+    const matchTurno = !turnoBuscado || (turnoFila === turnoBuscado);
+
+    if (matchFecha && matchTurno) {
       asistencias.push({
         filaAsistencia: i + 1,
-        idAsistencia: fila[0],
+        idAsistencia: String(fila[0] || ""),
         fecha: fechaFila,
         hora: String(fila[2] || ""),
         idNino: String(fila[3] || ""),
@@ -367,7 +429,8 @@ function obtenerAsistenciasPorFecha(fecha) {
         sala: String(fila[7] || "General"),
         estado: String(fila[8] || "Presente"),
         observaciones: String(fila[9] || ""),
-        registradoPor: String(fila[10] || "Recepción")
+        registradoPor: String(fila[10] || "Recepción"),
+        turno: turnoFila
       });
     }
   }
@@ -376,193 +439,301 @@ function obtenerAsistenciasPorFecha(fecha) {
 }
 
 /**
- * Registra o actualiza la asistencia de un niño
+ * Registra o actualiza la asistencia de un niño con soporte Multi-Turno y LockService
  */
 function registrarAsistencia(datos) {
-  const sheetAsis = asegurarHojaAsistencias();
-  const fecha = normalizarFecha(datos.fecha || getFechaActual());
-  const hora = datos.hora || getHoraActual();
-  const idNino = String(datos.idNino || "").trim();
-  const nombreNino = String(datos.nombreNino || "").trim();
-  const nombrePapas = String(datos.nombrePapas || "").trim();
-  const telefono = String(datos.telefono || "").trim();
-  const sala = String(datos.sala || "General").trim();
-  const estado = String(datos.estado || "Presente").trim();
-  const observaciones = String(datos.observaciones || "").trim();
-  const registradoPor = String(datos.registradoPor || "Recepción").trim();
-
-  if (!nombreNino) {
-    return { success: false, message: "El nombre del niño es requerido" };
+  const lock = LockService.getScriptLock();
+  const hasLock = lock.tryLock(30000); // Esperar hasta 30 segundos
+  if (!hasLock) {
+    return { 
+      success: false, 
+      message: "El servidor está ocupado procesando otra solicitud. Por favor intenta nuevamente en unos segundos." 
+    };
   }
 
-  const data = sheetAsis.getDataRange().getValues();
-  let filaExistente = -1;
+  try {
+    const sheetAsis = asegurarHojaAsistencias();
+    const fecha = normalizarFecha(datos.fecha || getFechaActual());
+    const hora = datos.hora || getHoraActual();
+    const turno = normalizarTurno(datos.turno || TURNO_DEFAULT);
+    const idNino = String(datos.idNino || "").trim();
+    const nombreNino = String(datos.nombreNino || "").trim();
+    const nombrePapas = String(datos.nombrePapas || "").trim();
+    const telefono = String(datos.telefono || "").trim();
+    const sala = String(datos.sala || "General").trim();
+    const estado = String(datos.estado || "Presente").trim();
+    const observaciones = String(datos.observaciones || "").trim();
+    const registradoPor = String(datos.registradoPor || "Recepción").trim();
 
-  for (let i = 1; i < data.length; i++) {
-    const fechaFila = normalizarFecha(data[i][1]);
-    const idFila = String(data[i][3] || "");
-    const nombreFila = String(data[i][4] || "");
-
-    if (fechaFila === fecha && (idFila === idNino || (idNino === "" && nombreFila.toLowerCase() === nombreNino.toLowerCase()))) {
-      filaExistente = i + 1;
-      break;
+    if (!nombreNino && !idNino) {
+      return { success: false, message: "El nombre o ID del niño es requerido" };
     }
-  }
 
-  const idAsistencia = "ASIS_" + fecha.replace(/-/g, "") + "_" + (idNino || sanitizarId(nombreNino));
+    const data = sheetAsis.getDataRange().getValues();
+    let filaExistente = -1;
 
-  if (filaExistente > 0) {
-    sheetAsis.getRange(filaExistente, 3).setValue(hora);
-    sheetAsis.getRange(filaExistente, 8).setValue(sala);
-    sheetAsis.getRange(filaExistente, 9).setValue(estado);
-    sheetAsis.getRange(filaExistente, 10).setValue(observaciones);
-    sheetAsis.getRange(filaExistente, 11).setValue(registradoPor);
+    for (let i = 1; i < data.length; i++) {
+      const fechaFila = normalizarFecha(data[i][1]);
+      const idFila = String(data[i][3] || "");
+      const nombreFila = String(data[i][4] || "");
+      const turnoFila = data[i].length > 11 && data[i][11] ? normalizarTurno(data[i][11]) : TURNO_DEFAULT;
 
-    return {
-      success: true,
-      action: "actualizado",
-      message: `Asistencia actualizada para ${nombreNino}`,
-      asistencia: {
-        idAsistencia,
-        fecha,
-        hora,
-        idNino,
-        nombreNino,
-        sala,
-        estado,
-        observaciones
+      const coincideFecha = (fechaFila === fecha);
+      const coincideTurno = (turnoFila === turno);
+      const coincideNino = (idNino && idFila === idNino) || (!idNino && nombreFila.toLowerCase() === nombreNino.toLowerCase());
+
+      if (coincideFecha && coincideTurno && coincideNino) {
+        filaExistente = i + 1;
+        break;
       }
-    };
-  } else {
-    sheetAsis.appendRow([
-      idAsistencia,
-      fecha,
-      hora,
-      idNino,
-      nombreNino,
-      nombrePapas,
-      telefono,
-      sala,
-      estado,
-      observaciones,
-      registradoPor
-    ]);
+    }
 
+    const turnoClean = sanitizarId(turno);
+    const idIdentificador = idNino || sanitizarId(nombreNino);
+    const idAsistencia = "ASIS_" + fecha.replace(/-/g, "") + "_" + turnoClean + "_" + idIdentificador;
+
+    if (filaExistente > 0) {
+      // Actualizar registro existente para esa MISMA fecha Y ESE MISMO turno (Upsert)
+      sheetAsis.getRange(filaExistente, 1).setValue(idAsistencia);
+      sheetAsis.getRange(filaExistente, 3).setValue(hora);
+      if (nombrePapas) sheetAsis.getRange(filaExistente, 6).setValue(nombrePapas);
+      if (telefono) sheetAsis.getRange(filaExistente, 7).setValue(telefono);
+      sheetAsis.getRange(filaExistente, 8).setValue(sala);
+      sheetAsis.getRange(filaExistente, 9).setValue(estado);
+      sheetAsis.getRange(filaExistente, 10).setValue(observaciones);
+      sheetAsis.getRange(filaExistente, 11).setValue(registradoPor);
+      sheetAsis.getRange(filaExistente, 12).setValue(turno);
+
+      SpreadsheetApp.flush();
+
+      return {
+        success: true,
+        action: "actualizado",
+        message: `Asistencia actualizada para ${nombreNino} (${turno})`,
+        asistencia: {
+          idAsistencia,
+          fecha,
+          hora,
+          turno,
+          idNino,
+          nombreNino,
+          sala,
+          estado,
+          observaciones,
+          registradoPor
+        }
+      };
+    } else {
+      // Insertar nuevo registro con la columna de Turno
+      sheetAsis.appendRow([
+        idAsistencia,     // Col 1 (A): ID Asistencia
+        fecha,            // Col 2 (B): Fecha
+        hora,             // Col 3 (C): Hora Ingreso
+        idNino,           // Col 4 (D): ID Niño
+        nombreNino,       // Col 5 (E): Nombre Niño
+        nombrePapas,      // Col 6 (F): Papás
+        telefono,         // Col 7 (G): Teléfono
+        sala,             // Col 8 (H): Sala / Grupo
+        estado,           // Col 9 (I): Estado
+        observaciones,    // Col 10 (J): Observaciones
+        registradoPor,    // Col 11 (K): Registrado Por
+        turno             // Col 12 (L): Turno / Reunión
+      ]);
+
+      SpreadsheetApp.flush();
+
+      return {
+        success: true,
+        action: "creado",
+        message: `Asistencia registrada para ${nombreNino} (${turno})`,
+        asistencia: {
+          idAsistencia,
+          fecha,
+          hora,
+          turno,
+          idNino,
+          nombreNino,
+          sala,
+          estado,
+          observaciones,
+          registradoPor
+        }
+      };
+    }
+  } catch (err) {
     return {
-      success: true,
-      action: "creado",
-      message: `Asistencia registrada para ${nombreNino}`,
-      asistencia: {
-        idAsistencia,
-        fecha,
-        hora,
-        idNino,
-        nombreNino,
-        sala,
-        estado,
-        observaciones
-      }
+      success: false,
+      error: err.toString(),
+      stack: err.stack
     };
+  } finally {
+    lock.releaseLock();
   }
 }
 
 /**
- * Elimina la asistencia de un niño en una fecha
+ * Elimina la asistencia de un niño únicamente para una fecha Y un turno específicos (con LockService)
  */
-function eliminarAsistencia(idNino, fecha) {
-  const sheetAsis = asegurarHojaAsistencias();
-  const fechaBuscada = normalizarFecha(fecha || getFechaActual());
-  const data = sheetAsis.getDataRange().getValues();
-
-  for (let i = data.length - 1; i >= 1; i--) {
-    const fechaFila = normalizarFecha(data[i][1]);
-    const idFila = String(data[i][3] || "");
-
-    if (fechaFila === fechaBuscada && idFila === idNino) {
-      sheetAsis.deleteRow(i + 1);
-      return { success: true, message: "Asistencia desmarcada correctamente", idNino: idNino };
-    }
+function eliminarAsistencia(idNino, fecha, turno) {
+  const lock = LockService.getScriptLock();
+  const hasLock = lock.tryLock(30000);
+  if (!hasLock) {
+    return { 
+      success: false, 
+      message: "El servidor está ocupado. Por favor intenta nuevamente en unos segundos." 
+    };
   }
 
-  return { success: false, message: "No se encontró el registro para desmarcar" };
+  try {
+    const sheetAsis = asegurarHojaAsistencias();
+    const fechaBuscada = normalizarFecha(fecha || getFechaActual());
+    const turnoBuscado = normalizarTurno(turno || TURNO_DEFAULT);
+    const idBuscado = String(idNino || "").trim();
+    const data = sheetAsis.getDataRange().getValues();
+
+    for (let i = data.length - 1; i >= 1; i--) {
+      const fechaFila = normalizarFecha(data[i][1]);
+      const idFila = String(data[i][3] || "");
+      const turnoFila = data[i].length > 11 && data[i][11] ? normalizarTurno(data[i][11]) : TURNO_DEFAULT;
+
+      if (fechaFila === fechaBuscada && idFila === idBuscado && turnoFila === turnoBuscado) {
+        sheetAsis.deleteRow(i + 1);
+        SpreadsheetApp.flush();
+        return { 
+          success: true, 
+          message: `Asistencia desmarcada correctamente para el turno ${turnoBuscado}`, 
+          idNino: idBuscado,
+          fecha: fechaBuscada,
+          turno: turnoBuscado
+        };
+      }
+    }
+
+    return { 
+      success: false, 
+      message: `No se encontró el registro para desmarcar en fecha ${fechaBuscada} y turno ${turnoBuscado}` 
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.toString(),
+      stack: err.stack
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
- * Agrega un nuevo niño / familia a la hoja principal "Registro de NIÑOS"
+ * Agrega un nuevo niño / familia a la hoja principal "Registro de NIÑOS" (con LockService)
  */
 function agregarNuevoNino(datos) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(SHEET_REGISTRO_NINOS);
-  if (!sheet) throw new Error("No se encontró la hoja: " + SHEET_REGISTRO_NINOS);
+  const lock = LockService.getScriptLock();
+  const hasLock = lock.tryLock(30000);
+  if (!hasLock) {
+    return { 
+      success: false, 
+      message: "El servidor está ocupado. Por favor intenta nuevamente en unos segundos." 
+    };
+  }
 
-  const timestamp = new Date();
-  const nombreNino1 = datos.nombreNino || "";
-  const edadNino1 = datos.edadNino || "";
-  const salaNino1 = datos.salaNino || "";
-  const nombrePapas = datos.nombrePapas || "";
-  const telefono = datos.telefono || "";
-  const observaciones = datos.observaciones || "";
+  try {
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_REGISTRO_NINOS);
+    if (!sheet) throw new Error("No se encontró la hoja: " + SHEET_REGISTRO_NINOS);
 
-  const nuevaFila = [
-    timestamp,           // Col A: Timestamp
-    nombreNino1,         // Col B: Nombre Niño 1
-    edadNino1,           // Col C: Edad 1
-    salaNino1,           // Col D: Info 1
-    "",                  // Col E: Niño 2
-    "",                  // Col F: Edad 2
-    "",                  // Col G: Info 2
-    "",                  // Col H: Niño 3
-    "",                  // Col I: Edad 3
-    "",                  // Col J: Info 3
-    "",                  // Col K: Niño 4
-    "",                  // Col L: Edad 4
-    "",                  // Col M: Info 4
-    nombrePapas,         // Col N: Papás
-    "",                  // Col O: Mail/Otro
-    telefono,            // Col P: Teléfono
-    observaciones        // Col Q: Observaciones
-  ];
+    const timestamp = new Date();
+    const nombreNino1 = String(datos.nombreNino || "").trim();
+    const edadNino1 = String(datos.edadNino || "").trim();
+    const salaNino1 = String(datos.salaNino || "").trim();
+    const nombrePapas = String(datos.nombrePapas || "").trim();
+    const telefono = String(datos.telefono || "").trim();
+    const observaciones = String(datos.observaciones || "").trim();
 
-  sheet.appendRow(nuevaFila);
-
-  return {
-    success: true,
-    message: `Niño ${nombreNino1} agregado exitosamente al registro`,
-    nuevoNino: {
-      nombre: nombreNino1,
-      edad: edadNino1,
-      sala: salaNino1,
-      nombrePapas: nombrePapas,
-      telefono: telefono
+    if (!nombreNino1) {
+      return { success: false, message: "El nombre del niño es requerido" };
     }
-  };
+
+    const nuevaFila = [
+      timestamp,           // Col A: Timestamp
+      nombreNino1,         // Col B: Nombre Niño 1
+      edadNino1,           // Col C: Edad 1
+      salaNino1,           // Col D: Info 1
+      "",                  // Col E: Niño 2
+      "",                  // Col F: Edad 2
+      "",                  // Col G: Info 2
+      "",                  // Col H: Niño 3
+      "",                  // Col I: Edad 3
+      "",                  // Col J: Info 3
+      "",                  // Col K: Niño 4
+      "",                  // Col L: Edad 4
+      "",                  // Col M: Info 4
+      nombrePapas,         // Col N: Papás
+      "",                  // Col O: Mail/Otro
+      telefono,            // Col P: Teléfono
+      observaciones        // Col Q: Observaciones
+    ];
+
+    sheet.appendRow(nuevaFila);
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      message: `Niño ${nombreNino1} agregado exitosamente al registro`,
+      nuevoNino: {
+        nombre: nombreNino1,
+        edad: edadNino1,
+        sala: salaNino1,
+        nombrePapas: nombrePapas,
+        telefono: telefono
+      }
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.toString(),
+      stack: err.stack
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
- * Asegura que exista la hoja de Asistencias con sus encabezados
+ * Asegura que exista la hoja de Asistencias con sus encabezados (incluyendo Columna L: Turno / Reunión)
  */
 function asegurarHojaAsistencias() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_ASISTENCIAS);
+
+  const headers = [
+    "ID Asistencia",
+    "Fecha (AAAA-MM-DD)",
+    "Hora Ingreso",
+    "ID Niño",
+    "Nombre Niño",
+    "Nombre Padres",
+    "Teléfono Contacto",
+    "Sala / Grupo",
+    "Estado",
+    "Observaciones",
+    "Registrado Por",
+    "Turno / Reunión"
+  ];
 
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_ASISTENCIAS);
-    const headers = [
-      "ID Asistencia",
-      "Fecha (AAAA-MM-DD)",
-      "Hora Ingreso",
-      "ID Niño",
-      "Nombre Niño",
-      "Nombre Padres",
-      "Teléfono Contacto",
-      "Sala / Grupo",
-      "Estado",
-      "Observaciones",
-      "Registrado Por"
-    ];
     sheet.appendRow(headers);
     sheet.getRange("1:1").setFontWeight("bold").setBackground("#CA8A04").setFontColor("#FFFFFF");
     sheet.setFrozenRows(1);
+  } else {
+    // Si la hoja ya existe, verificar si tiene la columna L de Turno
+    const lastCol = sheet.getLastColumn();
+    if (lastCol < 12) {
+      const headerCell = sheet.getRange(1, 12);
+      headerCell.setValue("Turno / Reunión");
+      headerCell.setFontWeight("bold").setBackground("#CA8A04").setFontColor("#FFFFFF");
+    }
   }
 
   return sheet;
@@ -571,6 +742,27 @@ function asegurarHojaAsistencias() {
 // ----------------------------------------------------
 // FUNCIONES AUXILIARES DE FORMATEO Y UTILIDADES
 // ----------------------------------------------------
+
+/**
+ * Normaliza y valida el turno dominical recibido
+ */
+function normalizarTurno(turno) {
+  if (!turno) return TURNO_DEFAULT;
+  const t = String(turno).trim();
+  if (t === "") return TURNO_DEFAULT;
+  
+  const tLower = t.toLowerCase();
+  if (tLower.includes("10") || tLower.includes("manana") || tLower.includes("mañana")) {
+    return "10:00 hs (Mañana)";
+  }
+  if (tLower.includes("18") || tLower.includes("tarde")) {
+    return "18:00 hs (Tarde)";
+  }
+  if (tLower.includes("20") || tLower.includes("noche")) {
+    return "20:00 hs (Noche)";
+  }
+  return t;
+}
 
 function getFechaActual() {
   const tz = Session.getScriptTimeZone() || "America/Argentina/Buenos_Aires";
@@ -607,7 +799,9 @@ function sanitizarId(texto) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "_")
-    .substring(0, 20);
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .substring(0, 30);
 }
 
 function determinarSala(edad, extra) {

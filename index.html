@@ -6,6 +6,16 @@
   <title>Portal de Asistencia Infantil - Ministerio de Niños</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
   
+  <!-- PWA & Mobile Web App Meta -->
+  <link rel="manifest" href="manifest.json?v=37">
+  <meta name="theme-color" content="#FACC15">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Kids Check-In">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -61,7 +71,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=37">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -211,7 +221,7 @@
           </div>
 
           <!-- Date picker & Quick Controls -->
-          <div class="flex items-center gap-2 sm:gap-3">
+          <div class="flex items-center flex-wrap gap-2 sm:gap-3">
             <!-- Date selector -->
             <div class="relative flex items-center bg-amber-50/50 rounded-2xl p-1 border border-amber-200/80 shadow-sm">
               <i class="fa-regular fa-calendar-days text-amber-600 ml-2 text-sm"></i>
@@ -219,6 +229,16 @@
               <button onclick="setTodayDate()" title="Ir a hoy" class="px-2.5 py-1 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-xl transition-all shadow-sm">
                 Hoy
               </button>
+            </div>
+
+            <!-- Turno / Reunión Selector -->
+            <div class="relative flex items-center bg-amber-50/50 rounded-2xl p-1 border border-amber-200/80 shadow-sm">
+              <i class="fa-solid fa-clock text-amber-600 ml-2 text-xs"></i>
+              <select id="selectedTurno" onchange="handleTurnoChange(this.value)" class="bg-transparent border-0 text-xs sm:text-sm font-bold text-amber-950 focus:ring-0 py-1 px-2 cursor-pointer outline-none font-['Inter']">
+                <option value="10:00 hs (Mañana)">10:00 hs (Mañana)</option>
+                <option value="18:00 hs (Tarde)">18:00 hs (Tarde)</option>
+                <option value="20:00 hs (Noche)">20:00 hs (Noche)</option>
+              </select>
             </div>
 
             <!-- Sync Button -->
@@ -809,6 +829,6 @@
   </div>
 
   <!-- Main JavaScript Logic -->
-  <script src="app.js"></script>
+  <script src="app.js?v=37"></script>
 </body>
 </html>

@@ -15,6 +15,7 @@ const state = {
   sessionToken: null,
   ninos: [],
   selectedDate: getTodayString(),
+  selectedTurno: '10:00 hs (Mañana)',
   filterSala: 'TODAS',
   filterEstado: 'TODOS',
   searchTerm: '',
@@ -148,11 +149,31 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V37)
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
+  initPWA();
 });
+
+function initPWA() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js?v=37')
+        .then(reg => {
+          console.log('[PWA v37] Service Worker registrado:', reg.scope);
+        })
+        .catch(err => {
+          console.warn('[PWA] Error registrando Service Worker:', err);
+        });
+    });
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      console.log('[PWA v37] Nuevo Service Worker activo, recargando...');
+      window.location.reload();
+    });
+  }
+}
 
 function initApp() {
   // Set date input value
@@ -165,6 +186,12 @@ function initApp() {
     });
   }
 
+  // Set turno input value
+  const turnoSelect = document.getElementById('selectedTurno');
+  if (turnoSelect) {
+    turnoSelect.value = state.selectedTurno;
+  }
+
   // Search input listeners
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
@@ -175,14 +202,21 @@ function initApp() {
     });
   }
 
-  // Check saved session in local storage
+  // Check saved session in session storage (destrucción por pestaña)
   checkSavedSession();
 }
 
+function handleTurnoChange(newTurno) {
+  state.selectedTurno = newTurno;
+  showToastNotification(`Turno cambiado: ${newTurno}`, 'info');
+  fetchData(false);
+}
+
 function checkSavedSession() {
-  const token = localStorage.getItem('asistencia_auth_token');
-  const userStr = localStorage.getItem('asistencia_auth_user');
-  const expiresAt = localStorage.getItem('asistencia_auth_expires');
+  // Priorizar sessionStorage para resguardo de tokens por pestaña
+  const token = sessionStorage.getItem('asistencia_auth_token') || localStorage.getItem('asistencia_auth_token');
+  const userStr = sessionStorage.getItem('asistencia_auth_user') || localStorage.getItem('asistencia_auth_user');
+  const expiresAt = sessionStorage.getItem('asistencia_auth_expires') || localStorage.getItem('asistencia_auth_expires');
 
   if (token && userStr && expiresAt) {
     const now = new Date().toISOString();
@@ -348,9 +382,14 @@ async function handleLogin(event) {
       state.sessionToken = token;
       state.currentUser = authUser;
 
-      localStorage.setItem('asistencia_auth_token', token);
-      localStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
-      localStorage.setItem('asistencia_auth_expires', expiresAt || new Date(Date.now() + 24*3600*1000).toISOString());
+      sessionStorage.setItem('asistencia_auth_token', token);
+      sessionStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
+      sessionStorage.setItem('asistencia_auth_expires', expiresAt || new Date(Date.now() + 24*3600*1000).toISOString());
+
+      // Limpieza de claves viejas en localStorage
+      localStorage.removeItem('asistencia_auth_token');
+      localStorage.removeItem('asistencia_auth_user');
+      localStorage.removeItem('asistencia_auth_expires');
 
       unlockAppView();
       updateConnectionBadge();
@@ -379,6 +418,9 @@ function handleLogout() {
     cancelButtonText: 'Cancelar'
   }).then((result) => {
     if (result.isConfirmed) {
+      sessionStorage.removeItem('asistencia_auth_token');
+      sessionStorage.removeItem('asistencia_auth_user');
+      sessionStorage.removeItem('asistencia_auth_expires');
       localStorage.removeItem('asistencia_auth_token');
       localStorage.removeItem('asistencia_auth_user');
       localStorage.removeItem('asistencia_auth_expires');
@@ -410,7 +452,7 @@ function togglePasswordVisibility() {
 }
 
 // ==========================================================================
-// DATA FETCHING & SYNCHRONIZATION
+// DATA FETCHING & SYNCHRONIZATION (SOPORTE MULTI-TURNO DOMINICAL)
 // ==========================================================================
 function getTodayString() {
   const d = new Date();
@@ -439,7 +481,7 @@ async function fetchData(showToast = false) {
   setLoadingState(true);
 
   if (state.demoMode || !state.scriptUrl) {
-    const stored = getLocalAttendance(state.selectedDate);
+    const stored = getLocalAttendance(state.selectedDate, state.selectedTurno);
     state.ninos = DEMO_NINOS.map(n => {
       const localStatus = stored[n.id];
       if (localStatus !== undefined) {
@@ -456,7 +498,7 @@ async function fetchData(showToast = false) {
     updateUI();
     setLoadingState(false);
     if (showToast) {
-      showToastNotification('Datos locales actualizados', 'info');
+      showToastNotification(`Datos locales actualizados (${state.selectedTurno})`, 'info');
     }
     return;
   }
@@ -465,25 +507,26 @@ async function fetchData(showToast = false) {
     const data = await callGoogleAppsScript({
       action: 'getDatos',
       fecha: state.selectedDate,
+      turno: state.selectedTurno,
       token: state.sessionToken || ''
     });
 
     if (data.success && Array.isArray(data.ninos)) {
       state.ninos = data.ninos;
-      saveLocalDataBackup(state.selectedDate, state.ninos);
+      saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
       updateUI();
       if (showToast) {
-        showToastNotification('Sincronizado con Google Sheets con éxito', 'success');
+        showToastNotification(`Sincronizado con Google Sheets (${state.selectedTurno})`, 'success');
       }
     } else {
       throw new Error(data.message || 'Error al obtener datos');
     }
   } catch (error) {
     console.warn('Error al conectar con Google Sheets, usando respaldo local:', error);
-    const cached = getLocalDataBackup(state.selectedDate);
+    const cached = getLocalDataBackup(state.selectedDate, state.selectedTurno);
     if (cached && cached.length > 0) {
       state.ninos = cached;
-      showToastNotification('Modo sin conexión: mostrando datos guardados en este dispositivo', 'warning');
+      showToastNotification(`Modo sin conexión: datos guardados para ${state.selectedTurno}`, 'warning');
     } else {
       state.ninos = DEMO_NINOS;
       showToastNotification('No se pudo conectar a Google Sheets. Verifique la URL en Configuración.', 'error');
@@ -494,39 +537,44 @@ async function fetchData(showToast = false) {
   }
 }
 
-// Local Storage helpers for offline resilience
-function getLocalAttendance(dateStr) {
+// Local Storage helpers for offline resilience with multi-turn support
+function getLocalAttendance(dateStr, turnoStr = state.selectedTurno) {
   try {
-    const data = localStorage.getItem(`asistencia_date_${dateStr}`);
+    const key = `asistencia_date_${dateStr}_${encodeURIComponent(turnoStr || '10:00 hs (Mañana)')}`;
+    const data = localStorage.getItem(key) || localStorage.getItem(`asistencia_date_${dateStr}`);
     return data ? JSON.parse(data) : {};
   } catch (e) {
     return {};
   }
 }
 
-function saveLocalAttendance(dateStr, childId, isPresent, timeStr, roomStr) {
+function saveLocalAttendance(dateStr, childId, isPresent, timeStr, roomStr, turnoStr = state.selectedTurno) {
   try {
-    const stored = getLocalAttendance(dateStr);
+    const key = `asistencia_date_${dateStr}_${encodeURIComponent(turnoStr || '10:00 hs (Mañana)')}`;
+    const stored = getLocalAttendance(dateStr, turnoStr);
     stored[childId] = {
       presente: isPresent,
       horaIngreso: timeStr,
-      sala: roomStr
+      sala: roomStr,
+      turno: turnoStr
     };
-    localStorage.setItem(`asistencia_date_${dateStr}`, JSON.stringify(stored));
+    localStorage.setItem(key, JSON.stringify(stored));
   } catch (e) {
     console.error('Error saving local attendance:', e);
   }
 }
 
-function saveLocalDataBackup(dateStr, list) {
+function saveLocalDataBackup(dateStr, turnoStr, list) {
   try {
-    localStorage.setItem(`backup_ninos_${dateStr}`, JSON.stringify(list));
+    const key = `backup_ninos_${dateStr}_${encodeURIComponent(turnoStr || '10:00 hs (Mañana)')}`;
+    localStorage.setItem(key, JSON.stringify(list));
   } catch (e) {}
 }
 
-function getLocalDataBackup(dateStr) {
+function getLocalDataBackup(dateStr, turnoStr = state.selectedTurno) {
   try {
-    const data = localStorage.getItem(`backup_ninos_${dateStr}`);
+    const key = `backup_ninos_${dateStr}_${encodeURIComponent(turnoStr || '10:00 hs (Mañana)')}`;
+    const data = localStorage.getItem(key) || localStorage.getItem(`backup_ninos_${dateStr}`);
     return data ? JSON.parse(data) : null;
   } catch (e) {
     return null;
@@ -534,7 +582,7 @@ function getLocalDataBackup(dateStr) {
 }
 
 // ==========================================================================
-// ATTENDANCE TOGGLE (CHECK-IN / CHECK-OUT)
+// ATTENDANCE TOGGLE (CHECK-IN / CHECK-OUT CON SOPORTE DE TURNO)
 // ==========================================================================
 async function toggleAsistencia(childId) {
   const child = state.ninos.find(n => n.id === childId);
@@ -555,7 +603,7 @@ async function toggleAsistencia(childId) {
     triggerMiniConfetti();
   }
 
-  saveLocalAttendance(state.selectedDate, child.id, newState, newTime, child.salaActual || child.salaSugerida);
+  saveLocalAttendance(state.selectedDate, child.id, newState, newTime, child.salaActual || child.salaSugerida, state.selectedTurno);
   updateUI();
 
   // If live mode is connected, sync with Google Sheets backend
@@ -571,6 +619,7 @@ async function toggleAsistencia(childId) {
         sala: child.salaActual || child.salaSugerida,
         fecha: state.selectedDate,
         hora: newTime || getCurrentTime(),
+        turno: state.selectedTurno,
         estado: newState ? 'Presente' : 'Ausente',
         token: state.sessionToken || ''
       });
@@ -973,7 +1022,7 @@ async function handleNuevoNino(event) {
 
   state.ninos.unshift(newChildObj);
   if (autoMarcar) {
-    saveLocalAttendance(state.selectedDate, newChildObj.id, true, newChildObj.horaIngreso, sala);
+    saveLocalAttendance(state.selectedDate, newChildObj.id, true, newChildObj.horaIngreso, sala, state.selectedTurno);
   }
   updateUI();
 
@@ -1007,6 +1056,7 @@ async function handleNuevoNino(event) {
           sala: sala,
           fecha: state.selectedDate,
           hora: newChildObj.horaIngreso,
+          turno: state.selectedTurno,
           estado: 'Presente',
           token: state.sessionToken || ''
         });
@@ -1032,7 +1082,7 @@ async function handleNuevoNino(event) {
 }
 
 // ==========================================================================
-// EXPORT & REPORTING (EXCEL, PDF, WHATSAPP)
+// EXPORT & REPORTING (EXCEL, PDF, WHATSAPP CON SOPORTE MULTI-TURNO)
 // ==========================================================================
 function exportToExcel() {
   const presentes = state.ninos.filter(n => n.presente);
@@ -1040,7 +1090,7 @@ function exportToExcel() {
     Swal.fire({
       icon: 'info',
       title: 'Sin datos para exportar',
-      text: 'No hay niños marcados como presentes en la fecha seleccionada.'
+      text: `No hay niños marcados como presentes en la fecha ${state.selectedDate} (${state.selectedTurno}).`
     });
     return;
   }
@@ -1048,6 +1098,7 @@ function exportToExcel() {
   const exportData = presentes.map((n, i) => ({
     'N°': i + 1,
     'Fecha': state.selectedDate,
+    'Turno / Reunión': state.selectedTurno,
     'Hora Ingreso': n.horaIngreso || '',
     'Nombre Niño/a': n.nombre,
     'Edad': n.edad || '',
@@ -1061,7 +1112,8 @@ function exportToExcel() {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Asistencia");
 
-  const fileName = `Asistencia_Ninos_${state.selectedDate}.xlsx`;
+  const cleanTurno = state.selectedTurno.replace(/[^a-zA-Z0-9]/g, '_');
+  const fileName = `Asistencia_Ninos_${state.selectedDate}_${cleanTurno}.xlsx`;
   XLSX.writeFile(workbook, fileName);
 
   showToastNotification(`Descargando ${fileName}`, 'success');
@@ -1069,17 +1121,26 @@ function exportToExcel() {
 
 function exportToPDF() {
   const presentes = state.ninos.filter(n => n.presente);
+  if (presentes.length === 0) {
+    Swal.fire({
+      icon: 'info',
+      title: 'Sin datos para exportar',
+      text: `No hay niños marcados como presentes en el turno ${state.selectedTurno}.`
+    });
+    return;
+  }
+
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
   // Header in warm amber / yellow accent
   doc.setFontSize(18);
   doc.setTextColor(202, 138, 4);
-  doc.text("Planilla de Asistencia - Ministerio de Niños", 14, 20);
+  doc.text("Planilla de Asistencia - Ministerio de Niños", 14, 18);
 
   doc.setFontSize(10);
   doc.setTextColor(100, 116, 139);
-  doc.text(`Fecha: ${state.selectedDate} | Total Presentes: ${presentes.length} niños`, 14, 28);
+  doc.text(`Fecha: ${state.selectedDate} | Turno: ${state.selectedTurno} | Total: ${presentes.length} presentes`, 14, 26);
 
   const tableData = presentes.map((n, i) => [
     i + 1,
@@ -1092,7 +1153,7 @@ function exportToPDF() {
   ]);
 
   doc.autoTable({
-    startY: 34,
+    startY: 32,
     head: [['#', 'Nombre Niño/a', 'Hora', 'Sala', 'Padres', 'Teléfono', 'Observaciones']],
     body: tableData,
     theme: 'grid',
@@ -1100,7 +1161,8 @@ function exportToPDF() {
     styles: { fontSize: 8, cellPadding: 2 }
   });
 
-  doc.save(`Asistencia_Ninos_${state.selectedDate}.pdf`);
+  const cleanTurno = state.selectedTurno.replace(/[^a-zA-Z0-9]/g, '_');
+  doc.save(`Asistencia_Ninos_${state.selectedDate}_${cleanTurno}.pdf`);
   showToastNotification('Generando Roster PDF...', 'success');
 }
 
@@ -1124,7 +1186,8 @@ function copyWhatsAppReport() {
   });
 
   const message = `📊 *REPORTE DE ASISTENCIA DE NIÑOS*\n` +
-    `🗓 *Fecha:* ${state.selectedDate}\n\n` +
+    `🗓 *Fecha:* ${state.selectedDate}\n` +
+    `⏰ *Turno / Reunión:* ${state.selectedTurno}\n\n` +
     `✅ *Total Presentes:* ${presentes.length}\n` +
     `❌ *Ausentes:* ${total - presentes.length}\n` +
     `👥 *Total Padrón:* ${total}\n\n` +

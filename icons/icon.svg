@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A"/>
+      <stop offset="50%" stop-color="#FACC15"/>
+      <stop offset="100%" stop-color="#EAB308"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded Background -->
+  <rect width="512" height="512" rx="128" fill="#FFFDF5"/>
+  <rect x="24" y="24" width="464" height="464" rx="104" fill="url(#yellowGrad)"/>
+  <rect x="36" y="36" width="440" height="440" rx="92" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-opacity="0.6"/>
+
+  <!-- Hands and Child Icon Graphic -->
+  <g fill="#713F12" transform="translate(106, 106) scale(0.586)">
+    <circle cx="256" cy="110" r="55" />
+    <path d="M 190 200 C 190 170 210 160 256 160 C 302 160 322 170 322 200 L 322 270 C 322 285 305 295 290 285 L 256 265 L 222 285 C 207 295 190 285 190 270 Z" />
+    <path d="M 80 340 C 90 290 140 260 190 290 C 210 302 220 325 210 350 C 195 385 160 410 110 410 C 80 410 70 370 80 340 Z" />
+    <path d="M 432 340 C 422 290 372 260 322 290 C 302 302 292 325 302 350 C 317 385 352 410 402 410 C 432 410 442 370 432 340 Z" />
+    <path d="M 120 420 C 200 480 312 480 392 420 C 370 445 280 475 256 475 C 232 475 142 445 120 420 Z" fill="#854D0E" />
+  </g>
+</svg>
