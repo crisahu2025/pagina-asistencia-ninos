@@ -156,7 +156,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V48)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V50)
 // ==========================================================================
 let deferredInstallPrompt = null;
 
@@ -219,9 +219,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=48')
+      navigator.serviceWorker.register('./sw.js?v=50')
         .then(reg => {
-          console.log('[PWA v48] Service Worker registrado:', reg.scope);
+          console.log('[PWA v50] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -229,7 +229,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v48] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v50] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -1218,19 +1218,19 @@ function selectWaPreset(presetId) {
 
   switch (presetId) {
     case 1:
-      text = `Hola ${papas}, te escribimos desde la sala de niños. Necesitamos que por favor te acerques un momento por ${nombreNino}. ¡Muchas gracias!`;
+      text = `Hola ${papas}, te escribimos desde IGR KIDS. Necesitamos que por favor te acerques un momento por ${nombreNino}. ¡Muchas gracias!`;
       break;
     case 2:
-      text = `Hola ${papas}, te avisamos que ${nombreNino} necesita un cambio de pañal / ropa. Te esperamos en la sala de niños.`;
+      text = `Hola ${papas}, te avisamos desde IGR KIDS que ${nombreNino} necesita un cambio de pañal / ropa. Te esperamos en la sala.`;
       break;
     case 3:
-      text = `Hola ${papas}, ${nombreNino} está un poco triste y extrañando. ¿Podrías acercarte a la sala para acompañarlo/a?`;
+      text = `Hola ${papas}, te escribimos desde IGR KIDS: ${nombreNino} está un poco triste y extrañando. ¿Podrías acercarte un momento a la sala para acompañarlo/a?`;
       break;
     case 4:
-      text = `¡Hola ${papas}! La reunión ha finalizado y ya pueden pasar a retirar a ${nombreNino} por su sala. ¡Bendiciones!`;
+      text = `¡Hola ${papas}! Te avisamos desde IGR KIDS que la reunión ha finalizado y ya pueden pasar a retirar a ${nombreNino} por su sala. ¡Muchas gracias!`;
       break;
     default:
-      text = `Hola ${papas}, te contactamos desde la sala de niños por ${nombreNino}.`;
+      text = `Hola ${papas}, te contactamos desde IGR KIDS por ${nombreNino}.`;
   }
 
   document.getElementById('waCustomMessage').value = text;

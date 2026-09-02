@@ -1,18 +1,18 @@
 /**
  * ====================================================================================
- * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V48)
+ * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V50)
  * Code Ahumada 2026
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v48';
+const CACHE_NAME = 'igr-kids-v50';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=48',
-  './app.js?v=48',
-  './manifest.json?v=48',
+  './styles.css?v=50',
+  './app.js?v=50',
+  './manifest.json?v=50',
   './icons/icon.svg',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
@@ -29,7 +29,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW v48] Pre-caching partial warning:', err);
+        console.warn('[SW v50] Pre-caching partial warning:', err);
       });
     })
   );
@@ -42,7 +42,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[SW v48] Eliminando caché antiguo:', cacheName);
+            console.log('[SW v50] Eliminando caché antiguo:', cacheName);
             return caches.delete(cacheName);
           }
         })
