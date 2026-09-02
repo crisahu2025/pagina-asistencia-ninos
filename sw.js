@@ -1,18 +1,18 @@
 /**
  * ====================================================================================
- * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V46)
+ * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V48)
  * Code Ahumada 2026
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v46';
+const CACHE_NAME = 'igr-kids-v48';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=46',
-  './app.js?v=46',
-  './manifest.json?v=46',
+  './styles.css?v=48',
+  './app.js?v=48',
+  './manifest.json?v=48',
   './icons/icon.svg',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
@@ -29,7 +29,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW v45] Pre-caching partial warning:', err);
+        console.warn('[SW v48] Pre-caching partial warning:', err);
       });
     })
   );
@@ -42,7 +42,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[SW v45] Eliminando caché antiguo:', cacheName);
+            console.log('[SW v48] Eliminando caché antiguo:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -51,7 +51,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event - Stale-while-revalidate for local assets, network-only for live API
+// Fetch Event - Network-First for HTML/Navigations, Stale-while-revalidate for local assets, network-only for live API
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
@@ -67,20 +67,45 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Strategy 1: Network-First for HTML navigations / root documents (always fetch fresh HTML first)
+  const isNavigate = event.request.mode === 'navigate';
+  const isHtml = url.pathname.endsWith('.html') || url.pathname === '/' || url.pathname.endsWith('/');
+
+  if (isNavigate || isHtml) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || caches.match('./index.html') || caches.match('./');
+          });
+        })
+    );
+    return;
+  }
+
+  // Strategy 2: Stale-While-Revalidate for CSS, JS, Images, Fonts and External CDNs
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      }).catch((err) => {
-        // Fallback to cache if offline
-        return cachedResponse;
-      });
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => cachedResponse);
 
       return cachedResponse || fetchPromise;
     })

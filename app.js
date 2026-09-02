@@ -156,7 +156,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V46)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V48)
 // ==========================================================================
 let deferredInstallPrompt = null;
 
@@ -219,9 +219,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=46')
+      navigator.serviceWorker.register('./sw.js?v=48')
         .then(reg => {
-          console.log('[PWA v46] Service Worker registrado:', reg.scope);
+          console.log('[PWA v48] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -229,7 +229,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v46] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v48] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -1491,85 +1491,8 @@ function copyWhatsAppReport() {
 }
 
 // ==========================================================================
-// CONFIGURATION MODAL & CONNECTION SETTINGS
+// CONNECTION STATUS
 // ==========================================================================
-function openConfigModal() {
-  document.getElementById('configScriptUrl').value = state.scriptUrl;
-  document.getElementById('configDemoMode').checked = state.demoMode;
-  document.getElementById('configModal').classList.remove('hidden');
-}
-
-function closeConfigModal() {
-  document.getElementById('configModal').classList.add('hidden');
-}
-
-function saveConfiguration() {
-  const url = document.getElementById('configScriptUrl').value.trim();
-  const isDemo = document.getElementById('configDemoMode').checked;
-
-  state.scriptUrl = url;
-  state.demoMode = isDemo;
-
-  localStorage.setItem('asistencia_script_url', url);
-  localStorage.setItem('asistencia_demo_mode', isDemo ? 'true' : 'false');
-
-  updateConnectionBadge();
-  closeConfigModal();
-
-  showToastNotification('Configuración guardada correctamente', 'success');
-  if (state.isAuthenticated) {
-    fetchData(true);
-  }
-}
-
-function toggleDemoModeSetting(checked) {
-  state.demoMode = checked;
-}
-
-async function testConnection() {
-  const url = document.getElementById('configScriptUrl').value.trim();
-  if (!url) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'URL Requerida',
-      text: 'Por favor pega la URL de tu Google Apps Script antes de probar.'
-    });
-    return;
-  }
-
-  Swal.fire({
-    title: 'Probando conexión...',
-    text: 'Enviando ping a Google Apps Script',
-    allowOutsideClick: false,
-    didOpen: () => {
-      Swal.showLoading();
-    }
-  });
-
-  try {
-    state.scriptUrl = url;
-    const json = await callGoogleAppsScript({ action: 'ping' });
-
-    if (json && json.success) {
-      Swal.fire({
-        icon: 'success',
-        title: '¡Conexión Exitosa!',
-        text: 'La web se comunicó correctamente con tu Google Sheets y el módulo de seguridad.',
-        confirmButtonColor: '#ca8a04'
-      });
-    } else {
-      throw new Error(json.message || 'Respuesta inesperada');
-    }
-  } catch (err) {
-    Swal.fire({
-      icon: 'info',
-      title: 'Verificación de Acceso',
-      html: 'Para que la conexión funcione en vivo sin pedir login de Google, asegúrate de que al <b>Implementar</b> en Apps Script, la opción <b>Quién tiene acceso</b> esté configurada como <b>Cualquier persona (Anyone)</b>.',
-      confirmButtonColor: '#ca8a04'
-    });
-  }
-}
-
 function updateConnectionBadge() {
   const badge = document.getElementById('connectionBadge');
   const text = document.getElementById('connectionText');
@@ -1583,7 +1506,7 @@ function updateConnectionBadge() {
     if (banner) banner.classList.remove('hidden');
   } else {
     badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-200';
-    text.textContent = 'Google Sheets Online';
+    text.textContent = 'Online';
     if (banner) banner.classList.add('hidden');
   }
 }

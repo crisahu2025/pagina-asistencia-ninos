@@ -6,7 +6,7 @@
   <title>IGR KIDS - Portal de Asistencia Infantil</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
     <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=46">
+  <link rel="manifest" href="manifest.json?v=48">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=46">
+  <link rel="stylesheet" href="styles.css?v=48">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -93,7 +93,7 @@
           IGR KIDS
         </h2>
         <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-          Portal de Asistencia & Seguridad Infantil
+          Asistencia Niños
         </p>
       </div>
 
@@ -155,8 +155,8 @@
         <!-- Security Note -->
         <div class="p-3 bg-amber-50/60 rounded-2xl border border-amber-100 flex items-start gap-2.5 text-[11px] text-amber-900 leading-relaxed">
           <i class="fa-solid fa-shield-check text-amber-600 text-sm mt-0.5 shrink-0"></i>
-          <span>Acceso seguro cifrado para maestros y coordinadores de IGR KIDS</span>
-        </div>     </div>
+          <span>Acceso privado para maestros y coordinadores de IGR KIDS.</span>
+        </div>
 
         <!-- Error Message Container (Hidden by default) -->
         <div id="loginErrorMsg" class="hidden p-3 bg-red-50 text-red-700 border border-red-200 rounded-2xl text-xs font-semibold flex items-center gap-2">
@@ -261,16 +261,6 @@
         </button>
       </form>
 
-      <!-- Connection / Settings quick link -->
-      <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-        <span class="flex items-center gap-1">
-          <i class="fa-solid fa-cloud text-amber-500 text-xs"></i> Google Sheets API
-        </span>
-        <button onclick="openConfigModal()" class="text-amber-800 font-semibold hover:underline flex items-center gap-1">
-          <i class="fa-solid fa-gear text-[11px]"></i> Ajustes de Conexión
-        </button>
-      </div>
-
     </div>
   </div>
 
@@ -283,8 +273,7 @@
     <div id="statusBanner" class="hidden py-2 px-4 text-center text-xs font-semibold text-amber-900 bg-amber-100/90 border-b border-amber-200 transition-all">
       <div class="max-w-7xl mx-auto flex items-center justify-center gap-2">
         <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
-        <span id="statusBannerText">Modo de demostración activo con datos de prueba. Configura tu URL de Google Apps Script para sincronizar en vivo.</span>
-        <button onclick="openConfigModal()" class="underline font-bold hover:text-amber-800 ml-2">Configurar ahora</button>
+        <span id="statusBannerText">Modo de demostración activo con datos de prueba.</span>
       </div>
     </div>
 
@@ -311,7 +300,7 @@
                 </span>
               </div>
               <p class="hidden md:block text-xs text-slate-400 font-medium mt-0.5">
-                Control de Asistencia & Seguridad Infantil
+                Asistencia Niños
               </p>
             </div>
           </div>
@@ -332,13 +321,8 @@
             </button>
 
             <!-- Sync Button -->
-            <button id="btnSync" onclick="fetchData(true)" title="Sincronizar con Google Sheets" class="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-all shadow-sm">
+            <button id="btnSync" onclick="fetchData(true)" title="Sincronizar datos" class="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-all shadow-sm">
               <i id="syncIcon" class="fa-solid fa-arrows-rotate text-xs sm:text-sm"></i>
-            </button>
-
-            <!-- Settings Button -->
-            <button onclick="openConfigModal()" title="Configuración de conexión" class="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-all shadow-sm">
-              <i class="fa-solid fa-gear text-xs sm:text-sm"></i>
             </button>
 
             <!-- Logout Button -->
@@ -771,7 +755,7 @@
               </button>
               <button type="submit" id="btnGuardarNino" class="px-6 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-amber-950 text-sm font-bold rounded-2xl shadow-md shadow-amber-400/20 transition-all flex items-center gap-2 border border-amber-300">
                 <i class="fa-solid fa-floppy-disk"></i>
-                <span>Guardar en Google Sheets</span>
+                <span>Guardar Niño</span>
               </button>
             </div>
           </form>
@@ -786,8 +770,6 @@
         <p>© 2026 Code Ahumada — IGR KIDS</p>
         <div class="flex items-center gap-4 text-slate-500 font-medium">
           <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle text-[8px] text-emerald-500"></i> Sesión Activa</span>
-          <span>•</span>
-          <button onclick="openConfigModal()" class="hover:text-amber-700 underline">Ajustes</button>
           <span>•</span>
           <button onclick="handleLogout()" class="hover:text-red-600 text-slate-400">Salir</button>
         </div>
@@ -877,76 +859,6 @@
     </div>
   </div>
 
-  <!-- ============================================================= -->
-  <!-- MODAL: CONFIGURACIÓN GOOGLE APPS SCRIPT                       -->
-  <!-- ============================================================= -->
-  <div id="configModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-amber-100 animate-fadeIn">
-      
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-        <div class="flex items-center gap-3">
-          <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center text-xl">
-            <i class="fa-solid fa-sliders"></i>
-          </div>
-          <div>
-            <h3 class="text-lg font-bold font-['Outfit'] text-slate-900">Configuración de Conexión</h3>
-            <p class="text-xs text-slate-500">Conexión con tu Google Sheets</p>
-          </div>
-        </div>
-        <button onclick="closeConfigModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <div class="mt-4 space-y-4">
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">URL de la Web App de Google Apps Script</label>
-          <input type="url" id="configScriptUrl" value="https://script.google.com/macros/s/AKfycbwNdfoNh3pockZlVvw_va3Sc3A9manfh992hVQufi6DdLFEOt-xNyGjCG_vE6ocBl1w/exec" placeholder="https://script.google.com/macros/s/AKfycbx.../exec" class="w-full px-4 py-3 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-xs font-mono focus:ring-2 focus:ring-amber-400 focus:bg-white outline-none">
-          <p class="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-            Pega aquí el enlace de la Aplicación Web generada al implementar el archivo <code class="bg-amber-50 text-amber-900 px-1 py-0.5 rounded border border-amber-200 font-mono">Code.gs</code> en tu hoja de Google Sheets.
-          </p>
-        </div>
-
-        <!-- Google Sheet Link Reference -->
-        <div class="p-3 bg-amber-50/60 rounded-2xl border border-amber-100 flex items-center justify-between text-xs">
-          <div class="flex items-center gap-2 text-amber-950">
-            <i class="fa-solid fa-table text-amber-600 text-sm"></i>
-            <span>Hoja de Cálculo Vinculada: <strong>Registro de NIÑOS</strong></span>
-          </div>
-          <a href="https://docs.google.com/spreadsheets/d/19XrXo04KUeNyiYnizL_ehYV_ODnnFlv3br6AlRBXjLg/edit" target="_blank" class="text-amber-800 font-bold hover:underline">
-            Abrir Sheet <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-          </a>
-        </div>
-
-        <!-- Demo Mode Toggle -->
-        <div class="flex items-center justify-between p-3 bg-[#FFFDF5] rounded-2xl border border-amber-200/80">
-          <div>
-            <h5 class="text-xs font-bold text-slate-800">Modo Demo / Datos de Ejemplo</h5>
-            <p class="text-[11px] text-slate-500">Úsalo si aún no has publicado el Apps Script o para probar la interfaz.</p>
-          </div>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="configDemoMode" class="sr-only peer" onchange="toggleDemoModeSetting(this.checked)">
-            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-          </label>
-        </div>
-
-        <!-- Test Connection Button -->
-        <div class="pt-2 flex items-center justify-between">
-          <button type="button" onclick="testConnection()" class="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold rounded-2xl transition-all flex items-center gap-2">
-            <i class="fa-solid fa-bolt text-amber-600"></i>
-            <span>Probar Conexión</span>
-          </button>
-          
-          <button type="button" onclick="saveConfiguration()" class="px-6 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-amber-950 text-xs font-bold rounded-2xl shadow-md transition-all border border-amber-300">
-            Guardar Cambios
-          </button>
-        </div>
-
-      </div>
-
-    </div>
-  </div>
-
   <!-- Mobile PWA Install Floating Banner -->
   <div id="mobilePwaInstallBanner" class="hidden sm:hidden fixed bottom-4 inset-x-3 z-40 bg-slate-900/95 text-white p-3 rounded-2xl shadow-xl flex items-center justify-between border border-amber-400/40 backdrop-blur-md animate-fadeIn">
     <div class="flex items-center gap-2.5">
@@ -969,6 +881,6 @@
   </div>
 
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=46"></script>
+  <script src="app.js?v=48"></script>
 </body>
 </html>
