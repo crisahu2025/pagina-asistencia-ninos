@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=54">
+  <link rel="stylesheet" href="styles.css?v=64">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -361,27 +361,48 @@
 
         </div>
 
-        <!-- ROW 3: NAVIGATION TABS -->
-        <nav class="flex space-x-2 border-t border-amber-100/60 overflow-x-auto py-2 no-scrollbar">
-          <button onclick="switchTab('asistencia')" id="tabBtn-asistencia" class="tab-btn active-tab flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-2xl transition-all">
-            <i class="fa-solid fa-clipboard-user text-sm"></i>
+        <!-- ROW 3: NAVIGATION TABS (Card Style) -->
+        <nav class="flex space-x-2.5 border-t border-amber-100/60 overflow-x-auto py-2.5 no-scrollbar items-center">
+          <!-- Tab 1: Toma de Asistencia -->
+          <button onclick="switchTab('asistencia')" id="tabBtn-asistencia" class="tab-btn active-tab flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm">
+            <div class="w-6 h-6 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-xs shrink-0">
+              <i class="fa-solid fa-clipboard-user"></i>
+            </div>
             <span>Toma de Asistencia</span>
-            <span id="badgeTotalNinos" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-amber-200 text-amber-950 font-bold">0</span>
+            <span id="badgeTotalNinos" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-amber-200 text-amber-950 font-black">0</span>
           </button>
 
-          <button onclick="switchTab('presentes')" id="tabBtn-presentes" class="tab-btn flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
-            <i class="fa-solid fa-circle-check text-amber-600 text-sm"></i>
+          <!-- Tab 2: Presentes Hoy -->
+          <button onclick="switchTab('presentes')" id="tabBtn-presentes" class="tab-btn flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm">
+            <div class="w-6 h-6 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs shrink-0">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
             <span>Presentes Hoy</span>
-            <span id="badgeTotalPresentes" class="ml-1 px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">0</span>
+            <span id="badgeTotalPresentes" class="ml-1 px-2 py-0.5 text-xs font-black rounded-full bg-emerald-100 text-emerald-800">0</span>
           </button>
 
-          <button onclick="switchTab('reportes')" id="tabBtn-reportes" class="tab-btn flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
-            <i class="fa-solid fa-file-arrow-down text-amber-700 text-sm"></i>
+          <!-- NUEVO BOTÓN: Estadísticas -->
+          <button onclick="toggleEstadisticas()" id="btnToggleEstadisticas" class="tab-btn flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm hover:border-amber-400">
+            <div class="w-6 h-6 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center text-xs shrink-0">
+              <i class="fa-solid fa-chart-pie"></i>
+            </div>
+            <span>Estadísticas</span>
+            <i id="iconChevronEstadisticas" class="fa-solid fa-chevron-down text-[10px] text-slate-400 ml-1"></i>
+          </button>
+
+          <!-- Tab 3: Reportes & Descargas -->
+          <button onclick="switchTab('reportes')" id="tabBtn-reportes" class="tab-btn flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm">
+            <div class="w-6 h-6 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-xs shrink-0">
+              <i class="fa-solid fa-file-arrow-down"></i>
+            </div>
             <span>Reportes & Descargas</span>
           </button>
 
-          <button onclick="switchTab('nuevo')" id="tabBtn-nuevo" class="tab-btn flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
-            <i class="fa-solid fa-plus text-sm"></i>
+          <!-- Tab 4: Registrar Niño -->
+          <button onclick="switchTab('nuevo')" id="tabBtn-nuevo" class="tab-btn flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm">
+            <div class="w-6 h-6 rounded-xl bg-yellow-100 text-yellow-900 flex items-center justify-center text-xs shrink-0">
+              <i class="fa-solid fa-plus"></i>
+            </div>
             <span>Registrar Niño</span>
           </button>
         </nav>
@@ -389,8 +410,8 @@
       </div>
     </header>
 
-    <!-- STATS OVERVIEW CARDS (Pastel Yellow / Warm Butter & White) -->
-    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2 w-full">
+    <!-- STATS OVERVIEW CARDS (Desplegable interactivo con botón 'Estadísticas') -->
+    <section id="seccionEstadisticas" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2 w-full animate-fadeIn">
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         
         <!-- Total Registrados -->
@@ -1038,6 +1059,6 @@
 
     </div>
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=62"></script>
+  <script src="app.js?v=64"></script>
 </body>
 </html>

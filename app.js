@@ -313,9 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=62')
+      navigator.serviceWorker.register('./sw.js?v=64')
         .then(reg => {
-          console.log('[PWA v62] Service Worker registrado:', reg.scope);
+          console.log('[PWA v64] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -323,7 +323,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v62] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v64] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -1922,6 +1922,39 @@ function triggerMiniConfetti() {
       });
     }
   } catch (e) {}
+}
+
+// ==========================================================================
+// INTERACTIVE ESTADÍSTICAS TOGGLE
+// ==========================================================================
+function toggleEstadisticas() {
+  const seccion = document.getElementById('seccionEstadisticas');
+  const btn = document.getElementById('btnToggleEstadisticas');
+  const chevron = document.getElementById('iconChevronEstadisticas');
+  if (!seccion) return;
+
+  const isHidden = seccion.classList.contains('hidden');
+  if (isHidden) {
+    seccion.classList.remove('hidden');
+    if (btn) {
+      btn.classList.add('bg-amber-100/80', 'border-amber-400', 'text-amber-950', 'ring-2', 'ring-amber-300/40');
+      btn.classList.remove('bg-white');
+    }
+    if (chevron) {
+      chevron.classList.remove('fa-chevron-down');
+      chevron.classList.add('fa-chevron-up');
+    }
+  } else {
+    seccion.classList.add('hidden');
+    if (btn) {
+      btn.classList.remove('bg-amber-100/80', 'border-amber-400', 'text-amber-950', 'ring-2', 'ring-amber-300/40');
+      btn.classList.add('bg-white');
+    }
+    if (chevron) {
+      chevron.classList.remove('fa-chevron-up');
+      chevron.classList.add('fa-chevron-down');
+    }
+  }
 }
 
 // ==========================================================================
