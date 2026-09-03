@@ -6,14 +6,14 @@
   <title>IGR KIDS - Portal de Asistencia Infantil</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
     <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=54">
+  <link rel="manifest" href="manifest.json?v=65">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IGR KIDS">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=54">
-  <link rel="icon" type="image/png" href="icons/favicon.png?v=54">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=65">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=65">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=64">
+  <link rel="stylesheet" href="styles.css?v=65">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -361,46 +361,54 @@
 
         </div>
 
-        <!-- ROW 3: NAVIGATION TABS (Card Style) -->
-        <nav class="flex space-x-2.5 border-t border-amber-100/60 overflow-x-auto py-2.5 no-scrollbar items-center">
+        <!-- ROW 3: NAVIGATION TABS (Card Style - Grid on Mobile, Flex on Desktop) -->
+        <nav class="grid grid-cols-2 sm:flex sm:flex-nowrap gap-2 sm:gap-2.5 w-full border-t border-amber-100/60 py-2.5 items-center">
           <!-- Tab 1: Toma de Asistencia -->
-          <button onclick="switchTab('asistencia')" id="tabBtn-asistencia" class="tab-btn active-tab flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm">
-            <div class="w-6 h-6 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-xs shrink-0">
-              <i class="fa-solid fa-clipboard-user"></i>
+          <button onclick="switchTab('asistencia')" id="tabBtn-asistencia" class="tab-btn active-tab col-span-1 flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm w-full sm:w-auto min-w-0">
+            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-xs shrink-0">
+                <i class="fa-solid fa-clipboard-user"></i>
+              </div>
+              <span class="truncate">Toma Asistencia</span>
             </div>
-            <span>Toma de Asistencia</span>
-            <span id="badgeTotalNinos" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-amber-200 text-amber-950 font-black">0</span>
+            <span id="badgeTotalNinos" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-amber-200 text-amber-950 font-black shrink-0">0</span>
           </button>
 
           <!-- Tab 2: Presentes Hoy -->
-          <button onclick="switchTab('presentes')" id="tabBtn-presentes" class="tab-btn flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm">
-            <div class="w-6 h-6 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs shrink-0">
-              <i class="fa-solid fa-circle-check"></i>
+          <button onclick="switchTab('presentes')" id="tabBtn-presentes" class="tab-btn col-span-1 flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm w-full sm:w-auto min-w-0">
+            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs shrink-0">
+                <i class="fa-solid fa-circle-check"></i>
+              </div>
+              <span class="truncate">Presentes Hoy</span>
             </div>
-            <span>Presentes Hoy</span>
-            <span id="badgeTotalPresentes" class="ml-1 px-2 py-0.5 text-xs font-black rounded-full bg-emerald-100 text-emerald-800">0</span>
+            <span id="badgeTotalPresentes" class="ml-1 px-2 py-0.5 text-xs font-black rounded-full bg-emerald-100 text-emerald-800 shrink-0">0</span>
           </button>
 
-          <!-- NUEVO BOTÓN: Estadísticas -->
-          <button onclick="toggleEstadisticas()" id="btnToggleEstadisticas" class="tab-btn flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm hover:border-amber-400">
-            <div class="w-6 h-6 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center text-xs shrink-0">
-              <i class="fa-solid fa-chart-pie"></i>
+          <!-- Tab 3: Estadísticas -->
+          <button onclick="toggleEstadisticas()" id="btnToggleEstadisticas" class="tab-btn col-span-1 flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm hover:border-amber-400 w-full sm:w-auto min-w-0">
+            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center text-xs shrink-0">
+                <i class="fa-solid fa-chart-pie"></i>
+              </div>
+              <span class="truncate">Estadísticas</span>
             </div>
-            <span>Estadísticas</span>
-            <i id="iconChevronEstadisticas" class="fa-solid fa-chevron-down text-[10px] text-slate-400 ml-1"></i>
+            <i id="iconChevronEstadisticas" class="fa-solid fa-chevron-down text-[10px] text-slate-400 ml-1 shrink-0"></i>
           </button>
 
-          <!-- Tab 3: Reportes & Descargas -->
-          <button onclick="switchTab('reportes')" id="tabBtn-reportes" class="tab-btn flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm">
-            <div class="w-6 h-6 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-xs shrink-0">
-              <i class="fa-solid fa-file-arrow-down"></i>
+          <!-- Tab 4: Reportes & Descargas -->
+          <button onclick="switchTab('reportes')" id="tabBtn-reportes" class="tab-btn col-span-1 flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm w-full sm:w-auto min-w-0">
+            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-xs shrink-0">
+                <i class="fa-solid fa-file-arrow-down"></i>
+              </div>
+              <span class="truncate">Reportes</span>
             </div>
-            <span>Reportes & Descargas</span>
           </button>
 
-          <!-- Tab 4: Registrar Niño -->
-          <button onclick="switchTab('nuevo')" id="tabBtn-nuevo" class="tab-btn flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm">
-            <div class="w-6 h-6 rounded-xl bg-yellow-100 text-yellow-900 flex items-center justify-center text-xs shrink-0">
+          <!-- Tab 5: Registrar Niño -->
+          <button onclick="switchTab('nuevo')" id="tabBtn-nuevo" class="tab-btn col-span-2 sm:col-span-1 flex items-center justify-center sm:justify-start gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm w-full sm:w-auto">
+            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-yellow-100 text-yellow-900 flex items-center justify-center text-xs shrink-0">
               <i class="fa-solid fa-plus"></i>
             </div>
             <span>Registrar Niño</span>
@@ -678,6 +686,7 @@
       </section>
 
       <!-- ============================================================= -->
+      <!-- ============================================================= -->
       <!-- TAB 2: PRESENTES HOY (LIVE SUNDAY CHECK-IN LIST)              -->
       <!-- ============================================================= -->
       <section id="tab-presentes" class="tab-content hidden space-y-5">
@@ -689,20 +698,61 @@
             </h2>
             <p class="text-sm text-slate-500 mt-0.5">Control de seguridad, retiro y contacto rápido con familias presentes.</p>
           </div>
-          <div class="flex items-center gap-2 w-full sm:w-auto">
-            <button onclick="exportToExcel()" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-sm transition-all">
+          <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <!-- View Mode Switcher: Recuadro vs Lista -->
+            <div class="flex items-center bg-amber-50/80 p-1 rounded-2xl border border-amber-200/80 text-xs font-bold">
+              <button type="button" id="btnPresentesViewGrid" onclick="setPresentesViewMode('grid')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-amber-950 shadow-sm transition-all cursor-pointer">
+                <i class="fa-solid fa-table-cells-large text-xs"></i>
+                <span>Recuadro</span>
+              </button>
+              <button type="button" id="btnPresentesViewTable" onclick="setPresentesViewMode('table')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-500 hover:text-slate-900 transition-all cursor-pointer">
+                <i class="fa-solid fa-list text-xs"></i>
+                <span>Lista</span>
+              </button>
+            </div>
+
+            <button onclick="exportToExcel()" class="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer">
               <i class="fa-solid fa-file-excel"></i>
-              <span>Exportar Excel</span>
+              <span>Excel</span>
             </button>
-            <button onclick="printAttendanceRoster()" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-sm transition-all">
+            <button onclick="printAttendanceRoster()" class="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer">
               <i class="fa-solid fa-print"></i>
-              <span>Imprimir Roster</span>
+              <span>Imprimir</span>
             </button>
           </div>
         </div>
 
-        <!-- Present List Container -->
-        <div class="bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden">
+        <!-- Buscador Exclusivo en Presentes Hoy -->
+        <div class="bg-[#0B0F19] p-3.5 sm:p-4 rounded-3xl border border-slate-800 shadow-lg flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 text-base shadow-sm font-black">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </div>
+          <div class="flex-1 relative">
+            <input 
+              type="text" 
+              id="searchPresentesInput" 
+              oninput="handleSearchPresentes(this.value)" 
+              placeholder="Buscar niño presente, nombre de papás o teléfono para contactar por WhatsApp..." 
+              class="w-full bg-transparent text-white text-xs sm:text-sm font-semibold placeholder-slate-400 outline-none pr-8"
+            >
+            <button id="btnClearSearchPresentes" onclick="clearSearchPresentes()" class="hidden absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div class="flex items-center gap-2 border-l border-slate-700/80 pl-3">
+            <span id="badgeCountPresentesFilter" class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[11px] font-black whitespace-nowrap">
+              0 presentes
+            </span>
+          </div>
+        </div>
+
+        <!-- Cards View (Recuadros de Presentes) -->
+        <div id="presentesGridContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Rendered by JS as Cards -->
+        </div>
+
+        <!-- Table View (Lista de Presentes) -->
+        <div id="presentesTableContainer" class="hidden bg-white rounded-3xl border border-amber-100 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
               <thead class="bg-emerald-50/80 text-emerald-950 font-bold uppercase text-xs border-b border-emerald-100">
@@ -713,7 +763,7 @@
                   <th class="py-3.5 px-4">Sala</th>
                   <th class="py-3.5 px-4">Padres</th>
                   <th class="py-3.5 px-4">Teléfono</th>
-                  <th class="py-3.5 px-4 text-center">Acciones Rápidas</th>
+                  <th class="py-3.5 px-4 text-center">Acción</th>
                 </tr>
               </thead>
               <tbody id="presentesTableBody" class="divide-y divide-slate-100">
@@ -721,15 +771,15 @@
               </tbody>
             </table>
           </div>
+        </div>
 
-          <!-- Empty state for Presentes -->
-          <div id="presentesEmptyState" class="p-12 text-center hidden">
-            <div class="w-16 h-16 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto text-amber-500 text-2xl mb-4 border border-amber-100">
-              <i class="fa-regular fa-clipboard"></i>
-            </div>
-            <h4 class="text-base font-bold text-slate-800">Aún no hay niños marcados como presentes hoy</h4>
-            <p class="text-xs text-slate-500 mt-1">Ve a la pestaña "Toma de Asistencia" para comenzar a marcar los ingresos del domingo.</p>
+        <!-- Empty state for Presentes -->
+        <div id="presentesEmptyState" class="p-12 text-center hidden bg-white rounded-3xl border border-amber-100 shadow-sm">
+          <div class="w-16 h-16 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto text-amber-500 text-2xl mb-4 border border-amber-100">
+            <i class="fa-regular fa-clipboard"></i>
           </div>
+          <h4 id="presentesEmptyTitle" class="text-base font-bold text-slate-800">Aún no hay niños marcados como presentes hoy</h4>
+          <p id="presentesEmptySubtitle" class="text-xs text-slate-500 mt-1">Ve a la pestaña "Toma de Asistencia" para comenzar a marcar los ingresos del domingo.</p>
         </div>
       </section>
 
@@ -1059,6 +1109,6 @@
 
     </div>
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=64"></script>
+  <script src="app.js?v=65"></script>
 </body>
 </html>

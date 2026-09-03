@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CUSTOM STYLES - PALETA TONOS BLANCO Y AMARILLO PASTEL (v54) - IGR KIDS
+   CUSTOM STYLES - PALETA TONOS BLANCO Y AMARILLO PASTEL (v65) - IGR KIDS
    Code Ahumada 2026
    ========================================================================== */
 
@@ -61,18 +61,14 @@
   animation: slideUpBottom 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Tab buttons styling - Pastel Yellow theme */
-.tab-btn {
-  color: #64748b;
-  background-color: transparent;
-  white-space: nowrap;
-}
-
+/* Tab buttons styling - Pastel Yellow theme (v65) */
 .tab-btn {
   background-color: #ffffff;
   border: 1px solid rgba(254, 240, 138, 0.9);
   color: #475569;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  min-width: 0;
+  transition: all 0.2s ease;
 }
 
 .tab-btn:hover {

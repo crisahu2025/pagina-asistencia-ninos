@@ -1,27 +1,27 @@
 /**
  * ====================================================================================
- * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V62)
+ * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V65)
  * Code Ahumada 2026
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v64';
+const CACHE_NAME = 'igr-kids-v65';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './pastores.html',
-  './styles.css?v=64',
-  './app.js?v=64',
-  './manifest.json?v=64',
+  './styles.css?v=65',
+  './app.js?v=65',
+  './manifest.json?v=65',
   './manifest.json',
-  './icons/favicon.png?v=64',
+  './icons/favicon.png?v=65',
   './icons/favicon.png',
-  './icons/apple-touch-icon.png?v=64',
+  './icons/apple-touch-icon.png?v=65',
   './icons/apple-touch-icon.png',
-  './icons/icon-192.png?v=64',
+  './icons/icon-192.png?v=65',
   './icons/icon-192.png',
-  './icons/icon-512.png?v=64',
+  './icons/icon-512.png?v=65',
   './icons/icon-512.png',
   './icons/logo-icon.png?v=62',
   './icons/logo-icon.png',

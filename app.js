@@ -22,6 +22,8 @@ const state = {
   filterSala: 'TODAS',
   filterEstado: 'TODOS',
   searchTerm: '',
+  presentesSearchTerm: '',
+  presentesViewMode: localStorage.getItem('igr_presentes_view_mode') || 'grid',
   viewMode: 'grid', // 'grid' | 'table'
   scriptUrl: activeScriptUrl,
   demoMode: localStorage.getItem('asistencia_demo_mode') === 'true',
@@ -313,9 +315,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=64')
+      navigator.serviceWorker.register('./sw.js?v=65')
         .then(reg => {
-          console.log('[PWA v64] Service Worker registrado:', reg.scope);
+          console.log('[PWA v65] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -323,7 +325,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v64] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v65] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -375,6 +377,9 @@ function initApp() {
       renderKidsList();
     });
   }
+
+  // Inicializar modo de vista guardado en Presentes Hoy
+  setPresentesViewMode(state.presentesViewMode);
 
   // Check saved session in session storage (destrucción por pestaña)
   checkSavedSession();
@@ -1265,48 +1270,184 @@ function createKidTableRowHTML(nino) {
   `;
 }
 
+function setPresentesViewMode(mode) {
+  state.presentesViewMode = mode || 'grid';
+  const btnGrid = document.getElementById('btnPresentesViewGrid');
+  const btnTable = document.getElementById('btnPresentesViewTable');
+  const gridCont = document.getElementById('presentesGridContainer');
+  const tableCont = document.getElementById('presentesTableContainer');
+
+  if (state.presentesViewMode === 'grid') {
+    if (btnGrid) {
+      btnGrid.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-amber-950 shadow-sm transition-all cursor-pointer font-bold';
+    }
+    if (btnTable) {
+      btnTable.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-500 hover:text-slate-900 transition-all cursor-pointer font-medium';
+    }
+    if (gridCont) gridCont.classList.remove('hidden');
+    if (tableCont) tableCont.classList.add('hidden');
+  } else {
+    if (btnGrid) {
+      btnGrid.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-500 hover:text-slate-900 transition-all cursor-pointer font-medium';
+    }
+    if (btnTable) {
+      btnTable.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-amber-950 shadow-sm transition-all cursor-pointer font-bold';
+    }
+    if (gridCont) gridCont.classList.add('hidden');
+    if (tableCont) tableCont.classList.remove('hidden');
+  }
+}
+
+function handleSearchPresentes(val) {
+  state.presentesSearchTerm = (val || '').trim();
+  const btnClear = document.getElementById('btnClearSearchPresentes');
+  if (btnClear) {
+    if (state.presentesSearchTerm) btnClear.classList.remove('hidden');
+    else btnClear.classList.add('hidden');
+  }
+  renderPresentesList();
+}
+
+function clearSearchPresentes() {
+  const input = document.getElementById('searchPresentesInput');
+  if (input) {
+    input.value = '';
+    handleSearchPresentes('');
+    input.focus();
+  }
+}
+
 function renderPresentesList() {
-  const presentes = state.ninos.filter(n => n.presente);
+  const allPresentes = state.ninos.filter(n => n.presente);
+  const term = normalizarTexto(state.presentesSearchTerm || '');
+  
+  const presentes = allPresentes.filter(n => {
+    if (!term) return true;
+    const nombre = normalizarTexto(n.nombre || '');
+    const papas = normalizarTexto(n.nombrePapas || '');
+    const tel = (n.telefono || '').replace(/\D/g, '');
+    const sala = normalizarTexto(n.salaActual || n.salaSugerida || '');
+    return nombre.includes(term) || papas.includes(term) || tel.includes(term) || sala.includes(term);
+  });
+
+  const gridCont = document.getElementById('presentesGridContainer');
   const tbody = document.getElementById('presentesTableBody');
   const empty = document.getElementById('presentesEmptyState');
+  const emptyTitle = document.getElementById('presentesEmptyTitle');
+  const emptySub = document.getElementById('presentesEmptySubtitle');
+  const badgeCount = document.getElementById('badgeCountPresentesFilter');
 
-  if (!tbody) return;
+  if (badgeCount) {
+    badgeCount.textContent = `${presentes.length} ${presentes.length === 1 ? 'presente' : 'presentes'}`;
+  }
 
   if (presentes.length === 0) {
-    tbody.innerHTML = '';
-    empty.classList.remove('hidden');
+    if (gridCont) gridCont.innerHTML = '';
+    if (tbody) tbody.innerHTML = '';
+    if (empty) {
+      empty.classList.remove('hidden');
+      if (allPresentes.length > 0 && term) {
+        if (emptyTitle) emptyTitle.textContent = `No se encontró a "${state.presentesSearchTerm}" en presentes`;
+        if (emptySub) emptySub.textContent = 'Verifica que el nombre o teléfono esté bien escrito.';
+      } else {
+        if (emptyTitle) emptyTitle.textContent = 'Aún no hay niños marcados como presentes hoy';
+        if (emptySub) emptySub.textContent = 'Ve a la pestaña "Toma de Asistencia" para comenzar a marcar los ingresos del domingo.';
+      }
+    }
     return;
   }
 
-  empty.classList.add('hidden');
-  tbody.innerHTML = presentes.map((nino, index) => `
-    <tr class="hover:bg-amber-50/30 transition-colors">
-      <td class="py-3 px-4 font-mono font-bold text-slate-400 text-xs">${index + 1}</td>
-      <td class="py-3 px-4">
-        <div class="font-bold text-slate-900">${nino.nombre}</div>
-        ${nino.observacionesMedicas ? `<div class="text-[11px] text-amber-700 font-medium">${nino.observacionesMedicas}</div>` : ''}
-      </td>
-      <td class="py-3 px-4 font-mono font-bold text-emerald-700 text-sm">
-        <i class="fa-regular fa-clock text-xs mr-1 text-emerald-500"></i> ${formatearHora(nino.horaIngreso) || '--:--'}
-      </td>
-      <td class="py-3 px-4">
-        <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">${nino.salaActual || nino.salaSugerida}</span>
-      </td>
-      <td class="py-3 px-4 text-xs font-semibold text-slate-700">${nino.nombrePapas}</td>
-      <td class="py-3 px-4 font-mono text-xs font-bold text-amber-900">${nino.telefono}</td>
-      <td class="py-3 px-4 text-center">
-        <div class="flex items-center justify-center gap-2">
-          <button onclick="openWhatsAppModal('${nino.id}')" class="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all">
-            <i class="fa-brands fa-whatsapp"></i>
-            <span>Avisar</span>
-          </button>
-          <button onclick="toggleAsistencia('${nino.id}')" class="px-2.5 py-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl text-xs font-semibold" title="Desmarcar">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
+  if (empty) empty.classList.add('hidden');
+
+  // 1. Render Cards View (Recuadro)
+  if (gridCont) {
+    gridCont.innerHTML = presentes.map((nino, index) => {
+      const horaStr = formatearHora(nino.horaIngreso) || `${getCurrentTime()} hs`;
+      const salaStr = nino.salaActual || nino.salaSugerida || 'General';
+      const papasStr = nino.nombrePapas || 'Familia';
+      const telDigits = (nino.telefono || '').replace(/\D/g, '');
+
+      return `
+        <div class="bg-white rounded-3xl p-5 border border-amber-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+          <div>
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl ${getAvatarColor(nino.nombre)} flex items-center justify-center font-black text-sm shadow-sm shrink-0">
+                  ${getInitials(nino.nombre)}
+                </div>
+                <div>
+                  <h3 class="font-black text-base text-slate-900 leading-snug">${highlightMatch(nino.nombre, state.presentesSearchTerm)}</h3>
+                  <span class="inline-block px-2.5 py-0.5 mt-1 rounded-xl text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">${salaStr}</span>
+                </div>
+              </div>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 shadow-xs">
+                <i class="fa-regular fa-clock text-[10px]"></i> ${horaStr}
+              </span>
+            </div>
+
+            ${nino.observacionesMedicas ? `
+              <div class="mt-3 text-xs bg-amber-50/80 p-2 rounded-xl border border-amber-200 text-amber-900">
+                <strong><i class="fa-solid fa-notes-medical mr-1"></i> Médico:</strong> ${nino.observacionesMedicas}
+              </div>
+            ` : ''}
+
+            <div class="mt-3.5 pt-3 border-t border-slate-100 space-y-1.5 text-xs">
+              <p class="text-slate-600 flex items-center gap-2">
+                <i class="fa-solid fa-users text-amber-600 text-xs shrink-0"></i>
+                <span><strong>Papás:</strong> <span class="text-slate-800">${highlightMatch(papasStr, state.presentesSearchTerm)}</span></span>
+              </p>
+              <p class="text-slate-600 flex items-center gap-2 font-mono">
+                <i class="fa-solid fa-phone text-amber-600 text-xs shrink-0"></i>
+                <span><strong>Tel:</strong> <span class="text-slate-800 font-bold">${nino.telefono || '--'}</span></span>
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
+            <button onclick="openWhatsAppModal('${nino.id}')" class="flex-1 py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 active:scale-98 text-white font-black rounded-2xl shadow-sm text-xs flex items-center justify-center gap-2 transition-all cursor-pointer">
+              <i class="fa-brands fa-whatsapp text-sm"></i>
+              <span>Avisar por WhatsApp</span>
+            </button>
+            <button onclick="toggleAsistencia('${nino.id}')" class="p-2.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-400 rounded-2xl text-xs transition-all cursor-pointer" title="Desmarcar / Anular Ingreso">
+              <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+          </div>
         </div>
-      </td>
-    </tr>
-  `).join('');
+      `;
+    }).join('');
+  }
+
+  // 2. Render Table View (Lista)
+  if (tbody) {
+    tbody.innerHTML = presentes.map((nino, index) => `
+      <tr class="hover:bg-amber-50/30 transition-colors">
+        <td class="py-3 px-4 font-mono font-bold text-slate-400 text-xs">${index + 1}</td>
+        <td class="py-3 px-4">
+          <div class="font-bold text-slate-900">${highlightMatch(nino.nombre, state.presentesSearchTerm)}</div>
+          ${nino.observacionesMedicas ? `<div class="text-[11px] text-amber-700 font-medium">${nino.observacionesMedicas}</div>` : ''}
+        </td>
+        <td class="py-3 px-4 font-mono font-bold text-emerald-700 text-sm">
+          <i class="fa-regular fa-clock text-xs mr-1 text-emerald-500"></i> ${formatearHora(nino.horaIngreso) || '--:--'}
+        </td>
+        <td class="py-3 px-4">
+          <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">${nino.salaActual || nino.salaSugerida}</span>
+        </td>
+        <td class="py-3 px-4 text-xs font-semibold text-slate-700">${highlightMatch(nino.nombrePapas, state.presentesSearchTerm)}</td>
+        <td class="py-3 px-4 font-mono text-xs font-bold text-amber-900">${nino.telefono}</td>
+        <td class="py-3 px-4 text-center">
+          <div class="flex items-center justify-center gap-2">
+            <button onclick="openWhatsAppModal('${nino.id}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer">
+              <i class="fa-brands fa-whatsapp text-xs"></i>
+              <span>WhatsApp</span>
+            </button>
+            <button onclick="toggleAsistencia('${nino.id}')" class="px-2.5 py-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl text-xs font-semibold cursor-pointer" title="Desmarcar">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
 }
 
 // ==========================================================================
