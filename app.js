@@ -152,60 +152,158 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V52)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V53)
 // ==========================================================================
 let deferredInstallPrompt = null;
 
+// Escuchar evento de instalación PWA de navegadores Chromium
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
   const btnInstall = document.getElementById('btnInstallPwa');
-  const mobileBanner = document.getElementById('mobilePwaInstallBanner');
   if (btnInstall) btnInstall.classList.remove('hidden');
-  if (mobileBanner) mobileBanner.classList.remove('hidden');
+
+  // Si no fue descartado en esta sesión, mostramos el cartel
+  if (!sessionStorage.getItem('pwa_banner_dismissed')) {
+    showPwaInstallModal();
+  }
 });
 
+// Detectar si la app ya está corriendo instalada en modo standalone
+function isPwaStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         navigator.standalone === true ||
+         document.referrer.includes('android-app://');
+}
+
+// Mostrar modal flotante / bottom sheet de instalación
+function showPwaInstallModal() {
+  if (isPwaStandalone()) return;
+  if (sessionStorage.getItem('pwa_banner_dismissed')) return;
+
+  const modal = document.getElementById('pwaInstallModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+  }
+}
+
+// Ocultar modal de instalación y opcionalmente guardar en sessionStorage
+function dismissPwaModal(saveDismissed = true) {
+  const modal = document.getElementById('pwaInstallModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+  if (saveDismissed) {
+    sessionStorage.setItem('pwa_banner_dismissed', 'true');
+  }
+}
+
+// Handler de click en el botón principal del modal "📲 Instalar App Ahora"
+function handlePwaInstallClick() {
+  dismissPwaModal(false);
+  promptInstallPwa();
+}
+
+// Disparador principal de instalación de PWA (botón header o modal)
 function promptInstallPwa() {
+  // 1. Si el navegador soporta prompt nativo interactivo (Chrome/Edge en Android y PC)
   if (deferredInstallPrompt) {
     deferredInstallPrompt.prompt();
     deferredInstallPrompt.userChoice.then((choiceResult) => {
       if (choiceResult.outcome === 'accepted') {
         showToast('¡Gracias por instalar IGR KIDS!', 'success');
+        sessionStorage.setItem('pwa_banner_dismissed', 'true');
+        dismissPwaModal(true);
       }
       deferredInstallPrompt = null;
     });
+    return;
+  }
+
+  // 2. Detección de plataforma para guiar al usuario según su dispositivo
+  const isIos = (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /Macintosh/.test(navigator.userAgent))) && !window.MSStream;
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
+  if (isIos) {
+    Swal.fire({
+      title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl">📲 Instalar en tu iPhone</span>',
+      html: `
+        <div class="text-left text-sm space-y-3.5 p-3 sm:p-4 text-slate-700 bg-amber-50/60 rounded-3xl border border-amber-200/80">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-2xl bg-amber-200/80 text-amber-950 font-black flex items-center justify-center shrink-0 text-xs shadow-sm border border-amber-300">1</div>
+            <p class="leading-snug pt-1">Tocar el botón <strong>Compartir</strong> <i class="fa-solid fa-arrow-up-from-bracket text-amber-600 ml-1"></i> (en la barra inferior o superior de Safari).</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-2xl bg-amber-200/80 text-amber-950 font-black flex items-center justify-center shrink-0 text-xs shadow-sm border border-amber-300">2</div>
+            <p class="leading-snug pt-1">Deslizar hacia abajo y tocar <strong>"Agregar a Inicio"</strong> <i class="fa-solid fa-square-plus text-amber-600 ml-1"></i>.</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-2xl bg-amber-200/80 text-amber-950 font-black flex items-center justify-center shrink-0 text-xs shadow-sm border border-amber-300">3</div>
+            <p class="leading-snug pt-1">Tocar <strong>"Agregar"</strong> arriba a la derecha para tenerla como app en tu celular.</p>
+          </div>
+        </div>
+      `,
+      confirmButtonColor: '#ca8a04',
+      confirmButtonText: '¡Entendido!',
+      customClass: {
+        popup: 'rounded-3xl border border-amber-200 shadow-2xl',
+        confirmButton: 'rounded-2xl font-bold px-6 py-2.5 shadow-md shadow-amber-400/30 text-amber-950 bg-gradient-to-r from-amber-400 to-amber-500 border border-amber-300'
+      }
+    });
+  } else if (isAndroid) {
+    Swal.fire({
+      title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl">📲 Instalar en tu Android</span>',
+      html: `
+        <div class="text-left text-sm space-y-3.5 p-3 sm:p-4 text-slate-700 bg-amber-50/60 rounded-3xl border border-amber-200/80">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-2xl bg-amber-200/80 text-amber-950 font-black flex items-center justify-center shrink-0 text-xs shadow-sm border border-amber-300">1</div>
+            <p class="leading-snug pt-1">Tocar el menú de opciones <i class="fa-solid fa-ellipsis-vertical text-amber-600 ml-1"></i> (arriba a la derecha en Chrome).</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-2xl bg-amber-200/80 text-amber-950 font-black flex items-center justify-center shrink-0 text-xs shadow-sm border border-amber-300">2</div>
+            <p class="leading-snug pt-1">Seleccionar <strong>"Instalar aplicación"</strong> o <strong>"Agregar a pantalla principal"</strong> <i class="fa-solid fa-mobile-screen-button text-amber-600 ml-1"></i>.</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-2xl bg-amber-200/80 text-amber-950 font-black flex items-center justify-center shrink-0 text-xs shadow-sm border border-amber-300">3</div>
+            <p class="leading-snug pt-1">Confirmar tocando <strong>"Instalar"</strong> para abrirla con un solo toque.</p>
+          </div>
+        </div>
+      `,
+      confirmButtonColor: '#ca8a04',
+      confirmButtonText: '¡Entendido!',
+      customClass: {
+        popup: 'rounded-3xl border border-amber-200 shadow-2xl',
+        confirmButton: 'rounded-2xl font-bold px-6 py-2.5 shadow-md shadow-amber-400/30 text-amber-950 bg-gradient-to-r from-amber-400 to-amber-500 border border-amber-300'
+      }
+    });
   } else {
-    // Detección de iOS Safari vs Escritorio
-    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    if (isIos) {
-      Swal.fire({
-        title: '📲 Instalar en tu iPhone',
-        html: `
-          <div class="text-left text-sm space-y-3 p-2 text-slate-700">
-            <p>1. Toca el botón <strong>Compartir</strong> <i class="fa-solid fa-arrow-up-from-bracket text-amber-600"></i> en la barra inferior de Safari.</p>
-            <p>2. Desliza hacia abajo y toca en <strong>"Agregar a Inicio"</strong> <i class="fa-solid fa-plus-square text-amber-600"></i>.</p>
-            <p>3. Toca <strong>Agregar</strong> arriba a la derecha y tendrás el ícono en tu pantalla como app nativa.</p>
-          </div>
-        `,
-        confirmButtonColor: '#ca8a04',
-        confirmButtonText: 'Entendido'
-      });
-    } else {
-      Swal.fire({
-        title: '📲 App Instalable (PWA)',
-        html: `
-          <div class="text-left text-sm space-y-2 p-2 text-slate-700">
-            <p>Para tener IGR KIDS como una app en tu pantalla:</p>
-            <p>• <strong>Android / Chrome:</strong> Toca el menú de 3 puntos <i class="fa-solid fa-ellipsis-vertical text-amber-600"></i> y selecciona <strong>"Instalar aplicación"</strong> o <strong>"Agregar a pantalla principal"</strong>.</p>
-            <p>• <strong>Computadora:</strong> Haz clic en el ícono de instalación <i class="fa-solid fa-download text-amber-600"></i> en la barra del navegador.</p>
-          </div>
-        `,
-        confirmButtonColor: '#ca8a04',
-        confirmButtonText: 'Entendido'
-      });
-    }
+    Swal.fire({
+      title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl">💻 Instalar IGR KIDS</span>',
+      html: `
+        <div class="text-left text-sm space-y-2.5 p-3 sm:p-4 text-slate-700 bg-amber-50/60 rounded-3xl border border-amber-200/80">
+          <p>Para tener IGR KIDS en tu computadora como una aplicación de escritorio:</p>
+          <p class="mt-2">• Haz clic en el ícono de instalación <i class="fa-solid fa-download text-amber-600"></i> en la barra superior de direcciones (Chrome, Edge o Brave).</p>
+          <p>• O despliega el menú del navegador y elige <strong>"Instalar IGR KIDS..."</strong>.</p>
+        </div>
+      `,
+      confirmButtonColor: '#ca8a04',
+      confirmButtonText: '¡Entendido!',
+      customClass: {
+        popup: 'rounded-3xl border border-amber-200 shadow-2xl',
+        confirmButton: 'rounded-2xl font-bold px-6 py-2.5 shadow-md shadow-amber-400/30 text-amber-950 bg-gradient-to-r from-amber-400 to-amber-500 border border-amber-300'
+      }
+    });
   }
 }
+
+// Escuchar evento cuando la app ya fue instalada
+window.addEventListener('appinstalled', () => {
+  console.log('[PWA v53] App IGR KIDS instalada con éxito en el dispositivo.');
+  sessionStorage.setItem('pwa_banner_dismissed', 'true');
+  dismissPwaModal(false);
+  const btnInstall = document.getElementById('btnInstallPwa');
+  if (btnInstall) btnInstall.classList.add('hidden');
+});
 
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
@@ -215,9 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=52')
+      navigator.serviceWorker.register('./sw.js?v=53')
         .then(reg => {
-          console.log('[PWA v52] Service Worker registrado:', reg.scope);
+          console.log('[PWA v53] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -225,10 +323,21 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v52] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v53] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
+
+  // Ocultar botón del header si ya se encuentra en standalone
+  if (isPwaStandalone()) {
+    const btnInstall = document.getElementById('btnInstallPwa');
+    if (btnInstall) btnInstall.classList.add('hidden');
+  }
+
+  // Auto-disparo del modal flotante / cartel a los 1.5s si no está en standalone ni fue descartado
+  setTimeout(() => {
+    showPwaInstallModal();
+  }, 1500);
 }
 
 function initApp() {

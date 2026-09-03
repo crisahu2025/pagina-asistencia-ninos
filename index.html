@@ -6,14 +6,14 @@
   <title>IGR KIDS - Portal de Asistencia Infantil</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
     <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=52">
+  <link rel="manifest" href="manifest.json?v=53">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IGR KIDS">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=52">
-  <link rel="icon" type="image/png" href="icons/favicon.png?v=52">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=53">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=53">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=52">
+  <link rel="stylesheet" href="styles.css?v=53">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -86,7 +86,7 @@
 
       <!-- Icon & Portal Header -->
       <div class="text-center relative z-10">
-        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=52" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
+        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=53" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
         <h2 class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-900 tracking-tight">
           IGR KIDS
         </h2>
@@ -284,7 +284,7 @@
           
           <!-- Logo & App Name -->
           <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white p-1 border border-amber-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0"><img src="icons/logo-icon.png?v=52" alt="IGR KIDS" class="w-full h-full object-contain"></div>
+            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white p-1 border border-amber-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0"><img src="icons/logo-icon.png?v=53" alt="IGR KIDS" class="w-full h-full object-contain"></div>
             <div>
               <div class="flex items-center gap-2">
                 <h1 class="text-base sm:text-xl font-black font-['Outfit'] tracking-tight text-slate-900 leading-none whitespace-nowrap">
@@ -855,28 +855,80 @@
     </div>
   </div>
 
-  <!-- Mobile PWA Install Floating Banner -->
-  <div id="mobilePwaInstallBanner" class="hidden sm:hidden fixed bottom-4 inset-x-3 z-40 bg-slate-900/95 text-white p-3 rounded-2xl shadow-xl flex items-center justify-between border border-amber-400/40 backdrop-blur-md animate-fadeIn">
-    <div class="flex items-center gap-2.5">
-      <div class="w-8 h-8 rounded-xl bg-white p-1 border border-amber-300 flex items-center justify-center shrink-0 overflow-hidden">
-        <img src="icons/logo-icon.png?v=52" alt="IGR KIDS" class="w-full h-full object-contain">
-      </div>
-      <div>
-        <h6 class="text-xs font-bold leading-tight">Instalar IGR KIDS</h6>
-        <p class="text-[10px] text-slate-300">Acceso rápido en tu pantalla de inicio</p>
-      </div>
-    </div>
-    <div class="flex items-center gap-1.5">
-      <button onclick="promptInstallPwa()" class="px-3 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-md active:scale-95">
-        Instalar
+  <!-- ========================================================================= -->
+  <!-- CARTEL / BOTTOM SHEET FLOTANTE DE INSTALACIÓN PWA (IGR KIDS)             -->
+  <!-- ========================================================================= -->
+  <div id="pwaInstallModal" class="hidden fixed bottom-3 sm:bottom-6 inset-x-3 sm:inset-x-auto sm:right-6 sm:max-w-md z-[60] animate-slide-up">
+    <div class="bg-white/95 backdrop-blur-md rounded-3xl p-5 sm:p-6 shadow-2xl shadow-amber-950/25 border-2 border-amber-300 relative overflow-hidden">
+      
+      <!-- Fondos decorativos pastel suaves -->
+      <div class="absolute -top-10 -right-10 w-32 h-32 bg-amber-100/70 rounded-full blur-xl pointer-events-none"></div>
+      <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-yellow-200/50 rounded-full blur-xl pointer-events-none"></div>
+
+      <!-- Botón de cierre (cruz 'X') arriba a la derecha -->
+      <button 
+        type="button" 
+        onclick="dismissPwaModal(true)" 
+        aria-label="Cerrar cartel de instalación"
+        class="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-amber-50/80 hover:bg-amber-100 text-slate-400 hover:text-amber-900 flex items-center justify-center transition-all z-10 active:scale-95 border border-amber-200/60 cursor-pointer"
+      >
+        <i class="fa-solid fa-xmark text-sm"></i>
       </button>
-      <button onclick="document.getElementById('mobilePwaInstallBanner').classList.add('hidden')" class="text-slate-400 hover:text-white p-1 text-xs">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
+
+      <div class="relative z-10">
+        <!-- Encabezado con Logo Oficial y Título -->
+        <div class="flex items-center gap-3.5 pr-8">
+          <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 border-2 border-amber-300 shadow-md shadow-amber-900/10 flex items-center justify-center shrink-0 overflow-hidden">
+            <img src="icons/logo-icon.png?v=53" alt="IGR KIDS Logo" class="w-full h-full object-contain">
+          </div>
+          <div>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200 mb-1">
+              <i class="fa-solid fa-sparkles text-amber-600"></i> App Oficial
+            </span>
+            <h3 class="text-base sm:text-lg font-black font-['Outfit'] text-slate-900 leading-tight">
+              ¡Instalá la App IGR KIDS!
+            </h3>
+          </div>
+        </div>
+
+        <!-- Subtítulo descriptivo -->
+        <p class="text-xs sm:text-sm text-slate-600 font-medium leading-snug mt-3">
+          Llevala en tu pantalla de inicio para tomar asistencia más rápido y con un solo toque.
+        </p>
+
+        <!-- Micro-beneficios visuales -->
+        <div class="flex items-center gap-3 text-[11px] font-semibold text-slate-500 mt-2.5 pb-1">
+          <span class="inline-flex items-center gap-1"><i class="fa-solid fa-bolt text-amber-500"></i> Ultra Rápida</span>
+          <span class="inline-flex items-center gap-1"><i class="fa-solid fa-cloud-arrow-down text-amber-500"></i> Funciona Offline</span>
+          <span class="inline-flex items-center gap-1"><i class="fa-solid fa-mobile text-amber-500"></i> Acceso 1-Toque</span>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="mt-4 space-y-2">
+          <!-- Botón principal destacado -->
+          <button 
+            type="button" 
+            onclick="promptInstallPwa()" 
+            class="w-full py-3.5 px-4 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 active:scale-[0.98] text-amber-950 font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-amber-400/30 flex items-center justify-center gap-2 border border-amber-300 transition-all cursor-pointer"
+          >
+            <span>📲 Instalar App Ahora</span>
+          </button>
+
+          <!-- Botón secundario discreto -->
+          <button 
+            type="button" 
+            onclick="dismissPwaModal(true)" 
+            class="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors text-center cursor-pointer"
+          >
+            Continuar en la web
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=52"></script>
+  <script src="app.js?v=53"></script>
 </body>
 </html>

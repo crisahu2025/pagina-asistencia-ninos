@@ -1,6 +1,10 @@
 {
   "version": 2,
   "name": "pagina-asistencia-ninos",
+  "alias": [
+    "pagina-asistencia-ninos.vercel.app",
+    "igrkids.iglesiagranrey.com"
+  ],
   "cleanUrls": true,
   "headers": [
     {

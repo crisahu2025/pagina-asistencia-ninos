@@ -1,30 +1,30 @@
 /**
  * ====================================================================================
- * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V52)
+ * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V53)
  * Code Ahumada 2026
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v52';
+const CACHE_NAME = 'igr-kids-v53';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=52',
-  './app.js?v=52',
-  './manifest.json?v=52',
+  './styles.css?v=53',
+  './app.js?v=53',
+  './manifest.json?v=53',
   './manifest.json',
-  './icons/favicon.png?v=52',
+  './icons/favicon.png?v=53',
   './icons/favicon.png',
-  './icons/apple-touch-icon.png?v=52',
+  './icons/apple-touch-icon.png?v=53',
   './icons/apple-touch-icon.png',
-  './icons/icon-192.png?v=52',
+  './icons/icon-192.png?v=53',
   './icons/icon-192.png',
-  './icons/icon-512.png?v=52',
+  './icons/icon-512.png?v=53',
   './icons/icon-512.png',
-  './icons/logo-icon.png?v=52',
+  './icons/logo-icon.png?v=53',
   './icons/logo-icon.png',
-  './icons/app-logo-full.png?v=52',
+  './icons/app-logo-full.png?v=53',
   './icons/app-logo-full.png',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
@@ -41,7 +41,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW v52] Pre-caching partial warning:', err);
+        console.warn('[SW v53] Pre-caching partial warning:', err);
       });
     })
   );
@@ -54,7 +54,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[SW v52] Eliminando caché antiguo:', cacheName);
+            console.log('[SW v53] Eliminando caché antiguo:', cacheName);
             return caches.delete(cacheName);
           }
         })
