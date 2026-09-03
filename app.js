@@ -6,15 +6,11 @@
  * ====================================================================================
  */
 
-const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNdfoNh3pockZlVvw_va3Sc3A9manfh992hVQufi6DdLFEOt-xNyGjCG_vE6ocBl1w/exec";
+const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPJhW0A0Oob2hCe06rIIGMM6Q1au90I9QQ-l1BrlT22nPX2YI39eDJSb9rebnQTbMK/exec";
 
-// Global State
-const savedUrl = localStorage.getItem('asistencia_script_url');
-// Auto-migrar URL si tiene una versión anterior
-const activeScriptUrl = (!savedUrl || savedUrl.includes('AKfycbyI_8DR') || savedUrl.includes('AKfycby7LkmZC6')) ? DEFAULT_SCRIPT_URL : savedUrl;
-if (activeScriptUrl === DEFAULT_SCRIPT_URL) {
-  localStorage.setItem('asistencia_script_url', DEFAULT_SCRIPT_URL);
-}
+// Global State - Forzar migración a la URL oficial actual
+localStorage.setItem('asistencia_script_url', DEFAULT_SCRIPT_URL);
+const activeScriptUrl = DEFAULT_SCRIPT_URL;
 
 const state = {
   isAuthenticated: false,
@@ -156,7 +152,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V50)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V52)
 // ==========================================================================
 let deferredInstallPrompt = null;
 
@@ -174,7 +170,7 @@ function promptInstallPwa() {
     deferredInstallPrompt.prompt();
     deferredInstallPrompt.userChoice.then((choiceResult) => {
       if (choiceResult.outcome === 'accepted') {
-        showToastNotification('¡Instalando IGR KIDS!', 'success');
+        showToast('¡Gracias por instalar IGR KIDS!', 'success');
       }
       deferredInstallPrompt = null;
     });
@@ -219,9 +215,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=50')
+      navigator.serviceWorker.register('./sw.js?v=52')
         .then(reg => {
-          console.log('[PWA v50] Service Worker registrado:', reg.scope);
+          console.log('[PWA v52] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -229,7 +225,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v50] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v52] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -994,6 +990,24 @@ function formatearEdad(edadRaw) {
   return str;
 }
 
+/**
+ * Formatea valores u objetos Date de hora crudos (ej: Date 1899, HH:mm, etc.) a texto legible "HH:mm hs"
+ */
+function formatearHora(horaRaw) {
+  if (!horaRaw) return '';
+  const str = String(horaRaw).trim();
+  if (!str) return '';
+
+  const match = str.match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    const hh = match[1].padStart(2, '0');
+    const mm = match[2];
+    return `${hh}:${mm} hs`;
+  }
+
+  return str.includes('hs') ? str : `${str} hs`;
+}
+
 function createKidCardHTML(nino) {
   const isPresent = nino.presente;
   const initials = getInitials(nino.nombre);
@@ -1001,6 +1015,7 @@ function createKidCardHTML(nino) {
   const highlightedName = highlightMatch(nino.nombre, state.searchTerm);
   const highlightedPapas = highlightMatch(nino.nombrePapas, state.searchTerm);
   const edadLimpia = formatearEdad(nino.edad);
+  const horaLimpia = formatearHora(nino.horaIngreso);
 
   return `
     <div class="kid-card rounded-3xl p-4 sm:p-5 shadow-sm relative flex flex-col justify-between transition-all ${isPresent ? 'kid-card-present' : 'bg-white border-amber-100'}">
@@ -1027,7 +1042,7 @@ function createKidCardHTML(nino) {
           ${isPresent ? `
             <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 animate-fadeIn">
               <i class="fa-solid fa-circle-check text-emerald-600 text-xs"></i>
-              <span>${nino.horaIngreso || 'Ingresó'}</span>
+              <span>Presente ${horaLimpia ? `(${horaLimpia})` : ''}</span>
             </span>
           ` : `
             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-slate-100 text-slate-400 shrink-0">
@@ -1095,6 +1110,7 @@ function createKidTableRowHTML(nino) {
   const highlightedName = highlightMatch(nino.nombre, state.searchTerm);
   const highlightedPapas = highlightMatch(nino.nombrePapas, state.searchTerm);
   const edadLimpia = formatearEdad(nino.edad);
+  const horaLimpia = formatearHora(nino.horaIngreso);
 
   return `
     <tr class="hover:bg-amber-50/30 transition-colors ${isPresent ? 'bg-emerald-50/30' : ''}">
@@ -1113,7 +1129,7 @@ function createKidTableRowHTML(nino) {
       <td class="py-3 px-4">
         ${isPresent ? `
           <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <i class="fa-solid fa-circle-check text-emerald-600"></i> Presente (${nino.horaIngreso})
+            <i class="fa-solid fa-circle-check text-emerald-600"></i> Presente ${horaLimpia ? `(${horaLimpia})` : ''}
           </span>
         ` : `
           <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs text-slate-400 bg-slate-100 font-medium">Ausente</span>
@@ -1162,7 +1178,7 @@ function renderPresentesList() {
         ${nino.observacionesMedicas ? `<div class="text-[11px] text-amber-700 font-medium">${nino.observacionesMedicas}</div>` : ''}
       </td>
       <td class="py-3 px-4 font-mono font-bold text-emerald-700 text-sm">
-        <i class="fa-regular fa-clock text-xs mr-1 text-emerald-500"></i> ${nino.horaIngreso || '--:--'}
+        <i class="fa-regular fa-clock text-xs mr-1 text-emerald-500"></i> ${formatearHora(nino.horaIngreso) || '--:--'}
       </td>
       <td class="py-3 px-4">
         <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">${nino.salaActual || nino.salaSugerida}</span>
@@ -1385,7 +1401,7 @@ function exportToExcel() {
     'N°': i + 1,
     'Fecha': state.selectedDate,
     'Turno / Reunión': state.selectedTurno,
-    'Hora Ingreso': n.horaIngreso || '',
+    'Hora Ingreso': formatearHora(n.horaIngreso) || '',
     'Nombre Niño/a': n.nombre,
     'Edad': formatearEdad(n.edad) || '',
     'Sala / Grupo': n.salaActual || n.salaSugerida || 'General',
@@ -1431,7 +1447,7 @@ function exportToPDF() {
   const tableData = presentes.map((n, i) => [
     i + 1,
     n.nombre,
-    n.horaIngreso || '--:--',
+    formatearHora(n.horaIngreso) || '--:--',
     n.salaActual || n.salaSugerida,
     n.nombrePapas,
     n.telefono,
@@ -1465,7 +1481,7 @@ function copyWhatsAppReport() {
   } else {
     attendeesList = presentes.map((n, idx) => {
       const sala = n.salaActual || n.salaSugerida || 'General';
-      const hora = n.horaIngreso ? (n.horaIngreso.includes('hs') ? n.horaIngreso : `${n.horaIngreso} hs`) : `${getCurrentTime()} hs`;
+      const hora = formatearHora(n.horaIngreso) || `${getCurrentTime()} hs`;
       return `${idx + 1}. *${n.nombre}* - ${sala} (${hora})`;
     }).join('\n');
   }

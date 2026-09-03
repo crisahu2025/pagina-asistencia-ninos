@@ -488,7 +488,7 @@ function obtenerAsistenciasPorFecha(fecha, turno) {
         filaAsistencia: i + 1,
         idAsistencia: String(fila[0] || ""),
         fecha: fechaFila,
-        hora: String(fila[2] || ""),
+        hora: formatearHoraBackend(fila[2]),
         idNino: String(fila[3] || ""),
         nombreNino: String(fila[4] || ""),
         nombrePapas: String(fila[5] || ""),
@@ -521,7 +521,7 @@ function registrarAsistencia(datos) {
   try {
     const sheetAsis = asegurarHojaAsistencias();
     const fecha = normalizarFecha(datos.fecha || getFechaActual());
-    const hora = datos.hora || getHoraActual();
+    const hora = formatearHoraBackend(datos.hora || getHoraActual());
     const turno = normalizarTurno(datos.turno || TURNO_DEFAULT);
     const idNino = String(datos.idNino || "").trim();
     const nombreNino = String(datos.nombreNino || "").trim();
@@ -1042,6 +1042,25 @@ function normalizarTelefono(tel) {
   if (!tel) return "";
   let limpio = String(tel).replace(/[^0-9+]/g, "").trim();
   return limpio;
+}
+
+/**
+ * Formatea valores u objetos Date de hora crudos (ej: Date 1899, HH:mm, etc.) a formato HH:mm
+ */
+function formatearHoraBackend(horaVal) {
+  if (!horaVal) return "";
+  if (horaVal instanceof Date) {
+    const tz = Session.getScriptTimeZone() || "America/Argentina/Buenos_Aires";
+    return Utilities.formatDate(horaVal, tz, "HH:mm");
+  }
+  const str = String(horaVal).trim();
+  if (!str) return "";
+  const match = str.match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    const hh = match[1].length === 1 ? "0" + match[1] : match[1];
+    return hh + ":" + match[2];
+  }
+  return str;
 }
 
 /**

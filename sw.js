@@ -1,19 +1,31 @@
 /**
  * ====================================================================================
- * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V50)
+ * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V52)
  * Code Ahumada 2026
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v50';
+const CACHE_NAME = 'igr-kids-v52';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=50',
-  './app.js?v=50',
-  './manifest.json?v=50',
-  './icons/icon.svg',
+  './styles.css?v=52',
+  './app.js?v=52',
+  './manifest.json?v=52',
+  './manifest.json',
+  './icons/favicon.png?v=52',
+  './icons/favicon.png',
+  './icons/apple-touch-icon.png?v=52',
+  './icons/apple-touch-icon.png',
+  './icons/icon-192.png?v=52',
+  './icons/icon-192.png',
+  './icons/icon-512.png?v=52',
+  './icons/icon-512.png',
+  './icons/logo-icon.png?v=52',
+  './icons/logo-icon.png',
+  './icons/app-logo-full.png?v=52',
+  './icons/app-logo-full.png',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
   'https://cdn.jsdelivr.net/npm/sweetalert2@11',
@@ -29,7 +41,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW v50] Pre-caching partial warning:', err);
+        console.warn('[SW v52] Pre-caching partial warning:', err);
       });
     })
   );
@@ -42,7 +54,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[SW v50] Eliminando caché antiguo:', cacheName);
+            console.log('[SW v52] Eliminando caché antiguo:', cacheName);
             return caches.delete(cacheName);
           }
         })
