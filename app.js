@@ -313,9 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=58')
+      navigator.serviceWorker.register('./sw.js?v=61')
         .then(reg => {
-          console.log('[PWA v58] Service Worker registrado:', reg.scope);
+          console.log('[PWA v61] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -323,7 +323,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v58] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v61] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }

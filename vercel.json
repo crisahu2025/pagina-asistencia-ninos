@@ -6,6 +6,9 @@
     "igrkids.iglesiagranrey.com"
   ],
   "cleanUrls": true,
+  "rewrites": [
+    { "source": "/pastores", "destination": "/pastores.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -27,6 +30,24 @@
     },
     {
       "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/pastores.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/pastores",
       "headers": [
         {
           "key": "Cache-Control",

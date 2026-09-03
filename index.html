@@ -375,12 +375,6 @@
             <span id="badgeTotalPresentes" class="ml-1 px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">0</span>
           </button>
 
-          <!-- Botón REPORTE PASTORES directo en el Navbar -->
-          <button onclick="abrirModalAuditoriaPrivada()" id="tabBtn-pastores" class="tab-btn flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-bold bg-[#0B0F19] hover:bg-slate-900 text-amber-300 border border-slate-800 hover:border-amber-400/80 rounded-2xl transition-all shadow-md active:scale-95 shrink-0 cursor-pointer">
-            <i class="fa-solid fa-lock text-amber-400"></i>
-            <span>REPORTE PASTORES</span>
-          </button>
-
           <button onclick="switchTab('reportes')" id="tabBtn-reportes" class="tab-btn flex items-center gap-2 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 rounded-2xl transition-all">
             <i class="fa-solid fa-file-arrow-down text-amber-700 text-sm"></i>
             <span>Reportes & Descargas</span>
@@ -740,10 +734,10 @@
                 </div>
                 <p class="text-xs text-slate-300 mt-1.5">Auditoría confidencial de ausencias del mes o año completo, con WhatsApp pastoral a familias y exportación Excel.</p>
               </div>
-              <button onclick="abrirModalAuditoriaPrivada()" class="mt-6 w-full py-2.5 px-4 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-slate-950 text-xs sm:text-sm font-black rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer">
+              <a href="pastores.html" class="mt-6 w-full py-2.5 px-4 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-slate-950 text-xs sm:text-sm font-black rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer no-underline text-center">
                 <i class="fa-solid fa-lock"></i>
                 Acceder a Reporte Pastores
-              </button>
+              </a>
             </div>
 
             <!-- Report Card: Excel -->
@@ -1043,164 +1037,7 @@
       </div>
 
     </div>
-  <!-- MODAL REPORTE PASTORES: AUDITORÍA CONFIDENCIAL -->
-  <div id="modalPanelAuditoria" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
-    <div class="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-amber-200/80 overflow-hidden flex flex-col max-h-[92vh] animate-slide-up">
-      <!-- Modal Header -->
-      <div class="bg-[#0B0F19] text-white p-4 sm:p-6 border-b border-slate-800 flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-2xl bg-white p-1 border border-amber-400 flex items-center justify-center shrink-0">
-            <img src="icons/logo-icon.png?v=58" alt="IGR KIDS" class="w-full h-full object-contain">
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <h3 class="text-lg sm:text-xl font-black text-amber-400">REPORTE PASTORES</h3>
-              <span class="px-2 py-0.5 text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full">Acceso Autorizado</span>
-            </div>
-            <p class="text-xs text-slate-300">Auditoría de Asistencias & Ausentismo — Seguimiento Familiar IGR KIDS</p>
-          </div>
-        </div>
-        <button onclick="cerrarModalAuditoria()" class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-sm transition-all cursor-pointer">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <!-- Modal Body Controls -->
-      <div class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
-        <!-- Filters Bar -->
-        <div class="bg-[#FFFDF5] p-4 rounded-2xl border border-amber-200/70 flex flex-wrap items-center justify-between gap-3">
-          <div class="flex flex-wrap items-center gap-3">
-            <div class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-amber-200 text-xs font-bold text-slate-800 shadow-sm">
-              <i class="fa-regular fa-calendar text-amber-600"></i>
-              <span>Período:</span>
-              <select id="auditoriaPeriodoTipo" onchange="cambiarTipoPeriodoAuditoria(this.value)" class="bg-transparent font-black text-amber-900 outline-none cursor-pointer">
-                <option value="mes">Mensual</option>
-                <option value="anio">Todo el Año</option>
-              </select>
-            </div>
-
-            <div id="containerAuditoriaMes" class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-amber-200 text-xs font-bold text-slate-800 shadow-sm">
-              <i class="fa-solid fa-calendar-days text-amber-600"></i>
-              <span>Mes:</span>
-              <select id="auditoriaMesSelect" class="bg-transparent font-black text-amber-900 outline-none cursor-pointer">
-                <option value="2026-09">Septiembre 2026</option>
-                <option value="2026-08">Agosto 2026</option>
-                <option value="2026-07">Julio 2026</option>
-                <option value="2026-06">Junio 2026</option>
-                <option value="2026-05">Mayo 2026</option>
-                <option value="2026-04">Abril 2026</option>
-                <option value="2026-03">Marzo 2026</option>
-                <option value="2026-02">Febrero 2026</option>
-                <option value="2026-01">Enero 2026</option>
-              </select>
-            </div>
-
-            <div id="containerAuditoriaAnio" class="hidden flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-amber-200 text-xs font-bold text-slate-800 shadow-sm">
-              <i class="fa-solid fa-calendar-check text-amber-600"></i>
-              <span>Año:</span>
-              <select id="auditoriaAnioSelect" class="bg-transparent font-black text-amber-900 outline-none cursor-pointer">
-                <option value="2026">2026</option>
-              </select>
-            </div>
-
-            <button onclick="ejecutarConsultaAuditoria()" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-amber-950 font-black text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <span>Consultar</span>
-            </button>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <button onclick="exportarAuditoriaExcel()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
-              <i class="fa-solid fa-file-excel"></i>
-              <span>Descargar Excel</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- KPI Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
-            <p class="text-[11px] font-bold text-slate-400 uppercase">Padrón Total</p>
-            <h4 id="kpiAuditoriaTotal" class="text-2xl font-black text-slate-900 mt-0.5">519</h4>
-            <p class="text-[10px] text-slate-500">Niños registrados</p>
-          </div>
-          <div class="bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200 shadow-sm">
-            <p class="text-[11px] font-bold text-emerald-800 uppercase">Asistieron</p>
-            <h4 id="kpiAuditoriaPresentes" class="text-2xl font-black text-emerald-700 mt-0.5">0</h4>
-            <p id="kpiAuditoriaPresentesPct" class="text-[10px] text-emerald-600 font-bold">0% de asistencia</p>
-          </div>
-          <div class="bg-rose-50/70 p-3.5 rounded-2xl border border-rose-200 shadow-sm">
-            <p class="text-[11px] font-bold text-rose-800 uppercase">No Asistieron (Ausentes)</p>
-            <h4 id="kpiAuditoriaAusentes" class="text-2xl font-black text-rose-700 mt-0.5">0</h4>
-            <p id="kpiAuditoriaAusentesPct" class="text-[10px] text-rose-600 font-bold">0% de ausentismo</p>
-          </div>
-          <div class="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200 shadow-sm">
-            <p class="text-[11px] font-bold text-amber-900 uppercase">Período Seleccionado</p>
-            <h4 id="kpiAuditoriaPeriodoNombre" class="text-sm font-black text-amber-950 mt-1 truncate">Septiembre 2026</h4>
-            <p class="text-[10px] text-amber-700">Auditoría activa</p>
-          </div>
-        </div>
-
-        <!-- Pestañas internas: Ausentes vs Presentes -->
-        <div class="flex flex-wrap items-center justify-between border-b border-slate-200 pt-2 gap-2">
-          <div class="flex gap-2">
-            <button onclick="cambiarPestanaAuditoria('ausentes')" id="btnTabAuditoriaAusentes" class="px-4 py-2 border-b-2 border-rose-500 text-rose-700 font-black text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer">
-              <i class="fa-solid fa-triangle-exclamation"></i>
-              <span>Niños Ausentes en todo el Período</span>
-              <span id="badgeAuditoriaAusentes" class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-xs">0</span>
-            </button>
-            <button onclick="cambiarPestanaAuditoria('presentes')" id="btnTabAuditoriaPresentes" class="px-4 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer">
-              <i class="fa-solid fa-circle-check"></i>
-              <span>Con Asistencia</span>
-              <span id="badgeAuditoriaPresentes" class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">0</span>
-            </button>
-          </div>
-          <div class="text-xs text-slate-500 hidden sm:block">
-            <i class="fa-brands fa-whatsapp text-emerald-600"></i> Botón directo para contactar a los padres
-          </div>
-        </div>
-
-        <!-- Lista de Niños / Tabla -->
-        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-          <div class="p-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
-            <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i>
-            <input type="text" id="filtroTextoAuditoria" oninput="filtrarListaAuditoria(this.value)" placeholder="Filtrar por niño o padres..." class="bg-transparent text-xs text-slate-800 placeholder-slate-400 outline-none w-full">
-          </div>
-          <div class="max-h-96 overflow-y-auto">
-            <table class="w-full text-left text-xs">
-              <thead class="bg-slate-100 text-slate-700 font-bold uppercase text-[11px] sticky top-0 z-10">
-                <tr>
-                  <th class="py-2.5 px-3">#</th>
-                  <th class="py-2.5 px-3">Niño / Niña</th>
-                  <th class="py-2.5 px-3">Sala / Edad</th>
-                  <th class="py-2.5 px-3">Padres / Tutores</th>
-                  <th class="py-2.5 px-3">Teléfono</th>
-                  <th class="py-2.5 px-3 text-center">Acción Pastoral</th>
-                </tr>
-              </thead>
-              <tbody id="tablaAuditoriaBody" class="divide-y divide-slate-100">
-                <!-- Renderizado dinámicamente -->
-              </tbody>
-            </table>
-            <div id="auditoriaEmptyState" class="hidden p-8 text-center text-slate-400 text-xs">
-              No se encontraron registros para este filtro.
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Modal Footer -->
-      <div class="bg-slate-50 p-3 sm:p-4 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
-        <span>Reporte confidencial para coordinación pastoral de IGR KIDS.</span>
-        <button onclick="cerrarModalAuditoria()" class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl transition-all cursor-pointer">
-          Cerrar
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=58"></script>
+  <script src="app.js?v=61"></script>
 </body>
 </html>

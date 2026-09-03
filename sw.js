@@ -5,14 +5,15 @@
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v58';
+const CACHE_NAME = 'igr-kids-v61';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=58',
-  './app.js?v=58',
-  './manifest.json?v=58',
+  './pastores.html',
+  './styles.css?v=61',
+  './app.js?v=61',
+  './manifest.json?v=61',
   './manifest.json',
   './icons/favicon.png?v=58',
   './icons/favicon.png',
