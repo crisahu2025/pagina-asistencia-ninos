@@ -1,31 +1,31 @@
 /**
  * ====================================================================================
- * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V58)
+ * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V62)
  * Code Ahumada 2026
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v61';
+const CACHE_NAME = 'igr-kids-v62';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './pastores.html',
-  './styles.css?v=61',
-  './app.js?v=61',
-  './manifest.json?v=61',
+  './styles.css?v=62',
+  './app.js?v=62',
+  './manifest.json?v=62',
   './manifest.json',
-  './icons/favicon.png?v=58',
+  './icons/favicon.png?v=62',
   './icons/favicon.png',
-  './icons/apple-touch-icon.png?v=58',
+  './icons/apple-touch-icon.png?v=62',
   './icons/apple-touch-icon.png',
-  './icons/icon-192.png?v=58',
+  './icons/icon-192.png?v=62',
   './icons/icon-192.png',
-  './icons/icon-512.png?v=58',
+  './icons/icon-512.png?v=62',
   './icons/icon-512.png',
-  './icons/logo-icon.png?v=58',
+  './icons/logo-icon.png?v=62',
   './icons/logo-icon.png',
-  './icons/app-logo-full.png?v=58',
+  './icons/app-logo-full.png?v=62',
   './icons/app-logo-full.png',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',

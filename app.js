@@ -6,7 +6,7 @@
  * ====================================================================================
  */
 
-const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPJhW0A0Oob2hCe06rIIGMM6Q1au90I9QQ-l1BrlT22nPX2YI39eDJSb9rebnQTbMK/exec";
+const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxUdfjQLle-e-WzegilVVTNlJ_LjCkgUTpqo1lRjbyca2x1kyDtotoHvsVxgK26mG9v/exec";
 
 // Global State - Forzar migración a la URL oficial actual
 localStorage.setItem('asistencia_script_url', DEFAULT_SCRIPT_URL);
@@ -313,9 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=61')
+      navigator.serviceWorker.register('./sw.js?v=62')
         .then(reg => {
-          console.log('[PWA v61] Service Worker registrado:', reg.scope);
+          console.log('[PWA v62] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -323,7 +323,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v61] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v62] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -467,7 +467,7 @@ function showLoginView() {
 // ==========================================================================
 // ULTRA-FAST GOOGLE APPS SCRIPT CALLER (DIRECT HIGH-SPEED JSONP)
 // ==========================================================================
-function callGoogleAppsScript(params) {
+function callGoogleAppsScript(params, timeoutMs = 25000) {
   const urlBase = state.scriptUrl || DEFAULT_SCRIPT_URL;
   if (!urlBase) return Promise.reject(new Error('No hay URL de Google Apps Script configurada'));
 
@@ -487,9 +487,9 @@ function callGoogleAppsScript(params) {
       if (!isSettled) {
         isSettled = true;
         cleanup();
-        reject(new Error('Tiempo de espera agotado al conectar con Google Sheets (8s).'));
+        reject(new Error('El servidor de Google Sheets tardó en responder. Por favor intente nuevamente.'));
       }
-    }, 8000);
+    }, timeoutMs);
 
     function cleanup() {
       clearTimeout(timeoutId);
@@ -509,7 +509,7 @@ function callGoogleAppsScript(params) {
       if (!isSettled) {
         isSettled = true;
         cleanup();
-        reject(new Error('Error de red al conectar con Google Apps Script.'));
+        reject(new Error('Error de conexión con Google Apps Script.'));
       }
     };
 
