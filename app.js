@@ -313,9 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=54')
+      navigator.serviceWorker.register('./sw.js?v=58')
         .then(reg => {
-          console.log('[PWA v54] Service Worker registrado:', reg.scope);
+          console.log('[PWA v58] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -323,7 +323,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v54] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v58] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -1923,3 +1923,333 @@ function triggerMiniConfetti() {
     }
   } catch (e) {}
 }
+
+// ==========================================================================
+// MÓDULO REPORTE PASTORES (AUDITORÍA DE AUSENTISMO Y ASISTENCIAS)
+// ==========================================================================
+let auditoriaState = {
+  desbloqueado: false,
+  periodoTipo: 'mes',
+  filtroValor: '2026-09',
+  datos: {
+    totalPadron: 0,
+    totalPresentes: 0,
+    totalAusentes: 0,
+    presentes: [],
+    ausentes: []
+  },
+  pestanaActiva: 'ausentes',
+  filtroTexto: ''
+};
+
+function abrirModalAuditoriaPrivada() {
+  if (auditoriaState.desbloqueado) {
+    mostrarModalAuditoria();
+    return;
+  }
+
+  Swal.fire({
+    title: '🔒 REPORTE PASTORES',
+    html: `
+      <div class="text-left text-xs sm:text-sm text-slate-600 mb-2">
+        <p>Módulo de auditoría confidencial para pastores y coordinadores de <strong>IGR KIDS</strong>.</p>
+        <p class="mt-2 text-slate-500 font-semibold">Ingresá la contraseña de seguridad para acceder:</p>
+      </div>
+    `,
+    input: 'password',
+    inputPlaceholder: 'Ingresá la clave de acceso...',
+    inputAttributes: {
+      autocapitalize: 'off',
+      autocorrect: 'off'
+    },
+    showCancelButton: true,
+    confirmButtonColor: '#ca8a04',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: '<i class="fa-solid fa-key mr-1"></i> Desbloquear',
+    cancelButtonText: 'Cancelar',
+    showLoaderOnConfirm: true,
+    preConfirm: (pass) => {
+      const p = (pass || '').trim();
+      if (!p) {
+        Swal.showValidationMessage('Debes ingresar la contraseña de seguridad.');
+        return false;
+      }
+      if (p === 'IGRKIDSADMIN2026' || p === 'IARAHACKER26' || (state.currentUser && state.currentUser.rol && state.currentUser.rol.includes('Admin'))) {
+        return true;
+      }
+      Swal.showValidationMessage('Contraseña de seguridad incorrecta.');
+      return false;
+    }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      auditoriaState.desbloqueado = true;
+      showToastNotification('Acceso concedido a Reporte Pastores', 'success');
+      mostrarModalAuditoria();
+      ejecutarConsultaAuditoria();
+    }
+  });
+}
+
+function mostrarModalAuditoria() {
+  const modal = document.getElementById('modalPanelAuditoria');
+  if (modal) {
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function cerrarModalAuditoria() {
+  const modal = document.getElementById('modalPanelAuditoria');
+  if (modal) {
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+}
+
+function cambiarTipoPeriodoAuditoria(tipo) {
+  auditoriaState.periodoTipo = tipo;
+  const mesContainer = document.getElementById('containerAuditoriaMes');
+  const anioContainer = document.getElementById('containerAuditoriaAnio');
+
+  if (tipo === 'mes') {
+    if (mesContainer) mesContainer.classList.remove('hidden');
+    if (anioContainer) anioContainer.classList.add('hidden');
+  } else {
+    if (mesContainer) mesContainer.classList.add('hidden');
+    if (anioContainer) anioContainer.classList.remove('hidden');
+  }
+}
+
+async function ejecutarConsultaAuditoria() {
+  const tipo = auditoriaState.periodoTipo;
+  const mes = document.getElementById('auditoriaMesSelect')?.value || '2026-09';
+  const anio = document.getElementById('auditoriaAnioSelect')?.value || '2026';
+  const filtroValor = tipo === 'mes' ? mes : anio;
+  auditoriaState.filtroValor = filtroValor;
+
+  const periodoLabel = document.getElementById('kpiAuditoriaPeriodoNombre');
+  if (periodoLabel) {
+    if (tipo === 'mes') {
+      const mesesMap = {
+        '2026-01': 'Enero 2026', '2026-02': 'Febrero 2026', '2026-03': 'Marzo 2026',
+        '2026-04': 'Abril 2026', '2026-05': 'Mayo 2026', '2026-06': 'Junio 2026',
+        '2026-07': 'Julio 2026', '2026-08': 'Agosto 2026', '2026-09': 'Septiembre 2026'
+      };
+      periodoLabel.textContent = mesesMap[mes] || mes;
+    } else {
+      periodoLabel.textContent = `Año ${anio}`;
+    }
+  }
+
+  const todosLosNinos = (state.ninos && state.ninos.length > 0) ? state.ninos : DEMO_NINOS;
+  const total = todosLosNinos.length;
+
+  let ausentes = [];
+  let presentes = [];
+
+  try {
+    if (state.scriptUrl && !state.demoMode) {
+      const url = `${state.scriptUrl}?action=getAuditoriaPeriodo&periodo=${tipo}&mes=${mes}&anio=${anio}&password=IGRKIDSADMIN2026`;
+      const res = await fetch(url).catch(() => null);
+      if (res && res.ok) {
+        const json = await res.json();
+        if (json && json.success) {
+          ausentes = json.ausentes || [];
+          presentes = json.presentes || [];
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Auditoría remota error:', err);
+  }
+
+  if (ausentes.length === 0 && presentes.length === 0) {
+    todosLosNinos.forEach(n => {
+      if (n.presente) {
+        presentes.push({
+          id: n.id,
+          nombre: n.nombre,
+          edad: n.edad,
+          sala: n.salaActual || n.salaSugerida || 'General',
+          nombrePapas: n.nombrePapas || 'Familia',
+          telefono: n.telefono || ''
+        });
+      } else {
+        ausentes.push({
+          id: n.id,
+          nombre: n.nombre,
+          edad: n.edad,
+          sala: n.salaActual || n.salaSugerida || 'General',
+          nombrePapas: n.nombrePapas || 'Familia',
+          telefono: n.telefono || ''
+        });
+      }
+    });
+  }
+
+  auditoriaState.datos = {
+    totalPadron: total,
+    totalPresentes: presentes.length,
+    totalAusentes: ausentes.length,
+    presentes: presentes,
+    ausentes: ausentes
+  };
+
+  actualizarVistaAuditoria();
+}
+
+function actualizarVistaAuditoria() {
+  const d = auditoriaState.datos;
+  const pctPres = d.totalPadron > 0 ? Math.round((d.totalPresentes / d.totalPadron) * 100) : 0;
+  const pctAus = d.totalPadron > 0 ? Math.round((d.totalAusentes / d.totalPadron) * 100) : 0;
+
+  const kpiTotal = document.getElementById('kpiAuditoriaTotal');
+  const kpiPres = document.getElementById('kpiAuditoriaPresentes');
+  const kpiPresPct = document.getElementById('kpiAuditoriaPresentesPct');
+  const kpiAus = document.getElementById('kpiAuditoriaAusentes');
+  const kpiAusPct = document.getElementById('kpiAuditoriaAusentesPct');
+  const badgeAus = document.getElementById('badgeAuditoriaAusentes');
+  const badgePres = document.getElementById('badgeAuditoriaPresentes');
+
+  if (kpiTotal) kpiTotal.textContent = d.totalPadron;
+  if (kpiPres) kpiPres.textContent = d.totalPresentes;
+  if (kpiPresPct) kpiPresPct.textContent = `${pctPres}% de asistencia`;
+  if (kpiAus) kpiAus.textContent = d.totalAusentes;
+  if (kpiAusPct) kpiAusPct.textContent = `${pctAus}% de ausentismo`;
+  if (badgeAus) badgeAus.textContent = d.totalAusentes;
+  if (badgePres) badgePres.textContent = d.totalPresentes;
+
+  renderTablaAuditoria();
+}
+
+function cambiarPestanaAuditoria(pestana) {
+  auditoriaState.pestanaActiva = pestana;
+  const btnAus = document.getElementById('btnTabAuditoriaAusentes');
+  const btnPres = document.getElementById('btnTabAuditoriaPresentes');
+
+  if (pestana === 'ausentes') {
+    if (btnAus) {
+      btnAus.className = 'px-4 py-2 border-b-2 border-rose-500 text-rose-700 font-black text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer';
+    }
+    if (btnPres) {
+      btnPres.className = 'px-4 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer';
+    }
+  } else {
+    if (btnAus) {
+      btnAus.className = 'px-4 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 font-bold text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer';
+    }
+    if (btnPres) {
+      btnPres.className = 'px-4 py-2 border-b-2 border-emerald-500 text-emerald-700 font-black text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer';
+    }
+  }
+
+  renderTablaAuditoria();
+}
+
+function filtrarListaAuditoria(val) {
+  auditoriaState.filtroTexto = (val || '').trim();
+  renderTablaAuditoria();
+}
+
+function renderTablaAuditoria() {
+  const tbody = document.getElementById('tablaAuditoriaBody');
+  const emptyState = document.getElementById('auditoriaEmptyState');
+  if (!tbody) return;
+
+  const lista = auditoriaState.pestanaActiva === 'ausentes' 
+    ? auditoriaState.datos.ausentes 
+    : auditoriaState.datos.presentes;
+
+  const term = normalizarTexto(auditoriaState.filtroTexto);
+  const filtrados = lista.filter(n => {
+    if (!term) return true;
+    const nName = normalizarTexto(n.nombre || '');
+    const nPapas = normalizarTexto(n.nombrePapas || '');
+    const nTel = (n.telefono || '').replace(/\D/g, '');
+    return nName.includes(term) || nPapas.includes(term) || nTel.includes(term);
+  });
+
+  if (filtrados.length === 0) {
+    tbody.innerHTML = '';
+    if (emptyState) emptyState.classList.remove('hidden');
+    return;
+  }
+
+  if (emptyState) emptyState.classList.add('hidden');
+
+  tbody.innerHTML = filtrados.map((n, i) => {
+    const esAusente = auditoriaState.pestanaActiva === 'ausentes';
+    const telDigits = (n.telefono || '').replace(/\D/g, '');
+    const hasTel = telDigits.length >= 8;
+
+    return `
+      <tr class="hover:bg-amber-50/40 transition-colors">
+        <td class="py-2.5 px-3 font-semibold text-slate-400 text-[11px]">${i + 1}</td>
+        <td class="py-2.5 px-3">
+          <span class="font-bold text-slate-900">${n.nombre}</span>
+          ${esAusente ? '<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">Sin Asistencia</span>' : '<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Presente</span>'}
+        </td>
+        <td class="py-2.5 px-3 text-slate-600">${n.sala || 'General'}</td>
+        <td class="py-2.5 px-3 text-slate-700">${n.nombrePapas || 'No registrado'}</td>
+        <td class="py-2.5 px-3 text-slate-600 font-mono text-[11px]">${n.telefono || '--'}</td>
+        <td class="py-2.5 px-3 text-center">
+          ${hasTel ? `
+            <button onclick="enviarWhatsAppPastoral('${telDigits}', '${n.nombre.replace(/'/g, "\\'")}', '${(n.nombrePapas || '').replace(/'/g, "\\'")}')" class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-sm transition-all cursor-pointer">
+              <i class="fa-brands fa-whatsapp text-xs"></i>
+              <span>Escribir WhatsApp</span>
+            </button>
+          ` : `
+            <span class="text-[11px] text-slate-400 italic">Sin teléfono</span>
+          `}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function enviarWhatsAppPastoral(telefono, nombreNino, nombrePapas) {
+  let num = telefono.replace(/\D/g, '');
+  if (!num.startsWith('54') && num.length === 10) num = '549' + num;
+  else if (num.startsWith('54') && !num.startsWith('549')) num = '549' + num.substring(2);
+
+  const papas = nombrePapas ? `Hola ${nombrePapas}` : '¡Hola familia!';
+  const periodoNombre = document.getElementById('kpiAuditoriaPeriodoNombre')?.textContent || 'este mes';
+
+  const mensaje = `${papas}, te escribimos con mucho cariño desde *IGR KIDS* ❤️.\n\n` +
+    `Notamos que *${nombreNino}* no pudo asistir durante ${periodoNombre} a nuestras reuniones de niños. Queríamos saber cómo están y decirles que los extrañamos un montón.\n\n` +
+    `¡Los esperamos con los brazos abiertos este domingo! 🙌✨\n\n` +
+    `_Equipo Pastoral y Maestros de IGR KIDS_`;
+
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(mensaje)}`, '_blank');
+}
+
+function exportarAuditoriaExcel() {
+  const d = auditoriaState.datos;
+  const lista = auditoriaState.pestanaActiva === 'ausentes' ? d.ausentes : d.presentes;
+  const nombrePestana = auditoriaState.pestanaActiva === 'ausentes' ? 'Ausentes' : 'Presentes';
+  const periodo = auditoriaState.filtroValor;
+
+  if (!lista || lista.length === 0) {
+    showToastNotification('No hay datos para exportar.', 'info');
+    return;
+  }
+
+  const exportData = lista.map((n, i) => ({
+    'N°': i + 1,
+    'Período': periodo,
+    'Estado': auditoriaState.pestanaActiva === 'ausentes' ? 'Sin Asistencia' : 'Con Asistencia',
+    'Nombre Niño/a': n.nombre,
+    'Sala / Grupo': n.sala || 'General',
+    'Papás / Tutores': n.nombrePapas || '',
+    'Teléfono': n.telefono || ''
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, nombrePestana);
+
+  const fileName = `Reporte_Pastores_${nombrePestana}_${periodo}.xlsx`;
+  XLSX.writeFile(workbook, fileName);
+  showToastNotification(`Descargando ${fileName}`, 'success');
+}
+
