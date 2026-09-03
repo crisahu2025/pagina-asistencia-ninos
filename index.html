@@ -6,14 +6,14 @@
   <title>IGR KIDS - Portal de Asistencia Infantil</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
     <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=53">
+  <link rel="manifest" href="manifest.json?v=54">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IGR KIDS">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=53">
-  <link rel="icon" type="image/png" href="icons/favicon.png?v=53">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=54">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=54">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=53">
+  <link rel="stylesheet" href="styles.css?v=54">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -86,7 +86,7 @@
 
       <!-- Icon & Portal Header -->
       <div class="text-center relative z-10">
-        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=53" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
+        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=54" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
         <h2 class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-900 tracking-tight">
           IGR KIDS
         </h2>
@@ -284,7 +284,7 @@
           
           <!-- Logo & App Name -->
           <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white p-1 border border-amber-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0"><img src="icons/logo-icon.png?v=53" alt="IGR KIDS" class="w-full h-full object-contain"></div>
+            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white p-1 border border-amber-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0"><img src="icons/logo-icon.png?v=54" alt="IGR KIDS" class="w-full h-full object-contain"></div>
             <div>
               <div class="flex items-center gap-2">
                 <h1 class="text-base sm:text-xl font-black font-['Outfit'] tracking-tight text-slate-900 leading-none whitespace-nowrap">
@@ -448,12 +448,143 @@
       <!-- ============================================================= -->
       <section id="tab-asistencia" class="tab-content block space-y-5">
         
-        <!-- Filter and Search Header -->
-        <div class="bg-white p-4 sm:p-5 rounded-3xl border border-amber-100 shadow-sm space-y-4">
+        <!-- Filter and Search Header (Dark Premium Redesign) -->
+        <div class="search-card bg-[#0B0F19] p-4 sm:p-5 rounded-3xl border border-slate-800/80 shadow-xl shadow-black/25 space-y-3.5 relative">
           
-          <!-- Search bar with auto-focus -->
-          <div class="relative">
-            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-amber-600">
+          <!-- Barra Superior: Filtro de Edades, Selector de Estado y Toggle Cuadrícula/Tabla -->
+          <div class="flex flex-wrap items-center justify-between gap-2.5 relative z-20">
+            
+            <!-- Botón Desplegable de Edades -->
+            <div class="relative inline-block text-left" id="edadesDropdownContainer">
+              <button 
+                type="button"
+                id="btnEdadesFilter" 
+                onclick="toggleEdadesDropdown(event)" 
+                class="inline-flex items-center gap-2 px-3.5 py-2 bg-[#131B2E] hover:bg-slate-800 text-slate-200 hover:text-amber-400 border border-slate-700/80 hover:border-amber-400/60 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-amber-400/40 cursor-pointer"
+                aria-expanded="false"
+                aria-haspopup="true"
+              >
+                <i class="fa-solid fa-cake-candles text-amber-400"></i>
+                <span id="btnEdadesText" class="font-bold text-amber-400">Edades</span>
+                <i id="btnEdadesChevron" class="fa-solid fa-chevron-down text-[11px] text-slate-400 transition-transform duration-200"></i>
+              </button>
+
+              <!-- Menú Flotante Desplegable de Edades -->
+              <div 
+                id="edadesDropdownMenu" 
+                class="hidden absolute left-0 mt-2 w-64 sm:w-72 rounded-2xl bg-[#0F172A] border border-slate-700/80 shadow-2xl shadow-black/80 z-30 py-1.5 animate-fadeIn"
+              >
+                <div class="px-3.5 py-2 border-b border-slate-800/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                  <span>Filtrar por Edades</span>
+                  <i class="fa-solid fa-filter text-amber-400 text-xs"></i>
+                </div>
+                <div class="p-1 space-y-0.5" id="edadesOptionsList">
+                  <button 
+                    type="button" 
+                    onclick="selectEdadFilter('TODAS', 'Todas las Edades')" 
+                    class="edad-option-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-amber-400 bg-slate-800/80 hover:bg-slate-800 transition-colors flex items-center justify-between group cursor-pointer" 
+                    data-sala="TODAS"
+                  >
+                    <span class="flex items-center gap-2.5">
+                      <i class="fa-solid fa-layer-group text-amber-400 w-4 text-center"></i>
+                      <span class="font-semibold">Todas las Edades</span>
+                    </span>
+                    <i class="fa-solid fa-check text-amber-400 check-indicator"></i>
+                  </button>
+
+                  <button 
+                    type="button" 
+                    onclick="selectEdadFilter('Sala Cunas (0-2 años)', '0 a 2 años')" 
+                    class="edad-option-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-200 hover:text-amber-400 hover:bg-slate-800 transition-colors flex items-center justify-between group cursor-pointer" 
+                    data-sala="Sala Cunas (0-2 años)"
+                  >
+                    <span class="flex items-center gap-2.5">
+                      <span class="text-base leading-none">👶</span>
+                      <span>0 a 2 años <span class="text-[11px] text-slate-400 font-normal">(Sala Cunas)</span></span>
+                    </span>
+                    <i class="fa-solid fa-check text-amber-400 check-indicator hidden"></i>
+                  </button>
+
+                  <button 
+                    type="button" 
+                    onclick="selectEdadFilter('Párvulos (3-5 años)', '3 a 5 años')" 
+                    class="edad-option-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-200 hover:text-amber-400 hover:bg-slate-800 transition-colors flex items-center justify-between group cursor-pointer" 
+                    data-sala="Párvulos (3-5 años)"
+                  >
+                    <span class="flex items-center gap-2.5">
+                      <span class="text-base leading-none">🎨</span>
+                      <span>3 a 5 años <span class="text-[11px] text-slate-400 font-normal">(Párvulos)</span></span>
+                    </span>
+                    <i class="fa-solid fa-check text-amber-400 check-indicator hidden"></i>
+                  </button>
+
+                  <button 
+                    type="button" 
+                    onclick="selectEdadFilter('Primarios (6-8 años)', '6 a 8 años')" 
+                    class="edad-option-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-200 hover:text-amber-400 hover:bg-slate-800 transition-colors flex items-center justify-between group cursor-pointer" 
+                    data-sala="Primarios (6-8 años)"
+                  >
+                    <span class="flex items-center gap-2.5">
+                      <span class="text-base leading-none">📚</span>
+                      <span>6 a 8 años <span class="text-[11px] text-slate-400 font-normal">(Primarios)</span></span>
+                    </span>
+                    <i class="fa-solid fa-check text-amber-400 check-indicator hidden"></i>
+                  </button>
+
+                  <button 
+                    type="button" 
+                    onclick="selectEdadFilter('Pre-Adolescentes (9-12 años)', '9 a 12 años')" 
+                    class="edad-option-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-200 hover:text-amber-400 hover:bg-slate-800 transition-colors flex items-center justify-between group cursor-pointer" 
+                    data-sala="Pre-Adolescentes (9-12 años)"
+                  >
+                    <span class="flex items-center gap-2.5">
+                      <span class="text-base leading-none">🚀</span>
+                      <span>9 a 12 años <span class="text-[11px] text-slate-400 font-normal">(Pre-Adolescentes)</span></span>
+                    </span>
+                    <i class="fa-solid fa-check text-amber-400 check-indicator hidden"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Attendance filter & view toggle (Derecha de la barra superior) -->
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+              <!-- Estado dropdown -->
+              <select 
+                id="filterEstado" 
+                onchange="handleFilterEstadoChange(this.value)" 
+                class="bg-[#131B2E] border border-slate-700/80 text-xs font-bold text-slate-200 rounded-xl py-2 px-3 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all cursor-pointer"
+              >
+                <option value="TODOS" class="bg-slate-900 text-white">Todos (Presentes y Ausentes)</option>
+                <option value="SOLO_AUSENTES" class="bg-slate-900 text-white">Solo Ausentes (Por ingresar)</option>
+                <option value="SOLO_PRESENTES" class="bg-slate-900 text-white">Solo Presentes (Ya ingresados)</option>
+              </select>
+
+              <!-- View toggle (Grid / Table) -->
+              <div class="flex items-center bg-[#131B2E] rounded-xl p-0.5 border border-slate-700/80">
+                <button 
+                  id="viewGridBtn" 
+                  onclick="setViewMode('grid')" 
+                  class="p-1.5 rounded-lg text-amber-400 bg-slate-800 shadow-sm font-bold transition-all cursor-pointer" 
+                  title="Vista Cuadrícula"
+                >
+                  <i class="fa-solid fa-grip text-sm"></i>
+                </button>
+                <button 
+                  id="viewTableBtn" 
+                  onclick="setViewMode('table')" 
+                  class="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer" 
+                  title="Vista Tabla"
+                >
+                  <i class="fa-solid fa-list text-sm"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cuerpo: ÚNICAMENTE la barra de búsqueda para encontrar al niño -->
+          <div class="relative z-10">
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-amber-400">
               <i class="fa-solid fa-magnifying-glass text-lg"></i>
             </div>
             <input 
@@ -462,54 +593,16 @@
               oninput="handleSearchInput(this.value)"
               onkeyup="handleSearchInput(this.value)"
               placeholder="Buscar por nombre del niño, papás o teléfono..." 
-              class="w-full pl-12 pr-12 py-3.5 bg-[#FFFDF5] border border-amber-200/80 rounded-2xl text-base font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all"
+              class="w-full pl-12 pr-12 py-3.5 bg-[#131B2E] border border-slate-700/80 rounded-2xl text-base font-medium text-white placeholder-slate-400 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 shadow-inner transition-all"
               autocomplete="off"
             >
-            <button id="btnClearSearch" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600">
+            <button 
+              id="btnClearSearch" 
+              onclick="clearSearch()" 
+              class="hidden absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
               <i class="fa-solid fa-circle-xmark text-lg"></i>
             </button>
-          </div>
-
-          <!-- Filter pills: Salas y Estados -->
-          <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <!-- Sala Filters -->
-            <div class="flex flex-wrap items-center gap-1.5" id="roomFilters">
-              <button onclick="setFilterSala('TODAS')" class="filter-pill active-pill px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all" data-sala="TODAS">
-                Todas las Salas
-              </button>
-              <button onclick="setFilterSala('Sala Cunas (0-2 años)')" class="filter-pill px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all" data-sala="Sala Cunas (0-2 años)">
-                👶 Sala Cunas (0-2)
-              </button>
-              <button onclick="setFilterSala('Párvulos (3-5 años)')" class="filter-pill px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all" data-sala="Párvulos (3-5 años)">
-                🎨 Párvulos (3-5)
-              </button>
-              <button onclick="setFilterSala('Primarios (6-8 años)')" class="filter-pill px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all" data-sala="Primarios (6-8 años)">
-                📚 Primarios (6-8)
-              </button>
-              <button onclick="setFilterSala('Pre-Adolescentes (9-12 años)')" class="filter-pill px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all" data-sala="Pre-Adolescentes (9-12 años)">
-                🚀 Pre-Adolescentes (9-12)
-              </button>
-            </div>
-
-            <!-- Attendance filter & view toggle -->
-            <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-              <!-- Estado dropdown -->
-              <select id="filterEstado" onchange="handleFilterEstadoChange(this.value)" class="bg-amber-50/60 border border-amber-200 text-xs font-bold text-slate-700 rounded-xl py-2 px-3 focus:ring-2 focus:ring-amber-400 outline-none">
-                <option value="TODOS">Todos (Presentes y Ausentes)</option>
-                <option value="SOLO_AUSENTES">Solo Ausentes (Por ingresar)</option>
-                <option value="SOLO_PRESENTES">Solo Presentes (Ya ingresados)</option>
-              </select>
-
-              <!-- View toggle (Grid / List) -->
-              <div class="flex items-center bg-amber-50/60 rounded-xl p-0.5 border border-amber-200">
-                <button id="viewGridBtn" onclick="setViewMode('grid')" class="p-1.5 rounded-lg text-amber-900 bg-white shadow-sm font-bold" title="Vista Cuadrícula">
-                  <i class="fa-solid fa-grip text-sm"></i>
-                </button>
-                <button id="viewTableBtn" onclick="setViewMode('table')" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-800" title="Vista Tabla">
-                  <i class="fa-solid fa-list text-sm"></i>
-                </button>
-              </div>
-            </div>
           </div>
 
         </div>
@@ -879,7 +972,7 @@
         <!-- Encabezado con Logo Oficial y Título -->
         <div class="flex items-center gap-3.5 pr-8">
           <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 border-2 border-amber-300 shadow-md shadow-amber-900/10 flex items-center justify-center shrink-0 overflow-hidden">
-            <img src="icons/logo-icon.png?v=53" alt="IGR KIDS Logo" class="w-full h-full object-contain">
+            <img src="icons/logo-icon.png?v=54" alt="IGR KIDS Logo" class="w-full h-full object-contain">
           </div>
           <div>
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200 mb-1">
@@ -929,6 +1022,6 @@
   </div>
 
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=53"></script>
+  <script src="app.js?v=54"></script>
 </body>
 </html>

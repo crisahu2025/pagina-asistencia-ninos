@@ -152,7 +152,7 @@ const DEMO_NINOS = [
 ];
 
 // ==========================================================================
-// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V53)
+// INITIALIZATION & SESSION CONTROL (PROTOCOLO CORPORATIVO V54)
 // ==========================================================================
 let deferredInstallPrompt = null;
 
@@ -298,7 +298,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v53] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v54] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -313,9 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=53')
+      navigator.serviceWorker.register('./sw.js?v=54')
         .then(reg => {
-          console.log('[PWA v53] Service Worker registrado:', reg.scope);
+          console.log('[PWA v54] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -323,7 +323,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v53] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v54] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -1659,16 +1659,91 @@ function switchTab(tabId) {
   }
 }
 
-function setFilterSala(salaName) {
-  state.filterSala = salaName;
+// ==========================================================================
+// FILTRO DESPLEGABLE DE EDADES / SALAS (PROTOCOLO CORPORATIVO V54)
+// ==========================================================================
+
+function toggleEdadesDropdown(event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const menu = document.getElementById('edadesDropdownMenu');
+  const chevron = document.getElementById('btnEdadesChevron');
+  const btn = document.getElementById('btnEdadesFilter');
+  if (!menu) return;
+
+  const isHidden = menu.classList.contains('hidden');
+  if (isHidden) {
+    menu.classList.remove('hidden');
+    if (chevron) chevron.classList.add('rotate-180');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+  } else {
+    menu.classList.add('hidden');
+    if (chevron) chevron.classList.remove('rotate-180');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function closeEdadesDropdown() {
+  const menu = document.getElementById('edadesDropdownMenu');
+  const chevron = document.getElementById('btnEdadesChevron');
+  const btn = document.getElementById('btnEdadesFilter');
+  if (menu && !menu.classList.contains('hidden')) {
+    menu.classList.add('hidden');
+    if (chevron) chevron.classList.remove('rotate-180');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function selectEdadFilter(salaKey, label) {
+  state.filterSala = salaKey;
+
+  // Actualizar texto del botón principal "Edades"
+  const btnText = document.getElementById('btnEdadesText');
+  if (btnText) {
+    if (salaKey === 'TODAS') {
+      btnText.textContent = 'Edades';
+    } else {
+      btnText.textContent = `Edades: ${label}`;
+    }
+  }
+
+  // Actualizar estilos e icono check en las opciones del menú
+  document.querySelectorAll('#edadesDropdownMenu .edad-option-btn').forEach(btn => {
+    const isSelected = btn.getAttribute('data-sala') === salaKey;
+    const check = btn.querySelector('.check-indicator');
+    if (isSelected) {
+      btn.classList.add('bg-slate-800/80', 'text-amber-400');
+      btn.classList.remove('text-slate-200');
+      if (check) check.classList.remove('hidden');
+    } else {
+      btn.classList.remove('bg-slate-800/80', 'text-amber-400');
+      btn.classList.add('text-slate-200');
+      if (check) check.classList.add('hidden');
+    }
+  });
+
+  // Compatibilidad con selectores de sala alternativos si existieran
   document.querySelectorAll('#roomFilters .filter-pill').forEach(btn => {
-    if (btn.getAttribute('data-sala') === salaName) {
+    if (btn.getAttribute('data-sala') === salaKey) {
       btn.classList.add('active-pill');
     } else {
       btn.classList.remove('active-pill');
     }
   });
+
+  closeEdadesDropdown();
   renderKidsList();
+}
+
+function setFilterSala(salaName) {
+  let label = 'Todas las Edades';
+  if (salaName === 'Sala Cunas (0-2 años)') label = '0 a 2 años';
+  else if (salaName === 'Párvulos (3-5 años)') label = '3 a 5 años';
+  else if (salaName === 'Primarios (6-8 años)') label = '6 a 8 años';
+  else if (salaName === 'Pre-Adolescentes (9-12 años)') label = '9 a 12 años';
+  selectEdadFilter(salaName, label);
 }
 
 function setViewMode(mode) {
@@ -1676,15 +1751,31 @@ function setViewMode(mode) {
   const gridBtn = document.getElementById('viewGridBtn');
   const tableBtn = document.getElementById('viewTableBtn');
 
-  if (mode === 'grid') {
-    gridBtn.className = 'p-1.5 rounded-lg text-amber-900 bg-white shadow-sm font-bold';
-    tableBtn.className = 'p-1.5 rounded-lg text-slate-500 hover:text-slate-800';
-  } else {
-    tableBtn.className = 'p-1.5 rounded-lg text-amber-900 bg-white shadow-sm font-bold';
-    gridBtn.className = 'p-1.5 rounded-lg text-slate-500 hover:text-slate-800';
+  if (gridBtn && tableBtn) {
+    if (mode === 'grid') {
+      gridBtn.className = 'p-1.5 rounded-lg text-amber-400 bg-slate-800 shadow-sm font-bold transition-all cursor-pointer';
+      tableBtn.className = 'p-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer';
+    } else {
+      tableBtn.className = 'p-1.5 rounded-lg text-amber-400 bg-slate-800 shadow-sm font-bold transition-all cursor-pointer';
+      gridBtn.className = 'p-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer';
+    }
   }
   renderKidsList();
 }
+
+// Eventos globales para cierre del dropdown de Edades
+document.addEventListener('click', (e) => {
+  const container = document.getElementById('edadesDropdownContainer');
+  if (container && !container.contains(e.target)) {
+    closeEdadesDropdown();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeEdadesDropdown();
+  }
+});
 
 function handleSearchInput(val) {
   state.searchTerm = val || '';
