@@ -2,18 +2,18 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>IGR KIDS - Portal de Asistencia Infantil</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
     <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=67">
+  <link rel="manifest" href="manifest.json?v=68">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IGR KIDS">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=67">
-  <link rel="icon" type="image/png" href="icons/favicon.png?v=67">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=68">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=68">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=67">
+  <link rel="stylesheet" href="styles.css?v=68">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -86,7 +86,7 @@
 
       <!-- Icon & Portal Header -->
       <div class="text-center relative z-10">
-        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=54" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
+        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=68" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
         <h2 class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-900 tracking-tight">
           IGR KIDS
         </h2>
@@ -280,17 +280,19 @@
       <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         
         <!-- ROW 1: Brand & User Controls -->
-        <div class="flex items-center justify-between py-2.5 sm:py-3.5 border-b border-amber-50 gap-2">
+        <div class="flex items-center justify-between py-2 sm:py-3 border-b border-amber-50 gap-1.5 sm:gap-2 max-w-full">
           
           <!-- Logo & App Name -->
-          <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white p-1 border border-amber-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0"><img src="icons/logo-icon.png?v=54" alt="IGR KIDS" class="w-full h-full object-contain"></div>
-            <div>
-              <div class="flex items-center gap-2">
-                <h1 class="text-base sm:text-xl font-black font-['Outfit'] tracking-tight text-slate-900 leading-none whitespace-nowrap">
+          <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+            <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-white p-1 border border-amber-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+              <img src="icons/logo-icon.png?v=68" alt="IGR KIDS" class="w-full h-full object-contain">
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 sm:gap-2">
+                <h1 class="text-sm sm:text-xl font-black font-['Outfit'] tracking-tight text-slate-900 leading-none whitespace-nowrap">
                   IGR KIDS
                 </h1>
-                <span id="connectionBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-200">
+                <span id="connectionBadge" class="hidden min-[380px]:inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span id="connectionText">Online</span>
                 </span>
@@ -302,27 +304,33 @@
           </div>
 
           <!-- User Badge & Actions -->
-          <div class="flex items-center gap-1.5 sm:gap-2">
+          <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
             
             <!-- Logged-in Teacher / User Badge -->
-            <div id="userBadgeHeader" class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-50/90 rounded-2xl border border-amber-200/80 text-xs font-bold text-amber-950 shadow-sm max-w-[150px] sm:max-w-[240px] truncate">
+            <div id="userBadgeHeader" class="hidden min-[480px]:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-50/90 rounded-2xl border border-amber-200/80 text-xs font-bold text-amber-950 shadow-sm max-w-[100px] sm:max-w-[200px] truncate shrink-0">
               <i class="fa-solid fa-user-shield text-amber-600 shrink-0 text-xs"></i>
               <span id="currentUserLabel" class="truncate">Equipo IGR KIDS</span>
             </div>
 
             <!-- Install PWA Button -->
-            <button id="btnInstallPwa" onclick="promptInstallPwa()" title="Instalar App en el Celular" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-yellow-500 active:scale-95 text-amber-950 text-xs font-extrabold rounded-2xl shadow-sm border border-amber-300 transition-all cursor-pointer">
+            <button id="btnInstallPwa" onclick="promptInstallPwa()" title="Instalar App en el Celular" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2.5 min-h-[42px] bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-yellow-500 active:scale-95 text-amber-950 text-xs font-extrabold rounded-2xl shadow-sm border border-amber-300 transition-all cursor-pointer shrink-0">
               <i class="fa-solid fa-mobile-screen-button text-xs"></i>
               <span class="hidden sm:inline">Instalar App</span>
             </button>
 
-            <!-- Sync Button -->
-            <button id="btnSync" onclick="fetchData(true)" title="Sincronizar datos" class="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-all shadow-sm">
+            <!-- Sync Button (Destacado, táctil y manual) -->
+            <button 
+              id="btnSync" 
+              onclick="fetchData(true)" 
+              title="Sincronizar datos" 
+              class="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-2.5 min-h-[42px] bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 text-amber-950 font-extrabold text-xs sm:text-sm rounded-2xl shadow-sm border border-amber-300 active:scale-95 transition-all cursor-pointer shrink-0"
+            >
               <i id="syncIcon" class="fa-solid fa-arrows-rotate text-xs sm:text-sm"></i>
+              <span class="whitespace-nowrap">Sincronizar</span>
             </button>
 
             <!-- Logout Button -->
-            <button onclick="handleLogout()" title="Cerrar sesión" class="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 border border-slate-200 flex items-center justify-center transition-all shadow-sm">
+            <button onclick="handleLogout()" title="Cerrar sesión" class="w-10 h-10 min-h-[42px] min-w-[38px] sm:min-w-[42px] rounded-2xl bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 border border-slate-200 flex items-center justify-center transition-all shadow-sm shrink-0 active:scale-95">
               <i class="fa-solid fa-power-off text-xs sm:text-sm"></i>
             </button>
           </div>
@@ -330,21 +338,21 @@
         </div>
 
         <!-- ROW 2: Date & Turno Controls Strip -->
-        <div class="flex flex-wrap items-center justify-between gap-2 py-2">
+        <div class="flex flex-wrap items-center justify-between gap-2 py-2 max-w-full">
           
-          <div class="flex items-center flex-wrap gap-2">
+          <div class="flex items-center flex-wrap gap-2 max-w-full">
             <!-- Date selector -->
-            <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs">
-              <i class="fa-regular fa-calendar-days text-amber-600 ml-2"></i>
-              <input type="date" id="selectedDate" class="bg-transparent border-0 text-xs sm:text-sm font-semibold text-slate-700 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none">
-              <button onclick="setTodayDate()" title="Ir a hoy" class="px-2 py-1 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-xl transition-all shadow-sm">
+            <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs max-w-full">
+              <i class="fa-regular fa-calendar-days text-amber-600 ml-2 shrink-0"></i>
+              <input type="date" id="selectedDate" class="bg-transparent border-0 text-xs sm:text-sm font-semibold text-slate-700 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none max-w-[130px] sm:max-w-none">
+              <button onclick="setTodayDate()" title="Ir a hoy" class="px-2 py-1 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-xl transition-all shadow-sm shrink-0">
                 Hoy
               </button>
             </div>
 
             <!-- Turno Dominical Selector -->
-            <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs">
-              <i class="fa-solid fa-clock text-amber-600 ml-2"></i>
+            <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs max-w-full">
+              <i class="fa-solid fa-clock text-amber-600 ml-2 shrink-0"></i>
               <select id="selectedTurno" onchange="handleTurnoChange(this.value)" class="bg-transparent border-0 text-xs sm:text-sm font-bold text-amber-950 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none font-['Inter']">
                 <option value="10:00 hs (Mañana)">10:00 hs (Mañana)</option>
                 <option value="18:00 hs (Tarde)">18:00 hs (Tarde)</option>
@@ -354,7 +362,7 @@
           </div>
 
           <!-- Quick Action CTA -->
-          <button onclick="switchTab('nuevo')" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-amber-950 text-xs font-bold rounded-2xl shadow-sm border border-amber-300 transition-all">
+          <button onclick="switchTab('nuevo')" class="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-amber-950 text-xs font-bold rounded-2xl shadow-sm border border-amber-300 transition-all shrink-0">
             <i class="fa-solid fa-user-plus text-xs"></i>
             <span>Nuevo Niño</span>
           </button>
@@ -1107,6 +1115,6 @@
 
     </div>
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=67"></script>
+  <script src="app.js?v=68"></script>
 </body>
 </html>

@@ -316,9 +316,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=67')
+      navigator.serviceWorker.register('./sw.js?v=68')
         .then(reg => {
-          console.log('[PWA v67] Service Worker registrado:', reg.scope);
+          console.log('[PWA v68] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -326,7 +326,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v67] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v68] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -392,13 +392,6 @@ function initApp() {
 
   // Check saved session in session storage (destrucción por pestaña)
   checkSavedSession();
-
-  // Auto-sync padrón cada 60 segundos en segundo plano (para traer nuevos niños anotados por otros maestros)
-  setInterval(() => {
-    if (state.isAuthenticated && !state.isLoading && (!state.searchTerm || state.searchTerm.trim() === '')) {
-      fetchData(false);
-    }
-  }, 60000);
 }
 
 function switchAuthMode(mode) {

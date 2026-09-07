@@ -1,7 +1,30 @@
 /* ==========================================================================
-   CUSTOM STYLES - PALETA TONOS BLANCO Y AMARILLO PASTEL (v65) - IGR KIDS
+   CUSTOM STYLES - PALETA TONOS BLANCO Y AMARILLO PASTEL (v68) - IGR KIDS
    Code Ahumada 2026
    ========================================================================== */
+
+/* Anti-overflow horizontal y resets móviles */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden !important;
+  position: relative;
+}
+
+#appContainer, header, nav, main, section {
+  max-width: 100%;
+}
+
+/* Sync Button Highlighted & Touch Friendly */
+#btnSync {
+  min-height: 42px;
+  touch-action: manipulation;
+  user-select: none;
+}
 
 /* Custom Scrollbars (Pastel Yellow / Butter tones) */
 ::-webkit-scrollbar {
