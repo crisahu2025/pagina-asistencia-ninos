@@ -25,6 +25,7 @@ const state = {
   presentesSearchTerm: '',
   presentesViewMode: localStorage.getItem('igr_presentes_view_mode') || 'grid',
   viewMode: 'grid', // 'grid' | 'table'
+  kidsRenderLimit: 36,
   scriptUrl: activeScriptUrl,
   demoMode: localStorage.getItem('asistencia_demo_mode') === 'true',
   activeTab: 'asistencia',
@@ -315,9 +316,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=65')
+      navigator.serviceWorker.register('./sw.js?v=66')
         .then(reg => {
-          console.log('[PWA v65] Service Worker registrado:', reg.scope);
+          console.log('[PWA v66] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -325,7 +326,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v65] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v66] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -368,15 +369,23 @@ function initApp() {
     });
   }
 
-  // Search input listeners
+  // Search input listeners (debounced via handleSearchInput)
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
-      state.searchTerm = e.target.value;
-      toggleClearSearchBtn(state.searchTerm.trim().length > 0);
-      renderKidsList();
+      handleSearchInput(e.target.value);
     });
   }
+
+  // Auto infinite scroll when scrolling down through kids list
+  window.addEventListener('scroll', () => {
+    if (state.activeTab !== 'asistencia') return;
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) {
+      if (state.kidsRenderLimit < state.ninos.length) {
+        loadMoreKids();
+      }
+    }
+  }, { passive: true });
 
   // Inicializar modo de vista guardado en Presentes Hoy
   setPresentesViewMode(state.presentesViewMode);
@@ -787,14 +796,69 @@ function setTodayDate() {
   fetchData(false);
 }
 
+// ==========================================================================
+// PRE-INDEXED HIGH-SPEED SEARCH & INSTANT CACHE ENGINE
+// ==========================================================================
+function getAnyRecentBackup() {
+  try {
+    const master = localStorage.getItem('asistencia_padron_master');
+    if (master) {
+      const parsed = JSON.parse(master);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('backup_ninos_')) {
+        const data = localStorage.getItem(key);
+        if (data) {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function prepareKidsIndex(ninos) {
+  if (!Array.isArray(ninos)) return [];
+  const storedLocal = getLocalAttendance(state.selectedDate, state.selectedTurno);
+
+  return ninos.map(n => {
+    if (storedLocal && storedLocal[n.id] !== undefined) {
+      n.presente = storedLocal[n.id].presente;
+      n.horaIngreso = storedLocal[n.id].horaIngreso;
+      if (storedLocal[n.id].sala) n.salaActual = storedLocal[n.id].sala;
+    }
+
+    const normName = normalizarTexto(n.nombre || '');
+    const normPapas = normalizarTexto(n.nombrePapas || '');
+    const normSala = normalizarTexto(n.salaActual || n.salaSugerida || '');
+    const digits = (n.telefono || '').replace(/\D/g, '');
+
+    n._normName = normName;
+    n._normPapas = normPapas;
+    n._normSala = normSala;
+    n._digits = digits;
+    n._searchIndex = `${normName} ${normPapas} ${normSala} ${digits}`;
+    n._edadLimpia = formatearEdad(n.edad);
+    return n;
+  });
+}
+
 async function fetchData(showToast = false) {
   if (!state.isAuthenticated) return;
 
   // ⚡ 1. Renderizado INSTANTÁNEO (0 ms) desde Respaldo Local si la lista está vacía
-  const cached = getLocalDataBackup(state.selectedDate, state.selectedTurno) || getLocalDataBackup(state.selectedDate);
-  if (cached && Array.isArray(cached) && cached.length > 0 && state.ninos.length === 0) {
-    state.ninos = cached;
-    updateUI();
+  if (state.ninos.length === 0) {
+    const cached = getLocalDataBackup(state.selectedDate, state.selectedTurno) || 
+                   getLocalDataBackup(state.selectedDate) || 
+                   getAnyRecentBackup();
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      console.log(`[Cache Ultra-Rápido] Cargando ${cached.length} niños desde memoria local`);
+      state.ninos = prepareKidsIndex(cached);
+      updateUI();
+    }
   }
 
   setLoadingState(true);
@@ -814,6 +878,7 @@ async function fetchData(showToast = false) {
       return { ...n };
     });
 
+    state.ninos = prepareKidsIndex(state.ninos);
     updateUI();
     setLoadingState(false);
     if (showToast) {
@@ -831,7 +896,7 @@ async function fetchData(showToast = false) {
     });
 
     if (data && data.success && Array.isArray(data.ninos)) {
-      state.ninos = data.ninos;
+      state.ninos = prepareKidsIndex(data.ninos);
       saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
       updateUI();
       if (showToast) {
@@ -842,12 +907,12 @@ async function fetchData(showToast = false) {
     }
   } catch (error) {
     console.warn('Error al conectar con Google Sheets, usando respaldo local:', error);
-    const cachedBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno);
+    const cachedBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno) || getAnyRecentBackup();
     if (cachedBackup && cachedBackup.length > 0) {
-      state.ninos = cachedBackup;
+      state.ninos = prepareKidsIndex(cachedBackup);
       showToastNotification(`Modo sin conexión: datos cargados (${state.selectedTurno})`, 'warning');
     } else if (state.ninos.length === 0) {
-      state.ninos = DEMO_NINOS;
+      state.ninos = prepareKidsIndex(DEMO_NINOS);
       showToastNotification('No se pudo conectar a Google Sheets. Verifique la URL en Configuración.', 'error');
     }
     updateUI();
@@ -887,6 +952,8 @@ function saveLocalDataBackup(dateStr, turnoStr, list) {
   try {
     const key = `backup_ninos_${dateStr}_${encodeURIComponent(turnoStr || '10:00 hs (Mañana)')}`;
     localStorage.setItem(key, JSON.stringify(list));
+    // Guardar también en padrón maestro permanente para arranque instantáneo (0ms)
+    localStorage.setItem('asistencia_padron_master', JSON.stringify(list));
   } catch (e) {}
 }
 
@@ -923,7 +990,32 @@ async function toggleAsistencia(childId) {
   }
 
   saveLocalAttendance(state.selectedDate, child.id, newState, newTime, child.salaActual || child.salaSugerida, state.selectedTurno);
-  updateUI();
+
+  // ⚡ ACTUALIZACIÓN ULTRA RÁPIDA (0.1ms) en el DOM sin re-renderizar los 519 niños:
+  const cardElem = document.getElementById(`kid-card-${child.id}`);
+  const rowElem = document.getElementById(`kid-row-${child.id}`);
+  if (cardElem) {
+    const temp = document.createElement('div');
+    temp.innerHTML = createKidCardHTML(child);
+    if (temp.firstElementChild) cardElem.replaceWith(temp.firstElementChild);
+  } else if (rowElem) {
+    const temp = document.createElement('tbody');
+    temp.innerHTML = createKidTableRowHTML(child);
+    if (temp.firstElementChild) rowElem.replaceWith(temp.firstElementChild);
+  } else {
+    renderKidsList();
+  }
+
+  // Actualizar contadores KPI inmediatamente (0ms)
+  updateStats();
+
+  // Si está en la pestaña Presentes Hoy, actualizar la lista
+  if (state.activeTab === 'presentes') {
+    renderPresentesList();
+  }
+
+  // Guardar en respaldo local en segundo plano
+  saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
 
   // If live mode is connected, sync with Google Sheets backend
   if (!state.demoMode && state.scriptUrl) {
@@ -995,8 +1087,8 @@ function getFilteredKids() {
     state.filterEstado = filterSelect.value;
   }
 
-  const normSearch = normalizarTexto(state.searchTerm);
-  const searchDigits = (state.searchTerm || '').replace(/\D/g, '');
+  const rawSearch = (state.searchTerm || '').trim();
+  const normSearch = normalizarTexto(rawSearch);
   const searchWords = normSearch ? normSearch.split(/\s+/).filter(Boolean) : [];
 
   return state.ninos.filter(nino => {
@@ -1009,22 +1101,32 @@ function getFilteredKids() {
     if (state.filterEstado === 'SOLO_PRESENTES' && !nino.presente) return false;
     if (state.filterEstado === 'SOLO_AUSENTES' && nino.presente) return false;
 
-    // Search Query (Name, Parents, Phone) - Accent-normalized real-time
+    // ⚡ Instant Pre-Indexed Search (Sub-millisecond)
     if (normSearch) {
-      const normName = normalizarTexto(nino.nombre);
-      const normPapas = normalizarTexto(nino.nombrePapas);
-      const kidPhone = (nino.telefono || '').replace(/\D/g, '');
+      if (!nino._searchIndex) {
+        const normName = normalizarTexto(nino.nombre || '');
+        const normPapas = normalizarTexto(nino.nombrePapas || '');
+        const normSala = normalizarTexto(nino.salaActual || nino.salaSugerida || '');
+        const digits = (nino.telefono || '').replace(/\D/g, '');
+        nino._searchIndex = `${normName} ${normPapas} ${normSala} ${digits}`;
+      }
 
-      const matchName = normName.includes(normSearch);
-      const matchPapas = normPapas.includes(normSearch);
-      const matchWords = searchWords.length > 1 && searchWords.every(word => normName.includes(word) || normPapas.includes(word));
-      const matchPhone = searchDigits.length > 0 && kidPhone.includes(searchDigits);
-
-      if (!matchName && !matchPapas && !matchWords && !matchPhone) return false;
+      if (searchWords.length > 1) {
+        for (let i = 0; i < searchWords.length; i++) {
+          if (!nino._searchIndex.includes(searchWords[i])) return false;
+        }
+      } else {
+        if (!nino._searchIndex.includes(normSearch)) return false;
+      }
     }
 
     return true;
   });
+}
+
+function loadMoreKids() {
+  state.kidsRenderLimit = (state.kidsRenderLimit || 36) + 36;
+  renderKidsList();
 }
 
 function renderKidsList() {
@@ -1040,22 +1142,64 @@ function renderKidsList() {
   const emptyState = document.getElementById('emptyState');
 
   if (filtered.length === 0) {
-    gridContainer.innerHTML = '';
-    tableBody.innerHTML = '';
-    emptyState.classList.remove('hidden');
+    if (gridContainer) gridContainer.innerHTML = '';
+    if (tableBody) tableBody.innerHTML = '';
+    if (emptyState) emptyState.classList.remove('hidden');
     return;
   }
 
-  emptyState.classList.add('hidden');
+  if (emptyState) emptyState.classList.add('hidden');
+
+  // ⚡ Límite de renderizado incremental para evitar congelamiento de pantalla
+  const limit = state.kidsRenderLimit || 36;
+  const visibleKids = filtered.slice(0, limit);
+  const hasMore = filtered.length > limit;
 
   if (state.viewMode === 'grid') {
-    gridContainer.classList.remove('hidden');
-    tableContainer.classList.add('hidden');
-    gridContainer.innerHTML = filtered.map(nino => createKidCardHTML(nino)).join('');
+    if (gridContainer) {
+      gridContainer.classList.remove('hidden');
+      if (tableContainer) tableContainer.classList.add('hidden');
+
+      let cardsHTML = visibleKids.map(nino => createKidCardHTML(nino)).join('');
+
+      if (hasMore) {
+        const remaining = filtered.length - limit;
+        cardsHTML += `
+          <div class="col-span-full py-6 flex flex-col items-center justify-center gap-2">
+            <button onclick="loadMoreKids()" class="inline-flex items-center gap-2.5 px-6 py-3 bg-amber-400 hover:bg-amber-300 active:scale-95 text-amber-950 font-black rounded-2xl shadow-md transition-all cursor-pointer text-sm">
+              <i class="fa-solid fa-arrow-down animate-bounce"></i>
+              <span>Cargar más niños (+${remaining > 36 ? 36 : remaining} de ${remaining} restantes)</span>
+            </button>
+            <p class="text-xs text-slate-400 font-medium">Tip: Escribe en el buscador para encontrar al instante.</p>
+          </div>
+        `;
+      }
+
+      gridContainer.innerHTML = cardsHTML;
+    }
   } else {
-    gridContainer.classList.add('hidden');
-    tableContainer.classList.remove('hidden');
-    tableBody.innerHTML = filtered.map(nino => createKidTableRowHTML(nino)).join('');
+    if (tableContainer && tableBody) {
+      if (gridContainer) gridContainer.classList.add('hidden');
+      tableContainer.classList.remove('hidden');
+
+      let rowsHTML = visibleKids.map(nino => createKidTableRowHTML(nino)).join('');
+
+      if (hasMore) {
+        const remaining = filtered.length - limit;
+        rowsHTML += `
+          <tr>
+            <td colspan="5" class="py-4 text-center bg-amber-50/50">
+              <button onclick="loadMoreKids()" class="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-amber-950 font-black rounded-xl text-xs shadow-sm cursor-pointer">
+                <i class="fa-solid fa-arrow-down"></i>
+                <span>Cargar más (${remaining} restantes)</span>
+              </button>
+            </td>
+          </tr>
+        `;
+      }
+
+      tableBody.innerHTML = rowsHTML;
+    }
   }
 }
 
@@ -1132,7 +1276,7 @@ function createKidCardHTML(nino) {
   const horaLimpia = formatearHora(nino.horaIngreso);
 
   return `
-    <div class="kid-card rounded-3xl p-4 sm:p-5 shadow-sm relative flex flex-col justify-between transition-all ${isPresent ? 'kid-card-present' : 'bg-white border-amber-100'}">
+    <div id="kid-card-${nino.id}" class="kid-card rounded-3xl p-4 sm:p-5 shadow-sm relative flex flex-col justify-between transition-all ${isPresent ? 'kid-card-present' : 'bg-white border-amber-100'}">
       
       <!-- Top Card Section -->
       <div>
@@ -1227,7 +1371,7 @@ function createKidTableRowHTML(nino) {
   const horaLimpia = formatearHora(nino.horaIngreso);
 
   return `
-    <tr class="hover:bg-amber-50/30 transition-colors ${isPresent ? 'bg-emerald-50/30' : ''}">
+    <tr id="kid-row-${nino.id}" class="hover:bg-amber-50/30 transition-colors ${isPresent ? 'bg-emerald-50/30' : ''}">
       <td class="py-3 px-4">
         <div class="font-bold text-slate-900">${highlightedName}</div>
         ${nino.observacionesMedicas ? `<div class="text-[11px] text-amber-700 flex items-center gap-1 font-medium"><i class="fa-solid fa-notes-medical"></i> ${nino.observacionesMedicas}</div>` : ''}
@@ -1272,38 +1416,33 @@ function createKidTableRowHTML(nino) {
 
 function setPresentesViewMode(mode) {
   state.presentesViewMode = mode || 'grid';
+  localStorage.setItem('igr_presentes_view_mode', state.presentesViewMode);
+  
   const btnGrid = document.getElementById('btnPresentesViewGrid');
   const btnTable = document.getElementById('btnPresentesViewTable');
-  const gridCont = document.getElementById('presentesGridContainer');
-  const tableCont = document.getElementById('presentesTableContainer');
 
-  if (state.presentesViewMode === 'grid') {
-    if (btnGrid) {
+  if (btnGrid && btnTable) {
+    if (state.presentesViewMode === 'grid') {
       btnGrid.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-amber-950 shadow-sm transition-all cursor-pointer font-bold';
-    }
-    if (btnTable) {
       btnTable.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-500 hover:text-slate-900 transition-all cursor-pointer font-medium';
-    }
-    if (gridCont) gridCont.classList.remove('hidden');
-    if (tableCont) tableCont.classList.add('hidden');
-  } else {
-    if (btnGrid) {
+    } else {
       btnGrid.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-500 hover:text-slate-900 transition-all cursor-pointer font-medium';
-    }
-    if (btnTable) {
       btnTable.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-amber-950 shadow-sm transition-all cursor-pointer font-bold';
     }
-    if (gridCont) gridCont.classList.add('hidden');
-    if (tableCont) tableCont.classList.remove('hidden');
   }
+
+  renderPresentesList();
 }
 
 function handleSearchPresentes(val) {
   state.presentesSearchTerm = (val || '').trim();
   const btnClear = document.getElementById('btnClearSearchPresentes');
   if (btnClear) {
-    if (state.presentesSearchTerm) btnClear.classList.remove('hidden');
-    else btnClear.classList.add('hidden');
+    if (state.presentesSearchTerm) {
+      btnClear.classList.remove('hidden');
+    } else {
+      btnClear.classList.add('hidden');
+    }
   }
   renderPresentesList();
 }
@@ -1312,25 +1451,31 @@ function clearSearchPresentes() {
   const input = document.getElementById('searchPresentesInput');
   if (input) {
     input.value = '';
-    handleSearchPresentes('');
     input.focus();
   }
+  handleSearchPresentes('');
 }
 
 function renderPresentesList() {
   const allPresentes = state.ninos.filter(n => n.presente);
-  const term = normalizarTexto(state.presentesSearchTerm || '');
-  
+  const term = normalizarTexto(state.presentesSearchTerm || '').toLowerCase();
+  const cleanDigits = term.replace(/\D/g, '');
+
   const presentes = allPresentes.filter(n => {
     if (!term) return true;
-    const nombre = normalizarTexto(n.nombre || '');
-    const papas = normalizarTexto(n.nombrePapas || '');
-    const tel = (n.telefono || '').replace(/\D/g, '');
-    const sala = normalizarTexto(n.salaActual || n.salaSugerida || '');
-    return nombre.includes(term) || papas.includes(term) || tel.includes(term) || sala.includes(term);
+    const nombre = normalizarTexto(n.nombre || '').toLowerCase();
+    const papas = normalizarTexto(n.nombrePapas || '').toLowerCase();
+    const telClean = (n.telefono || '').replace(/\D/g, '');
+    const telRaw = (n.telefono || '').toLowerCase();
+    const sala = normalizarTexto(n.salaActual || n.salaSugerida || '').toLowerCase();
+    const obs = normalizarTexto(n.observacionesMedicas || '').toLowerCase();
+
+    const matchPhone = cleanDigits.length >= 2 && telClean.includes(cleanDigits);
+    return nombre.includes(term) || papas.includes(term) || matchPhone || telRaw.includes(term) || sala.includes(term) || obs.includes(term);
   });
 
   const gridCont = document.getElementById('presentesGridContainer');
+  const tableCont = document.getElementById('presentesTableContainer');
   const tbody = document.getElementById('presentesTableBody');
   const empty = document.getElementById('presentesEmptyState');
   const emptyTitle = document.getElementById('presentesEmptyTitle');
@@ -1338,17 +1483,21 @@ function renderPresentesList() {
   const badgeCount = document.getElementById('badgeCountPresentesFilter');
 
   if (badgeCount) {
-    badgeCount.textContent = `${presentes.length} ${presentes.length === 1 ? 'presente' : 'presentes'}`;
+    if (term && allPresentes.length > 0) {
+      badgeCount.textContent = `${presentes.length} de ${allPresentes.length} presentes`;
+    } else {
+      badgeCount.textContent = `${allPresentes.length} ${allPresentes.length === 1 ? 'presente' : 'presentes'}`;
+    }
   }
 
   if (presentes.length === 0) {
-    if (gridCont) gridCont.innerHTML = '';
-    if (tbody) tbody.innerHTML = '';
+    if (gridCont) gridCont.classList.add('hidden');
+    if (tableCont) tableCont.classList.add('hidden');
     if (empty) {
       empty.classList.remove('hidden');
       if (allPresentes.length > 0 && term) {
         if (emptyTitle) emptyTitle.textContent = `No se encontró a "${state.presentesSearchTerm}" en presentes`;
-        if (emptySub) emptySub.textContent = 'Verifica que el nombre o teléfono esté bien escrito.';
+        if (emptySub) emptySub.textContent = 'Verifica que el nombre de los papás, niño o teléfono esté bien escrito.';
       } else {
         if (emptyTitle) emptyTitle.textContent = 'Aún no hay niños marcados como presentes hoy';
         if (emptySub) emptySub.textContent = 'Ve a la pestaña "Toma de Asistencia" para comenzar a marcar los ingresos del domingo.';
@@ -1359,94 +1508,127 @@ function renderPresentesList() {
 
   if (empty) empty.classList.add('hidden');
 
-  // 1. Render Cards View (Recuadro)
-  if (gridCont) {
-    gridCont.innerHTML = presentes.map((nino, index) => {
-      const horaStr = formatearHora(nino.horaIngreso) || `${getCurrentTime()} hs`;
-      const salaStr = nino.salaActual || nino.salaSugerida || 'General';
-      const papasStr = nino.nombrePapas || 'Familia';
-      const telDigits = (nino.telefono || '').replace(/\D/g, '');
+  if (state.presentesViewMode === 'table') {
+    if (gridCont) gridCont.classList.add('hidden');
+    if (tableCont) tableCont.classList.remove('hidden');
+    if (tbody) {
+      tbody.innerHTML = presentes.map((nino, index) => {
+        const horaStr = formatearHora(nino.horaIngreso) || '--:--';
+        const horaDisplay = horaStr.includes('hs') ? horaStr : `${horaStr} hs`;
+        const salaStr = nino.salaActual || nino.salaSugerida || 'General';
+        const papasStr = nino.nombrePapas || 'Familia';
 
-      return `
-        <div class="bg-white rounded-3xl p-5 border border-amber-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
-          <div>
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-2xl ${getAvatarColor(nino.nombre)} flex items-center justify-center font-black text-sm shadow-sm shrink-0">
-                  ${getInitials(nino.nombre)}
-                </div>
-                <div>
-                  <h3 class="font-black text-base text-slate-900 leading-snug">${highlightMatch(nino.nombre, state.presentesSearchTerm)}</h3>
-                  <span class="inline-block px-2.5 py-0.5 mt-1 rounded-xl text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">${salaStr}</span>
-                </div>
-              </div>
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 shadow-xs">
-                <i class="fa-regular fa-clock text-[10px]"></i> ${horaStr}
+        return `
+          <tr class="hover:bg-amber-50/30 transition-colors">
+            <td class="py-3 px-4 font-mono font-bold text-slate-400 text-xs">${index + 1}</td>
+            <td class="py-3 px-4">
+              <div class="font-bold text-slate-900">${highlightMatch(nino.nombre, state.presentesSearchTerm)}</div>
+              ${nino.observacionesMedicas ? `<div class="text-[11px] text-amber-700 font-medium flex items-center gap-1"><i class="fa-solid fa-notes-medical"></i> ${nino.observacionesMedicas}</div>` : ''}
+            </td>
+            <td class="py-3 px-4 font-mono font-bold text-emerald-700 text-sm">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs">
+                <i class="fa-regular fa-clock text-xs text-emerald-600"></i> ${horaDisplay}
               </span>
-            </div>
-
-            ${nino.observacionesMedicas ? `
-              <div class="mt-3 text-xs bg-amber-50/80 p-2 rounded-xl border border-amber-200 text-amber-900">
-                <strong><i class="fa-solid fa-notes-medical mr-1"></i> Médico:</strong> ${nino.observacionesMedicas}
+            </td>
+            <td class="py-3 px-4">
+              <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">${salaStr}</span>
+            </td>
+            <td class="py-3 px-4 text-xs font-semibold text-slate-700">${highlightMatch(papasStr, state.presentesSearchTerm)}</td>
+            <td class="py-3 px-4 font-mono text-xs font-bold text-amber-900">${nino.telefono || 'Sin teléfono'}</td>
+            <td class="py-3 px-4 text-center">
+              <div class="flex items-center justify-center gap-2">
+                <button onclick="openWhatsAppModal('${nino.id}')" class="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer" title="Contactar familia por WhatsApp">
+                  <i class="fa-brands fa-whatsapp text-sm"></i>
+                  <span>WhatsApp</span>
+                </button>
+                <button onclick="toggleAsistencia('${nino.id}')" class="px-2.5 py-2 text-slate-400 hover:text-red-600 hover:bg-red-50 active:scale-95 rounded-xl text-xs font-semibold transition-all cursor-pointer" title="Desmarcar / Anular Ingreso">
+                  <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
               </div>
-            ` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+  } else {
+    // Mode 'grid' (Recuadros / Tarjetas)
+    if (tableCont) tableCont.classList.add('hidden');
+    if (gridCont) {
+      gridCont.classList.remove('hidden');
+      gridCont.innerHTML = presentes.map((nino, index) => {
+        const horaStr = formatearHora(nino.horaIngreso) || `${getCurrentTime()}`;
+        const horaDisplay = horaStr.includes('hs') ? horaStr : `${horaStr} hs`;
+        const salaStr = nino.salaActual || nino.salaSugerida || 'General';
+        const papasStr = nino.nombrePapas || 'Familia';
 
-            <div class="mt-3.5 pt-3 border-t border-slate-100 space-y-1.5 text-xs">
-              <p class="text-slate-600 flex items-center gap-2">
-                <i class="fa-solid fa-users text-amber-600 text-xs shrink-0"></i>
-                <span><strong>Papás:</strong> <span class="text-slate-800">${highlightMatch(papasStr, state.presentesSearchTerm)}</span></span>
-              </p>
-              <p class="text-slate-600 flex items-center gap-2 font-mono">
-                <i class="fa-solid fa-phone text-amber-600 text-xs shrink-0"></i>
-                <span><strong>Tel:</strong> <span class="text-slate-800 font-bold">${nino.telefono || '--'}</span></span>
-              </p>
+        return `
+          <div class="bg-white rounded-3xl p-5 border border-amber-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-all group animate-fadeIn">
+            <div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <div class="w-12 h-12 rounded-2xl ${getAvatarColor(nino.nombre)} flex items-center justify-center font-black text-sm shadow-sm shrink-0">
+                    ${getInitials(nino.nombre)}
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <h3 class="font-black font-['Outfit'] text-base text-slate-900 leading-snug truncate">${highlightMatch(nino.nombre, state.presentesSearchTerm)}</h3>
+                    <div class="flex items-center gap-1.5 flex-wrap mt-1">
+                      <span class="inline-block px-2.5 py-0.5 rounded-xl text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">${salaStr}</span>
+                      ${nino.edad ? `<span class="text-[11px] font-semibold text-slate-400">${formatearEdad(nino.edad)}</span>` : ''}
+                    </div>
+                  </div>
+                </div>
+                <!-- Hora de ingreso destacada -->
+                <div class="text-right shrink-0">
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs sm:text-sm font-black bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-xs">
+                    <i class="fa-regular fa-clock text-xs text-emerald-600"></i>
+                    <span>${horaDisplay}</span>
+                  </span>
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mt-1">Ingresó Hoy</div>
+                </div>
+              </div>
+
+              ${nino.observacionesMedicas ? `
+                <div class="mt-3.5 text-xs bg-amber-50/80 p-2.5 rounded-2xl border border-amber-200 text-amber-900 flex items-start gap-2">
+                  <i class="fa-solid fa-notes-medical text-amber-600 mt-0.5 shrink-0 text-xs"></i>
+                  <span><strong>Médico:</strong> ${nino.observacionesMedicas}</span>
+                </div>
+              ` : ''}
+
+              <!-- Información de Papás y Contacto -->
+              <div class="mt-4 pt-3.5 border-t border-slate-100 space-y-2 text-xs">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
+                    <i class="fa-solid fa-user-group text-emerald-600"></i> Papás:
+                  </span>
+                  <span class="font-bold text-slate-800 text-right truncate max-w-[180px] text-xs">
+                    ${highlightMatch(papasStr, state.presentesSearchTerm)}
+                  </span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
+                    <i class="fa-solid fa-phone text-emerald-600"></i> Teléfono:
+                  </span>
+                  <span class="font-mono font-bold text-emerald-950 text-xs">${nino.telefono || 'Sin teléfono'}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Botones de Acción: WhatsApp destacado y Desmarcar -->
+            <div class="mt-5 pt-3.5 border-t border-slate-100 flex items-center gap-2">
+              <button onclick="openWhatsAppModal('${nino.id}')" class="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.98] text-white font-black rounded-2xl shadow-md shadow-emerald-500/25 text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer" title="Contactar a los padres por WhatsApp">
+                <i class="fa-brands fa-whatsapp text-lg"></i>
+                <span>WhatsApp Papás</span>
+              </button>
+              <button onclick="toggleAsistencia('${nino.id}')" class="py-3 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 active:scale-[0.98] rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5" title="Desmarcar / Anular Ingreso de hoy">
+                <i class="fa-solid fa-user-xmark"></i>
+                <span class="hidden sm:inline">Desmarcar</span>
+              </button>
             </div>
           </div>
-
-          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
-            <button onclick="openWhatsAppModal('${nino.id}')" class="flex-1 py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 active:scale-98 text-white font-black rounded-2xl shadow-sm text-xs flex items-center justify-center gap-2 transition-all cursor-pointer">
-              <i class="fa-brands fa-whatsapp text-sm"></i>
-              <span>Avisar por WhatsApp</span>
-            </button>
-            <button onclick="toggleAsistencia('${nino.id}')" class="p-2.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-400 rounded-2xl text-xs transition-all cursor-pointer" title="Desmarcar / Anular Ingreso">
-              <i class="fa-solid fa-xmark text-sm"></i>
-            </button>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-
-  // 2. Render Table View (Lista)
-  if (tbody) {
-    tbody.innerHTML = presentes.map((nino, index) => `
-      <tr class="hover:bg-amber-50/30 transition-colors">
-        <td class="py-3 px-4 font-mono font-bold text-slate-400 text-xs">${index + 1}</td>
-        <td class="py-3 px-4">
-          <div class="font-bold text-slate-900">${highlightMatch(nino.nombre, state.presentesSearchTerm)}</div>
-          ${nino.observacionesMedicas ? `<div class="text-[11px] text-amber-700 font-medium">${nino.observacionesMedicas}</div>` : ''}
-        </td>
-        <td class="py-3 px-4 font-mono font-bold text-emerald-700 text-sm">
-          <i class="fa-regular fa-clock text-xs mr-1 text-emerald-500"></i> ${formatearHora(nino.horaIngreso) || '--:--'}
-        </td>
-        <td class="py-3 px-4">
-          <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">${nino.salaActual || nino.salaSugerida}</span>
-        </td>
-        <td class="py-3 px-4 text-xs font-semibold text-slate-700">${highlightMatch(nino.nombrePapas, state.presentesSearchTerm)}</td>
-        <td class="py-3 px-4 font-mono text-xs font-bold text-amber-900">${nino.telefono}</td>
-        <td class="py-3 px-4 text-center">
-          <div class="flex items-center justify-center gap-2">
-            <button onclick="openWhatsAppModal('${nino.id}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer">
-              <i class="fa-brands fa-whatsapp text-xs"></i>
-              <span>WhatsApp</span>
-            </button>
-            <button onclick="toggleAsistencia('${nino.id}')" class="px-2.5 py-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl text-xs font-semibold cursor-pointer" title="Desmarcar">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
+        `;
+      }).join('');
+    }
   }
 }
 
@@ -1918,10 +2100,17 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+let searchDebounceTimer = null;
+
 function handleSearchInput(val) {
   state.searchTerm = val || '';
   toggleClearSearchBtn(state.searchTerm.trim().length > 0);
-  renderKidsList();
+
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    state.kidsRenderLimit = 36;
+    renderKidsList();
+  }, 90);
 }
 
 function handleFilterEstadoChange(val) {

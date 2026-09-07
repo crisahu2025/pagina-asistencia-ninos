@@ -563,9 +563,13 @@
       renderizarTabla();
     }
 
+    let filtroPastoresDebounceTimer = null;
     function filtrarTabla(val) {
       estado.filtroBusqueda = (val || '').trim().toLowerCase();
-      renderizarTabla();
+      if (filtroPastoresDebounceTimer) clearTimeout(filtroPastoresDebounceTimer);
+      filtroPastoresDebounceTimer = setTimeout(() => {
+        renderizarTabla();
+      }, 90);
     }
 
     function setPastoresViewMode(mode) {
