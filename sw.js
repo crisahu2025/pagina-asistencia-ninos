@@ -5,23 +5,23 @@
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v66';
+const CACHE_NAME = 'igr-kids-v67';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './pastores.html',
-  './styles.css?v=66',
-  './app.js?v=66',
-  './manifest.json?v=66',
+  './styles.css?v=67',
+  './app.js?v=67',
+  './manifest.json?v=67',
   './manifest.json',
-  './icons/favicon.png?v=66',
+  './icons/favicon.png?v=67',
   './icons/favicon.png',
-  './icons/apple-touch-icon.png?v=66',
+  './icons/apple-touch-icon.png?v=67',
   './icons/apple-touch-icon.png',
-  './icons/icon-192.png?v=66',
+  './icons/icon-192.png?v=67',
   './icons/icon-192.png',
-  './icons/icon-512.png?v=66',
+  './icons/icon-512.png?v=67',
   './icons/icon-512.png',
   './icons/logo-icon.png?v=62',
   './icons/logo-icon.png',

@@ -316,9 +316,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=66')
+      navigator.serviceWorker.register('./sw.js?v=67')
         .then(reg => {
-          console.log('[PWA v66] Service Worker registrado:', reg.scope);
+          console.log('[PWA v67] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -326,7 +326,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v66] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v67] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -392,6 +392,13 @@ function initApp() {
 
   // Check saved session in session storage (destrucción por pestaña)
   checkSavedSession();
+
+  // Auto-sync padrón cada 60 segundos en segundo plano (para traer nuevos niños anotados por otros maestros)
+  setInterval(() => {
+    if (state.isAuthenticated && !state.isLoading && (!state.searchTerm || state.searchTerm.trim() === '')) {
+      fetchData(false);
+    }
+  }, 60000);
 }
 
 function switchAuthMode(mode) {
@@ -1081,6 +1088,53 @@ function normalizarTexto(str) {
 }
 const normalizeStr = normalizarTexto; // Retrocompatibilidad
 
+/**
+ * Calcula la relevancia de búsqueda priorizando el nombre del niño sobre el de los padres
+ * 0-9: Coincidencia en el nombre del niño (Prioridad Máxima)
+ * 10-19: Coincidencia en los datos de los padres (Prioridad Secundaria)
+ * 20-29: Coincidencia en teléfono, sala u observaciones
+ */
+function getSearchScore(nino, normSearch, searchWords) {
+  if (!normSearch) return 0;
+  const name = nino._normName || normalizarTexto(nino.nombre || '');
+  const papas = nino._normPapas || normalizarTexto(nino.nombrePapas || '');
+
+  // 1. PRIORIDAD MÁXIMA: Coincidencia en el NOMBRE DEL NIÑO
+  if (name === normSearch) return 0; // Nombre exacto
+  if (name.startsWith(normSearch)) return 1; // Empieza con el texto buscado (ej: "Martin...")
+
+  // Si alguna palabra del nombre del niño empieza con el texto (segundo nombre o apellido)
+  const nameParts = name.split(/\s+/).filter(Boolean);
+  if (nameParts.some(p => p.startsWith(normSearch))) return 2;
+
+  // Si se ingresaron múltiples palabras y todas están en el nombre del niño
+  if (searchWords && searchWords.length > 1 && searchWords.every(w => name.includes(w))) return 3;
+
+  // Si el nombre del niño contiene el texto buscado
+  if (name.includes(normSearch)) return 4;
+
+  // Si al menos una palabra coincide en el nombre del niño
+  if (searchWords && searchWords.length > 0 && searchWords.some(w => name.includes(w))) return 5;
+
+  // 2. PRIORIDAD SECUNDARIA: Coincidencia en los PADRES
+  if (papas === normSearch) return 10;
+  if (papas.startsWith(normSearch)) return 11;
+
+  const papasParts = papas.split(/\s+/).filter(Boolean);
+  if (papasParts.some(p => p.startsWith(normSearch))) return 12;
+
+  if (searchWords && searchWords.length > 1 && searchWords.every(w => papas.includes(w))) return 13;
+  if (papas.includes(normSearch)) return 14;
+  if (searchWords && searchWords.length > 0 && searchWords.some(w => papas.includes(w))) return 15;
+
+  // 3. PRIORIDAD TERCIARIA: Coincidencia en teléfono o sala
+  const digits = nino._digits || (nino.telefono || '').replace(/\D/g, '');
+  const searchDigits = normSearch.replace(/\D/g, '');
+  if (searchDigits && digits && digits.includes(searchDigits)) return 20;
+
+  return 30;
+}
+
 function getFilteredKids() {
   const filterSelect = document.getElementById('filterEstado');
   if (filterSelect) {
@@ -1091,7 +1145,7 @@ function getFilteredKids() {
   const normSearch = normalizarTexto(rawSearch);
   const searchWords = normSearch ? normSearch.split(/\s+/).filter(Boolean) : [];
 
-  return state.ninos.filter(nino => {
+  const results = state.ninos.filter(nino => {
     // Room Filter
     if (state.filterSala !== 'TODAS' && nino.salaSugerida !== state.filterSala && nino.salaActual !== state.filterSala) {
       return false;
@@ -1108,6 +1162,10 @@ function getFilteredKids() {
         const normPapas = normalizarTexto(nino.nombrePapas || '');
         const normSala = normalizarTexto(nino.salaActual || nino.salaSugerida || '');
         const digits = (nino.telefono || '').replace(/\D/g, '');
+        nino._normName = normName;
+        nino._normPapas = normPapas;
+        nino._normSala = normSala;
+        nino._digits = digits;
         nino._searchIndex = `${normName} ${normPapas} ${normSala} ${digits}`;
       }
 
@@ -1122,6 +1180,19 @@ function getFilteredKids() {
 
     return true;
   });
+
+  // 🎯 Priorización Inteligente de Resultados:
+  // Si hay búsqueda activa, mostrar primero los que coinciden en el nombre del niño y luego en los padres
+  if (normSearch && results.length > 1) {
+    results.sort((a, b) => {
+      const scoreA = getSearchScore(a, normSearch, searchWords);
+      const scoreB = getSearchScore(b, normSearch, searchWords);
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      return (a.nombre || '').localeCompare(b.nombre || '');
+    });
+  }
+
+  return results;
 }
 
 function loadMoreKids() {
@@ -1474,6 +1545,17 @@ function renderPresentesList() {
     return nombre.includes(term) || papas.includes(term) || matchPhone || telRaw.includes(term) || sala.includes(term) || obs.includes(term);
   });
 
+  // 🎯 Priorización Inteligente en Presentes: niño primero, luego padres
+  if (term && presentes.length > 1) {
+    const searchWords = term.split(/\s+/).filter(Boolean);
+    presentes.sort((a, b) => {
+      const scoreA = getSearchScore(a, term, searchWords);
+      const scoreB = getSearchScore(b, term, searchWords);
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      return (a.nombre || '').localeCompare(b.nombre || '');
+    });
+  }
+
   const gridCont = document.getElementById('presentesGridContainer');
   const tableCont = document.getElementById('presentesTableContainer');
   const tbody = document.getElementById('presentesTableBody');
@@ -1752,10 +1834,15 @@ async function handleNuevoNino(event) {
     estadoAsistencia: autoMarcar ? 'Presente' : 'Ausente'
   };
 
+  // Pre-indexar inmediatamente para que aparezca al instante en el buscador
+  prepareKidsIndex([newChildObj]);
   state.ninos.unshift(newChildObj);
+
   if (autoMarcar) {
     saveLocalAttendance(state.selectedDate, newChildObj.id, true, newChildObj.horaIngreso, sala, state.selectedTurno);
   }
+
+  saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
   updateUI();
 
   if (!state.demoMode && state.scriptUrl) {
