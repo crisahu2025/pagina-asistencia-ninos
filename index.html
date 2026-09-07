@@ -6,14 +6,14 @@
   <title>IGR KIDS - Portal de Asistencia Infantil</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
     <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=68">
+  <link rel="manifest" href="manifest.json?v=69">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IGR KIDS">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=68">
-  <link rel="icon" type="image/png" href="icons/favicon.png?v=68">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=69">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=69">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=68">
+  <link rel="stylesheet" href="styles.css?v=69">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -86,7 +86,7 @@
 
       <!-- Icon & Portal Header -->
       <div class="text-center relative z-10">
-        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=68" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
+        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=69" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
         <h2 class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-900 tracking-tight">
           IGR KIDS
         </h2>
@@ -285,17 +285,14 @@
           <!-- Logo & App Name -->
           <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
             <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-white p-1 border border-amber-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-              <img src="icons/logo-icon.png?v=68" alt="IGR KIDS" class="w-full h-full object-contain">
+              <img src="icons/logo-icon.png?v=69" alt="IGR KIDS" class="w-full h-full object-contain">
             </div>
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 sm:gap-2">
                 <h1 class="text-sm sm:text-xl font-black font-['Outfit'] tracking-tight text-slate-900 leading-none whitespace-nowrap">
                   IGR KIDS
                 </h1>
-                <span id="connectionBadge" class="hidden min-[380px]:inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span id="connectionText">Online</span>
-                </span>
+                <span id="connectionDot" title="Conectado a Internet" class="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/40 inline-block transition-colors duration-300"></span>
               </div>
               <p class="hidden md:block text-xs text-slate-400 font-medium mt-0.5">
                 Asistencia Niños
@@ -338,35 +335,25 @@
         </div>
 
         <!-- ROW 2: Date & Turno Controls Strip -->
-        <div class="flex flex-wrap items-center justify-between gap-2 py-2 max-w-full">
-          
-          <div class="flex items-center flex-wrap gap-2 max-w-full">
-            <!-- Date selector -->
-            <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs max-w-full">
-              <i class="fa-regular fa-calendar-days text-amber-600 ml-2 shrink-0"></i>
-              <input type="date" id="selectedDate" class="bg-transparent border-0 text-xs sm:text-sm font-semibold text-slate-700 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none max-w-[130px] sm:max-w-none">
-              <button onclick="setTodayDate()" title="Ir a hoy" class="px-2 py-1 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-xl transition-all shadow-sm shrink-0">
-                Hoy
-              </button>
-            </div>
-
-            <!-- Turno Dominical Selector -->
-            <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs max-w-full">
-              <i class="fa-solid fa-clock text-amber-600 ml-2 shrink-0"></i>
-              <select id="selectedTurno" onchange="handleTurnoChange(this.value)" class="bg-transparent border-0 text-xs sm:text-sm font-bold text-amber-950 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none font-['Inter']">
-                <option value="10:00 hs (Mañana)">10:00 hs (Mañana)</option>
-                <option value="18:00 hs (Tarde)">18:00 hs (Tarde)</option>
-                <option value="20:00 hs (Noche)">20:00 hs (Noche)</option>
-              </select>
-            </div>
+        <div class="flex flex-wrap items-center gap-2 py-2 max-w-full">
+          <!-- Date selector -->
+          <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs max-w-full">
+            <i class="fa-regular fa-calendar-days text-amber-600 ml-2 shrink-0"></i>
+            <input type="date" id="selectedDate" class="bg-transparent border-0 text-xs sm:text-sm font-semibold text-slate-700 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none max-w-[130px] sm:max-w-none">
+            <button onclick="setTodayDate()" title="Ir a hoy" class="px-2 py-1 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-xl transition-all shadow-sm shrink-0">
+              Hoy
+            </button>
           </div>
 
-          <!-- Quick Action CTA -->
-          <button onclick="switchTab('nuevo')" class="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-95 text-amber-950 text-xs font-bold rounded-2xl shadow-sm border border-amber-300 transition-all shrink-0">
-            <i class="fa-solid fa-user-plus text-xs"></i>
-            <span>Nuevo Niño</span>
-          </button>
-
+          <!-- Turno Dominical Selector -->
+          <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs max-w-full">
+            <i class="fa-solid fa-clock text-amber-600 ml-2 shrink-0"></i>
+            <select id="selectedTurno" onchange="handleTurnoChange(this.value)" class="bg-transparent border-0 text-xs sm:text-sm font-bold text-amber-950 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none font-['Inter']">
+              <option value="10:00 hs (Mañana)">10:00 hs (Mañana)</option>
+              <option value="18:00 hs (Tarde)">18:00 hs (Tarde)</option>
+              <option value="20:00 hs (Noche)">20:00 hs (Noche)</option>
+            </select>
+          </div>
         </div>
 
         <!-- ROW 3: NAVIGATION TABS (Card Style - Grid on Mobile, Flex on Desktop) -->
@@ -1115,6 +1102,6 @@
 
     </div>
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=68"></script>
+  <script src="app.js?v=69"></script>
 </body>
 </html>

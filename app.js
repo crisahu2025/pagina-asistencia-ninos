@@ -316,9 +316,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=68')
+      navigator.serviceWorker.register('./sw.js?v=69')
         .then(reg => {
-          console.log('[PWA v68] Service Worker registrado:', reg.scope);
+          console.log('[PWA v69] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -326,7 +326,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v68] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v69] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -344,6 +344,11 @@ function initPWA() {
 }
 
 function initApp() {
+  // Listeners reactivos para estado de red en vivo (Online / Offline)
+  window.addEventListener('online', updateConnectionBadge);
+  window.addEventListener('offline', updateConnectionBadge);
+  updateConnectionBadge();
+
   // Set date input value
   const dateInput = document.getElementById('selectedDate');
   if (dateInput) {
@@ -2022,20 +2027,56 @@ function copyWhatsAppReport() {
 // CONNECTION STATUS
 // ==========================================================================
 function updateConnectionBadge() {
+  const dot = document.getElementById('connectionDot');
   const badge = document.getElementById('connectionBadge');
   const text = document.getElementById('connectionText');
   const banner = document.getElementById('statusBanner');
 
-  if (!badge || !text) return;
+  const isOnline = Boolean(navigator.onLine);
 
-  if (state.demoMode || !state.scriptUrl) {
-    badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200';
-    text.textContent = 'Modo Local';
-    if (banner) banner.classList.remove('hidden');
-  } else {
-    badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-200';
-    text.textContent = 'Online';
-    if (banner) banner.classList.add('hidden');
+  // Actualizar círculo indicador visual #connectionDot
+  if (dot) {
+    if (isOnline && !(state && state.demoMode)) {
+      dot.className = 'w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/40 animate-pulse inline-block transition-colors duration-300';
+      dot.title = 'Conectado a Internet (Online)';
+    } else if (!isOnline) {
+      dot.className = 'w-3 h-3 rounded-full bg-rose-500 shadow-sm shadow-rose-500/40 inline-block transition-colors duration-300';
+      dot.title = 'Sin conexión a Internet (Offline)';
+    } else {
+      // En línea pero en modo demo/local
+      dot.className = 'w-3 h-3 rounded-full bg-amber-500 shadow-sm shadow-amber-500/40 inline-block transition-colors duration-300';
+      dot.title = 'Modo Local / Demo';
+    }
+  }
+
+  // Fallback de retrocompatibilidad si existiera el badge de texto
+  if (badge && text) {
+    if (!isOnline) {
+      badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-900 border border-rose-200';
+      text.textContent = 'Offline';
+    } else if (state && state.demoMode) {
+      badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200';
+      text.textContent = 'Modo Local';
+    } else {
+      badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-200';
+      text.textContent = 'Online';
+    }
+  }
+
+  if (banner) {
+    if ((state && state.demoMode) || !(state && state.scriptUrl) || !isOnline) {
+      banner.classList.remove('hidden');
+      const bannerText = document.getElementById('statusBannerText');
+      if (bannerText) {
+        if (!isOnline) {
+          bannerText.textContent = 'Sin conexión a Internet. Las acciones se sincronizarán al reconectar.';
+        } else if (state && state.demoMode) {
+          bannerText.textContent = 'Modo de demostración activo con datos de prueba.';
+        }
+      }
+    } else {
+      banner.classList.add('hidden');
+    }
   }
 }
 
