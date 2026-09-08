@@ -30,6 +30,8 @@ const state = {
   demoMode: localStorage.getItem('asistencia_demo_mode') === 'true',
   activeTab: 'asistencia',
   selectedChildForWa: null,
+  selectedWaPresetTitle: 'Acercarse a la sala',
+  isWaCustomModified: false,
   isLoading: false
 };
 
@@ -316,9 +318,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=69')
+      navigator.serviceWorker.register('./sw.js?v=70')
         .then(reg => {
-          console.log('[PWA v69] Service Worker registrado:', reg.scope);
+          console.log('[PWA v70] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -326,7 +328,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v69] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v70] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -1720,6 +1722,8 @@ function openWhatsAppModal(childId) {
   if (!child) return;
 
   state.selectedChildForWa = child;
+  state.selectedWaPresetTitle = 'Acercarse a la sala';
+  state.isWaCustomModified = false;
 
   document.getElementById('waModalSubtitle').textContent = `Niño: ${child.nombre} (${child.salaSugerida})`;
   document.getElementById('waModalPapas').textContent = child.nombrePapas || 'Familia';
@@ -1746,22 +1750,69 @@ function selectWaPreset(presetId) {
 
   switch (presetId) {
     case 1:
+      state.selectedWaPresetTitle = 'Acercarse a la sala';
       text = `Hola ${papas}, te escribimos desde IGR KIDS. Necesitamos que por favor te acerques un momento por ${nombreNino}. ¡Muchas gracias!`;
       break;
     case 2:
+      state.selectedWaPresetTitle = 'Cambio de pañal / ropa';
       text = `Hola ${papas}, te avisamos desde IGR KIDS que ${nombreNino} necesita un cambio de pañal / ropa. Te esperamos en la sala.`;
       break;
     case 3:
+      state.selectedWaPresetTitle = 'No se calma / Extraña';
       text = `Hola ${papas}, te escribimos desde IGR KIDS: ${nombreNino} está un poco triste y extrañando. ¿Podrías acercarte un momento a la sala para acompañarlo/a?`;
       break;
     case 4:
+      state.selectedWaPresetTitle = 'Fin de la clase / Retiro';
       text = `¡Hola ${papas}! Te avisamos desde IGR KIDS que la reunión ha finalizado y ya pueden pasar a retirar a ${nombreNino} por su sala. ¡Muchas gracias!`;
       break;
     default:
+      state.selectedWaPresetTitle = 'Acercarse a la sala';
       text = `Hola ${papas}, te contactamos desde IGR KIDS por ${nombreNino}.`;
   }
 
+  state.isWaCustomModified = false;
   document.getElementById('waCustomMessage').value = text;
+}
+
+function registrarLogWhatsApp(data = {}) {
+  try {
+    const child = data.child || state.selectedChildForWa || {};
+    const phone = data.telefono || data.phone || (child.telefono ? String(child.telefono).replace(/\D/g, '') : '');
+    const message = data.mensaje || data.message || '';
+
+    const motivo = data.motivo || (state.isWaCustomModified
+      ? `${state.selectedWaPresetTitle || 'Personalizado'} (Editado)`
+      : (state.selectedWaPresetTitle || 'Mensaje Personalizado'));
+
+    const payload = {
+      action: 'registrarAvisoWhatsApp',
+      fecha: data.fecha || state.selectedDate || getTodayString(),
+      hora: data.hora || new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+      turno: data.turno || state.selectedTurno || '10:00 hs (Mañana)',
+      maestro: data.maestro || (state.currentUser ? (state.currentUser.nombre || state.currentUser.usuario) : 'Equipo IGR KIDS'),
+      idNino: data.idNino || child.id || '',
+      nombreNino: data.nombreNino || child.nombre || '',
+      sala: data.sala || child.salaActual || child.salaSugerida || 'General',
+      nombrePapas: data.nombrePapas || child.nombrePapas || 'Familia',
+      telefono: phone,
+      motivo: motivo,
+      mensaje: message,
+      token: state.sessionToken || ''
+    };
+
+    if (!state.scriptUrl) return;
+
+    fetch(state.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(payload),
+      mode: 'no-cors'
+    }).catch(err => {
+      console.warn('Sync WhatsApp log in background:', err);
+    });
+  } catch (err) {
+    console.warn('Error registrarLogWhatsApp:', err);
+  }
 }
 
 function sendWhatsAppNow() {
@@ -1789,6 +1840,24 @@ function sendWhatsAppNow() {
     if (phone.startsWith('15')) phone = phone.substring(2);
     phone = '549' + phone;
   }
+
+  // Registrar aviso en Google Sheets en segundo plano
+  registrarLogWhatsApp({
+    child,
+    telefono: phone,
+    mensaje: message,
+    fecha: state.selectedDate || getTodayString(),
+    hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+    turno: state.selectedTurno || '10:00 hs (Mañana)',
+    maestro: state.currentUser ? (state.currentUser.nombre || state.currentUser.usuario) : 'Equipo IGR KIDS',
+    idNino: child.id,
+    nombreNino: child.nombre,
+    sala: child.salaActual || child.salaSugerida || 'General',
+    nombrePapas: child.nombrePapas || 'Familia',
+    motivo: state.isWaCustomModified ? `${state.selectedWaPresetTitle || 'Personalizado'} (Editado)` : (state.selectedWaPresetTitle || 'Mensaje Personalizado')
+  });
+
+  showToastNotification('Aviso registrado. Abriendo WhatsApp...', 'success');
 
   const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   window.open(waUrl, '_blank');

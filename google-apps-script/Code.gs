@@ -24,6 +24,7 @@ const SHEET_REGISTRO_NINOS = "Registro de NIÑOS";
 const SHEET_ASISTENCIAS = "Asistencias";
 const SHEET_USUARIOS = "Usuarios";
 const SHEET_REGISTRO_ACCESOS = "Registro_Accesos";
+const SHEET_AVISOS_WHATSAPP = "Avisos WhatsApp";
 
 // LISTA DE TURNOS DOMINICALES ESTÁNDAR
 const TURNOS_VALIDOS = [
@@ -117,6 +118,8 @@ function doGet(e) {
         params.fecha || getFechaActual(), 
         params.turno || TURNO_DEFAULT
       );
+    } else if (action === "registrarAvisoWhatsApp" || action === "registroWhatsApp" || action === "logWhatsApp") {
+      responseData = registrarAvisoWhatsApp(params);
     } else if (action === "getTurnos") {
       responseData = {
         success: true,
@@ -182,6 +185,8 @@ function doPost(e) {
       );
     } else if (action === "agregarNino") {
       responseData = agregarNuevoNino(payload);
+    } else if (action === "registrarAvisoWhatsApp" || action === "registroWhatsApp" || action === "logWhatsApp") {
+      responseData = registrarAvisoWhatsApp(payload);
     }
 
     return crearRespuestaJSON(responseData);
@@ -898,6 +903,92 @@ function registrarLogAcceso(usuario, nombre, rol, userAgent, turno, accion) {
     sheet.appendRow(fila);
   } catch (err) {
     console.warn("No se pudo registrar log de acceso:", err);
+  }
+}
+
+/**
+ * Asegura la existencia de la hoja Avisos WhatsApp con sus encabezados y formato visual
+ */
+function asegurarHojaAvisosWhatsApp() {
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_AVISOS_WHATSAPP);
+
+  const headers = [
+    "Timestamp",
+    "Fecha",
+    "Hora",
+    "Turno",
+    "Maestro / Usuario",
+    "ID Niño",
+    "Niño / Niña",
+    "Sala",
+    "Padres / Familia",
+    "Teléfono Destino",
+    "Motivo del Aviso",
+    "Mensaje Enviado"
+  ];
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_AVISOS_WHATSAPP);
+    sheet.appendRow(headers);
+    sheet.getRange("1:1").setFontWeight("bold").setBackground("#059669").setFontColor("#FFFFFF");
+    sheet.setFrozenRows(1);
+  }
+
+  return sheet;
+}
+
+/**
+ * Registra un aviso de WhatsApp en la hoja de auditoría "Avisos WhatsApp" (con LockService)
+ */
+function registrarAvisoWhatsApp(params) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sheet = asegurarHojaAvisosWhatsApp();
+    const p = params || {};
+
+    const timestamp = new Date();
+    const fecha = p.fecha || getFechaActual();
+    const hora = p.hora || getHoraActual();
+    const turno = normalizarTurno(p.turno || TURNO_DEFAULT);
+    const maestro = p.maestro || p.registradoPor || "Recepción";
+    const idNino = p.idNino || "";
+    const nombreNino = p.nombreNino || "";
+    const sala = p.sala || "General";
+    const nombrePapas = p.nombrePapas || "Familia";
+    const telefono = p.telefono || "";
+    const motivo = p.motivo || "Aviso General";
+    const mensaje = p.mensaje || "";
+
+    sheet.appendRow([
+      timestamp,
+      fecha,
+      hora,
+      turno,
+      maestro,
+      idNino,
+      nombreNino,
+      sala,
+      nombrePapas,
+      telefono,
+      motivo,
+      mensaje
+    ]);
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      message: "Aviso de WhatsApp registrado exitosamente en la hoja Avisos WhatsApp"
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.toString(),
+      stack: err.stack
+    };
+  } finally {
+    lock.releaseLock();
   }
 }
 
