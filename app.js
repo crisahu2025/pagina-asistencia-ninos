@@ -6,7 +6,7 @@
  * ====================================================================================
  */
 
-const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxUdfjQLle-e-WzegilVVTNlJ_LjCkgUTpqo1lRjbyca2x1kyDtotoHvsVxgK26mG9v/exec";
+const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzl8hch0DOszgJSZYHTV5KY705LJuOSyZKSZZiCfKWJGHvTqVqYppsd4A7q3uSDSaQ/exec";
 
 // Global State - Forzar migración a la URL oficial actual
 localStorage.setItem('asistencia_script_url', DEFAULT_SCRIPT_URL);
@@ -303,7 +303,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v54] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v71] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -318,9 +318,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=70')
+      navigator.serviceWorker.register('./sw.js?v=71')
         .then(reg => {
-          console.log('[PWA v70] Service Worker registrado:', reg.scope);
+          console.log('[PWA v71] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -328,7 +328,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v70] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v71] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
