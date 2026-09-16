@@ -303,7 +303,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v71] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v72] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -318,9 +318,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=71')
+      navigator.serviceWorker.register('./sw.js?v=72')
         .then(reg => {
-          console.log('[PWA v71] Service Worker registrado:', reg.scope);
+          console.log('[PWA v72] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -328,7 +328,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v71] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v72] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -541,6 +541,17 @@ function callGoogleAppsScript(params, timeoutMs = 25000) {
 // ==========================================================================
 // LOGIN, LOGOUT & REGISTRATION (AUTENTICACIÓN EN GOOGLE SHEETS & LOGS)
 // ==========================================================================
+async function sha256Hex(text) {
+  const msgBuffer = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+const ALLOWED_ADMIN_HASHES = [
+  'fe33cde082a09f4b3cbd1bac86207d72702819cf6cc51089e0ab49736e814e4a',
+  '635ec511880595551d4a52ee6fd2c02f61e0d8020dd224017ae64a0f7e0102cd'
+];
+
 async function handleLogin(event) {
   event.preventDefault();
 
@@ -589,8 +600,8 @@ async function handleLogin(event) {
       } catch (serverErr) {
         console.warn('Fallo login remoto, evaluando acceso con credenciales maestras:', serverErr);
         const userClean = usuarioInput.toLowerCase();
-        if ((userClean === 'igrkids2026' || userClean === 'admin') && 
-            (passwordInput === 'IgrKids*2026!Seguro' || passwordInput === 'asistencianinos')) {
+        const passHash = await sha256Hex(passwordInput);
+        if ((userClean === 'igrkids2026' || userClean === 'admin') && ALLOWED_ADMIN_HASHES.includes(passHash)) {
           loginSucceeded = true;
           token = 'TOKEN_SECURE_' + Date.now();
           authUser = { usuario: 'igrkids2026', nombre: 'Equipo IGR KIDS', rol: 'Administrador' };
@@ -601,8 +612,8 @@ async function handleLogin(event) {
       }
     } else {
       const userClean = usuarioInput.toLowerCase();
-      if ((userClean === 'igrkids2026' || userClean === 'admin') && 
-          (passwordInput === 'IgrKids*2026!Seguro' || passwordInput === 'asistencianinos')) {
+      const passHash = await sha256Hex(passwordInput);
+      if ((userClean === 'igrkids2026' || userClean === 'admin') && ALLOWED_ADMIN_HASHES.includes(passHash)) {
         loginSucceeded = true;
         token = 'TOKEN_SECURE_' + Date.now();
         authUser = { usuario: 'igrkids2026', nombre: 'Equipo IGR KIDS (Modo Local)', rol: 'Administrador' };
@@ -975,6 +986,147 @@ function getLocalDataBackup(dateStr, turnoStr = state.selectedTurno) {
 }
 
 // ==========================================================================
+// DETECCIÓN INTELIGENTE DE ALERTA MÉDICA & MODAL PREVENTIVO
+// ==========================================================================
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function tieneAlertaMedica(obs) {
+  if (!obs) return false;
+  const texto = String(obs)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!texto) return false;
+
+  const ignorarExactos = [
+    'ninguna', 'ninguno', 'ningun', 'ninguna observacion', 'ninguna observaciones',
+    'sin observaciones', 'sin observacion', 'sin novedad', 'sin novedades',
+    'sin alergias', 'sin alergia', 'no', 'no tiene', 'no posee', 'no registra',
+    'no presenta', 'no aplica', 'na', 'n a', 'nada', 'ningun problema',
+    'ninguno ningun problema', 'ningun dato', 'no informa', 'ok', 's o', 's n'
+  ];
+
+  if (ignorarExactos.includes(texto)) return false;
+  if (texto.length < 2) return false;
+
+  return true;
+}
+
+function mostrarAlertaMedicaCheckin(child) {
+  if (!child) return;
+
+  // Vibración háptica en celulares si está disponible
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      navigator.vibrate([100, 50, 150]);
+    } catch (e) {}
+  }
+
+  const salaDisplay = child.salaActual || child.salaSugerida || 'General';
+  const papasDisplay = child.nombrePapas || 'Familia';
+  const telDisplay = child.telefono || 'Sin teléfono';
+  const edadDisplay = child.edad ? formatearEdad(child.edad) : '';
+
+  Swal.fire({
+    title: '<span class="font-[\'Outfit\'] font-black text-amber-950 text-xl sm:text-2xl flex items-center justify-center gap-2">🚨 ¡ATENCIÓN MÉDICA / ALERGIA!</span>',
+    html: `
+      <div class="space-y-3.5 text-left pt-1">
+        <!-- Encabezado con Niño y Sala Asignada/Sugerida -->
+        <div class="text-center pb-3 border-b border-amber-200/80">
+          <div class="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-red-100 text-red-900 border border-red-200 text-[11px] font-black uppercase tracking-wider mb-2">
+            <i class="fa-solid fa-triangle-exclamation text-red-600"></i> Alerta Médica Importante
+          </div>
+          <h3 class="text-2xl sm:text-3xl font-black font-['Outfit'] text-slate-900 leading-tight">
+            ${escapeHtml(child.nombre)}
+          </h3>
+          <div class="flex items-center justify-center gap-2 mt-2 flex-wrap">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-xs">
+              <i class="fa-solid fa-door-open text-amber-700"></i> Sala: ${escapeHtml(salaDisplay)}
+            </span>
+            ${edadDisplay ? `
+              <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200">
+                ${escapeHtml(edadDisplay)}
+              </span>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Recuadro en tono Ámbar/Rojo con la Observación Exacta -->
+        <div class="p-4 bg-gradient-to-br from-amber-50 via-orange-50/60 to-red-50/80 rounded-2xl border-2 border-amber-400 text-left shadow-sm">
+          <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-950 mb-2">
+            <i class="fa-solid fa-notes-medical text-red-600 text-base animate-pulse"></i>
+            <span>Observación Médica / Alergia Registrada:</span>
+          </div>
+          <p class="text-sm sm:text-base font-black text-red-950 bg-white/95 p-3.5 rounded-xl border border-amber-300 leading-relaxed shadow-xs">
+            ${escapeHtml(child.observacionesMedicas)}
+          </p>
+        </div>
+
+        <!-- Datos de los Padres / Contacto -->
+        <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500 font-semibold flex items-center gap-1.5">
+              <i class="fa-solid fa-user-group text-amber-600"></i> Papás / Tutores:
+            </span>
+            <span class="font-bold text-slate-800 text-right truncate max-w-[200px]">
+              ${escapeHtml(papasDisplay)}
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500 font-semibold flex items-center gap-1.5">
+              <i class="fa-solid fa-phone text-amber-600"></i> Teléfono:
+            </span>
+            <span class="font-mono font-bold text-amber-900">
+              ${escapeHtml(telDisplay)}
+            </span>
+          </div>
+        </div>
+
+        <!-- Mensaje de advertencia preventiva -->
+        <div class="p-3.5 rounded-2xl bg-amber-100/90 border border-amber-300 text-amber-950 text-xs font-bold flex items-start gap-2.5">
+          <i class="fa-solid fa-bullhorn text-amber-700 text-base mt-0.5 shrink-0"></i>
+          <span class="leading-snug">Por favor, informá inmediatamente a las maestras de la sala antes de que el niño ingrese.</span>
+        </div>
+      </div>
+    `,
+    showConfirmButton: true,
+    confirmButtonText: '✅ ¡Entendido y Notificado!',
+    confirmButtonColor: '#ca8a04',
+    showDenyButton: true,
+    denyButtonText: '📲 Abrir WhatsApp',
+    denyButtonColor: '#059669',
+    focusConfirm: true,
+    customClass: {
+      popup: 'rounded-3xl border-2 border-amber-400 shadow-2xl p-4 sm:p-6'
+    }
+  }).then((result) => {
+    if (result.isDenied) {
+      openWhatsAppModal(child.id);
+    }
+  });
+}
+
+function mostrarAlertaMedicaPorId(childId) {
+  const child = state.ninos.find(n => n.id === childId);
+  if (child) {
+    mostrarAlertaMedicaCheckin(child);
+  }
+}
+
+// ==========================================================================
 // ATTENDANCE TOGGLE (CHECK-IN / CHECK-OUT CON SOPORTE DE TURNO)
 // ==========================================================================
 async function toggleAsistencia(childId) {
@@ -1023,6 +1175,11 @@ async function toggleAsistencia(childId) {
 
   // Guardar en respaldo local en segundo plano
   saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
+
+  // 🚨 Alerta médica destacada automática si se marca presente y el niño tiene observaciones médicas
+  if (newState === true && tieneAlertaMedica(child.observacionesMedicas)) {
+    mostrarAlertaMedicaCheckin(child);
+  }
 
   // If live mode is connected, sync with Google Sheets backend
   if (!state.demoMode && state.scriptUrl) {
@@ -1396,12 +1553,26 @@ function createKidCardHTML(nino) {
             <span class="font-mono font-bold text-amber-900 text-[11px] sm:text-xs">${nino.telefono || 'Sin teléfono'}</span>
           </div>
 
-          ${nino.observacionesMedicas ? `
+          ${tieneAlertaMedica(nino.observacionesMedicas) ? `
+            <div 
+              onclick="mostrarAlertaMedicaPorId('${nino.id}')" 
+              title="Tocar para ver alerta médica completa"
+              class="mt-2 p-2.5 bg-gradient-to-r from-amber-50 via-orange-50/50 to-red-50/80 hover:from-amber-100 hover:to-red-100 rounded-xl text-amber-950 text-[11px] flex items-start gap-2 border-2 border-amber-400 font-medium cursor-pointer transition-all active:scale-[0.98] shadow-xs group"
+            >
+              <i class="fa-solid fa-triangle-exclamation text-red-600 mt-0.5 shrink-0 text-xs animate-bounce"></i>
+              <span class="line-clamp-2 flex-1 leading-snug">
+                <strong class="text-red-950 font-black">Alerta Médica:</strong> ${escapeHtml(nino.observacionesMedicas)}
+              </span>
+              <span class="text-[10px] text-amber-700 font-bold underline shrink-0 mt-0.5 flex items-center gap-0.5">
+                Ver <i class="fa-solid fa-chevron-right text-[8px]"></i>
+              </span>
+            </div>
+          ` : (nino.observacionesMedicas && nino.observacionesMedicas.trim() && nino.observacionesMedicas.trim() !== '-' ? `
             <div class="mt-2 p-2 bg-amber-50/70 rounded-xl text-amber-950 text-[11px] flex items-start gap-1.5 border border-amber-200/60 font-medium">
               <i class="fa-solid fa-notes-medical text-amber-600 mt-0.5 shrink-0"></i>
-              <span class="line-clamp-2">${nino.observacionesMedicas}</span>
+              <span class="line-clamp-2">${escapeHtml(nino.observacionesMedicas)}</span>
             </div>
-          ` : ''}
+          ` : '')}
         </div>
       </div>
 
@@ -1445,7 +1616,21 @@ function createKidTableRowHTML(nino) {
     <tr id="kid-row-${nino.id}" class="hover:bg-amber-50/30 transition-colors ${isPresent ? 'bg-emerald-50/30' : ''}">
       <td class="py-3 px-4">
         <div class="font-bold text-slate-900">${highlightedName}</div>
-        ${nino.observacionesMedicas ? `<div class="text-[11px] text-amber-700 flex items-center gap-1 font-medium"><i class="fa-solid fa-notes-medical"></i> ${nino.observacionesMedicas}</div>` : ''}
+        ${tieneAlertaMedica(nino.observacionesMedicas) ? `
+          <div 
+            onclick="mostrarAlertaMedicaPorId('${nino.id}')" 
+            title="Tocar para ver alerta médica completa"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 mt-1 rounded-xl text-[11px] font-black bg-gradient-to-r from-amber-100 via-orange-100/70 to-red-100 hover:from-amber-200 hover:to-red-200 text-amber-950 border border-amber-400 cursor-pointer shadow-xs active:scale-95 transition-all"
+          >
+            <i class="fa-solid fa-triangle-exclamation text-red-600 text-xs animate-pulse"></i>
+            <span class="truncate max-w-[200px]">Alerta Médica: ${escapeHtml(nino.observacionesMedicas)}</span>
+            <i class="fa-solid fa-chevron-right text-[8px] text-amber-800"></i>
+          </div>
+        ` : (nino.observacionesMedicas && nino.observacionesMedicas.trim() && nino.observacionesMedicas.trim() !== '-' ? `
+          <div class="text-[11px] text-amber-700 flex items-center gap-1 font-medium mt-0.5">
+            <i class="fa-solid fa-notes-medical"></i> ${escapeHtml(nino.observacionesMedicas)}
+          </div>
+        ` : '')}
       </td>
       <td class="py-3 px-4">
         <span class="inline-block px-2.5 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">${nino.salaSugerida}</span>
@@ -1605,7 +1790,21 @@ function renderPresentesList() {
             <td class="py-3 px-4 font-mono font-bold text-slate-400 text-xs">${index + 1}</td>
             <td class="py-3 px-4">
               <div class="font-bold text-slate-900">${highlightMatch(nino.nombre, state.presentesSearchTerm)}</div>
-              ${nino.observacionesMedicas ? `<div class="text-[11px] text-amber-700 font-medium flex items-center gap-1"><i class="fa-solid fa-notes-medical"></i> ${nino.observacionesMedicas}</div>` : ''}
+              ${tieneAlertaMedica(nino.observacionesMedicas) ? `
+                <div 
+                  onclick="mostrarAlertaMedicaPorId('${nino.id}')" 
+                  title="Tocar para ver alerta médica completa"
+                  class="inline-flex items-center gap-1.5 px-2.5 py-1 mt-1 rounded-xl text-[11px] font-black bg-gradient-to-r from-amber-100 via-orange-100/70 to-red-100 hover:from-amber-200 hover:to-red-200 text-amber-950 border border-amber-400 cursor-pointer shadow-xs active:scale-95 transition-all"
+                >
+                  <i class="fa-solid fa-triangle-exclamation text-red-600 text-xs animate-pulse"></i>
+                  <span class="truncate max-w-[180px]">Alerta Médica: ${escapeHtml(nino.observacionesMedicas)}</span>
+                  <i class="fa-solid fa-chevron-right text-[8px] text-amber-800"></i>
+                </div>
+              ` : (nino.observacionesMedicas && nino.observacionesMedicas.trim() && nino.observacionesMedicas.trim() !== '-' ? `
+                <div class="text-[11px] text-amber-700 font-medium flex items-center gap-1 mt-0.5">
+                  <i class="fa-solid fa-notes-medical"></i> ${escapeHtml(nino.observacionesMedicas)}
+                </div>
+              ` : '')}
             </td>
             <td class="py-3 px-4 font-mono font-bold text-emerald-700 text-sm">
               <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs">
@@ -1669,12 +1868,24 @@ function renderPresentesList() {
                 </div>
               </div>
 
-              ${nino.observacionesMedicas ? `
+              ${tieneAlertaMedica(nino.observacionesMedicas) ? `
+                <div 
+                  onclick="mostrarAlertaMedicaPorId('${nino.id}')" 
+                  title="Tocar para ver alerta médica completa"
+                  class="mt-3.5 text-xs bg-gradient-to-r from-amber-50 via-orange-50/50 to-red-50/80 hover:from-amber-100 hover:to-red-100 p-2.5 rounded-2xl border-2 border-amber-400 text-amber-950 flex items-start gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-xs group"
+                >
+                  <i class="fa-solid fa-triangle-exclamation text-red-600 mt-0.5 shrink-0 text-xs animate-bounce"></i>
+                  <span class="flex-1 leading-snug"><strong class="text-red-950 font-black">Alerta Médica:</strong> ${escapeHtml(nino.observacionesMedicas)}</span>
+                  <span class="text-[10px] text-amber-700 font-bold underline shrink-0 mt-0.5 flex items-center gap-0.5">
+                    Ver <i class="fa-solid fa-chevron-right text-[8px]"></i>
+                  </span>
+                </div>
+              ` : (nino.observacionesMedicas && nino.observacionesMedicas.trim() && nino.observacionesMedicas.trim() !== '-' ? `
                 <div class="mt-3.5 text-xs bg-amber-50/80 p-2.5 rounded-2xl border border-amber-200 text-amber-900 flex items-start gap-2">
                   <i class="fa-solid fa-notes-medical text-amber-600 mt-0.5 shrink-0 text-xs"></i>
-                  <span><strong>Médico:</strong> ${nino.observacionesMedicas}</span>
+                  <span><strong>Médico:</strong> ${escapeHtml(nino.observacionesMedicas)}</span>
                 </div>
-              ` : ''}
+              ` : '')}
 
               <!-- Información de Papás y Contacto -->
               <div class="mt-4 pt-3.5 border-t border-slate-100 space-y-2 text-xs">
@@ -2521,13 +2732,19 @@ function abrirModalAuditoriaPrivada() {
     confirmButtonText: '<i class="fa-solid fa-key mr-1"></i> Desbloquear',
     cancelButtonText: 'Cancelar',
     showLoaderOnConfirm: true,
-    preConfirm: (pass) => {
+    preConfirm: async (pass) => {
       const p = (pass || '').trim();
       if (!p) {
         Swal.showValidationMessage('Debes ingresar la contraseña de seguridad.');
         return false;
       }
-      if (p === 'IGRKIDSADMIN2026' || p === 'IARAHACKER26' || (state.currentUser && state.currentUser.rol && state.currentUser.rol.includes('Admin'))) {
+      const hash = await sha256Hex(p);
+      const ALLOWED_HASHES = [
+        "988ed1daee9a1701690537030b01a1595dd4ffc13b3d374f8ce71ef2f8696c38",
+        "5b63849e9dc4c1532a7e78f47096dcebaf1ba858cdd90c589cdab34d7c4c9ba4"
+      ];
+      if (ALLOWED_HASHES.includes(hash) || (state.currentUser && state.currentUser.rol && state.currentUser.rol.includes('Admin'))) {
+        auditoriaState.sessionPass = p;
         return true;
       }
       Swal.showValidationMessage('Contraseña de seguridad incorrecta.');
@@ -2602,7 +2819,8 @@ async function ejecutarConsultaAuditoria() {
 
   try {
     if (state.scriptUrl && !state.demoMode) {
-      const url = `${state.scriptUrl}?action=getAuditoriaPeriodo&periodo=${tipo}&mes=${mes}&anio=${anio}&password=IGRKIDSADMIN2026`;
+      const passAuth = auditoriaState.sessionPass || '';
+      const url = `${state.scriptUrl}?action=getAuditoriaPeriodo&periodo=${tipo}&mes=${mes}&anio=${anio}&password=${encodeURIComponent(passAuth)}`;
       const res = await fetch(url).catch(() => null);
       if (res && res.ok) {
         const json = await res.json();
