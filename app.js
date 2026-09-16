@@ -303,7 +303,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v72] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v73] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -318,9 +318,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=72')
+      navigator.serviceWorker.register('./sw.js?v=73')
         .then(reg => {
-          console.log('[PWA v72] Service Worker registrado:', reg.scope);
+          console.log('[PWA v73] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -328,7 +328,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v72] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v73] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -849,16 +849,25 @@ function prepareKidsIndex(ninos) {
       if (storedLocal[n.id].sala) n.salaActual = storedLocal[n.id].sala;
     }
 
+    // 🏥 Mapeo de Alergias desde Columnas D, G, J y M del Excel (llegan en n.extra):
+    const alergiaCol = (n.extra && typeof n.extra === 'string') ? n.extra.trim() : '';
+    if (alergiaCol && tieneAlertaMedica(alergiaCol)) {
+      n.observacionesMedicas = alergiaCol;
+    } else if (alergiaCol && ['no', 'ninguna', 'ninguno', '-', '--', 'nada', 'sin observaciones'].includes(alergiaCol.toLowerCase())) {
+      n.observacionesMedicas = '';
+    }
+
     const normName = normalizarTexto(n.nombre || '');
     const normPapas = normalizarTexto(n.nombrePapas || '');
     const normSala = normalizarTexto(n.salaActual || n.salaSugerida || '');
+    const normObs = normalizarTexto(n.observacionesMedicas || '');
     const digits = (n.telefono || '').replace(/\D/g, '');
 
     n._normName = normName;
     n._normPapas = normPapas;
     n._normSala = normSala;
     n._digits = digits;
-    n._searchIndex = `${normName} ${normPapas} ${normSala} ${digits}`;
+    n._searchIndex = `${normName} ${normPapas} ${normSala} ${digits} ${normObs}`;
     n._edadLimpia = formatearEdad(n.edad);
     return n;
   });

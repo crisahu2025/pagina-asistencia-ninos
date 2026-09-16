@@ -1,31 +1,31 @@
 /**
  * ====================================================================================
- * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V72)
+ * SERVICE WORKER - IGR KIDS (PROTOCOLO CORPORATIVO V73)
  * Code Ahumada 2026
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v72';
+const CACHE_NAME = 'igr-kids-v73';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './pastores.html',
-  './styles.css?v=72',
-  './app.js?v=72',
-  './manifest.json?v=72',
+  './styles.css?v=73',
+  './app.js?v=73',
+  './manifest.json?v=73',
   './manifest.json',
-  './icons/favicon.png?v=72',
+  './icons/favicon.png?v=73',
   './icons/favicon.png',
-  './icons/apple-touch-icon.png?v=72',
+  './icons/apple-touch-icon.png?v=73',
   './icons/apple-touch-icon.png',
-  './icons/icon-192.png?v=72',
+  './icons/icon-192.png?v=73',
   './icons/icon-192.png',
-  './icons/icon-512.png?v=72',
+  './icons/icon-512.png?v=73',
   './icons/icon-512.png',
-  './icons/logo-icon.png?v=72',
+  './icons/logo-icon.png?v=73',
   './icons/logo-icon.png',
-  './icons/app-logo-full.png?v=72',
+  './icons/app-logo-full.png?v=73',
   './icons/app-logo-full.png',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
@@ -42,7 +42,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW v72] Pre-caching partial warning:', err);
+        console.warn('[SW v73] Pre-caching partial warning:', err);
       });
     })
   );
@@ -55,7 +55,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[SW v72] Eliminando caché antiguo:', cacheName);
+            console.log('[SW v73] Eliminando caché antiguo:', cacheName);
             return caches.delete(cacheName);
           }
         })
