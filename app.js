@@ -12,13 +12,47 @@ const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzl8hch0DOsz
 localStorage.setItem('asistencia_script_url', DEFAULT_SCRIPT_URL);
 const activeScriptUrl = DEFAULT_SCRIPT_URL;
 
+// URL Oficial del Formulario de Inscripción de Familias (Google Forms)
+const GOOGLE_FORMS_REGISTRO_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdmc_XMkHzxOWYfZsumLKez6j3eFQMObqSHulm88TYHgQ5Iqg/viewform?usp=sharing&ouid=103753441249939068692";
+
+/**
+ * Detección Inteligente de Turno Dominical por Horario
+ * Si la fecha es hoy:
+ * - 00:00 a 13:59 hs -> '10:00 hs (Mañana)'
+ * - 14:00 a 19:14 hs -> '18:00 hs (Tarde)'
+ * - 19:15 a 23:59 hs -> '20:00 hs (Noche)' (ej. 19:30 hs selecciona automáticamente reunión 20:00)
+ */
+function calcularTurnoPorHora(fechaDeseada) {
+  const hoyStr = getTodayString();
+  const fecha = fechaDeseada || hoyStr;
+
+  if (fecha === hoyStr) {
+    const now = new Date();
+    const totalMinutos = now.getHours() * 60 + now.getMinutes();
+
+    // 00:00 a 13:59 hs (0 a 839 minutos)
+    if (totalMinutos < 14 * 60) {
+      return '10:00 hs (Mañana)';
+    }
+    // 14:00 a 19:14 hs (840 a 1154 minutos)
+    if (totalMinutos < (19 * 60 + 15)) {
+      return '18:00 hs (Tarde)';
+    }
+    // 19:15 a 23:59 hs (1155 a 1439 minutos)
+    return '20:00 hs (Noche)';
+  }
+
+  // Si es otra fecha diferente a hoy, retornar el turno activo o por defecto Mañana
+  return (typeof state !== 'undefined' && state && state.selectedTurno) ? state.selectedTurno : '10:00 hs (Mañana)';
+}
+
 const state = {
   isAuthenticated: false,
   currentUser: null,
   sessionToken: null,
   ninos: [],
   selectedDate: getTodayString(),
-  selectedTurno: '10:00 hs (Mañana)',
+  selectedTurno: calcularTurnoPorHora(getTodayString()),
   filterSala: 'TODAS',
   filterEstado: 'TODOS',
   searchTerm: '',
@@ -303,7 +337,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v73] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v74] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -318,9 +352,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=73')
+      navigator.serviceWorker.register('./sw.js?v=74')
         .then(reg => {
-          console.log('[PWA v73] Service Worker registrado:', reg.scope);
+          console.log('[PWA v74] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -328,7 +362,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v73] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v74] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -357,11 +391,17 @@ function initApp() {
     dateInput.value = state.selectedDate;
     dateInput.addEventListener('change', (e) => {
       state.selectedDate = e.target.value;
+      if (state.selectedDate === getTodayString()) {
+        state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
+        const tSel = document.getElementById('selectedTurno');
+        if (tSel) tSel.value = state.selectedTurno;
+      }
       fetchData(false);
     });
   }
 
-  // Set turno input value
+  // Set turno input value con detección horaria inteligente
+  state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
   const turnoSelect = document.getElementById('selectedTurno');
   if (turnoSelect) {
     turnoSelect.value = state.selectedTurno;
@@ -450,6 +490,12 @@ function checkSavedSession() {
         state.currentUser = JSON.parse(userStr);
       } catch (e) {
         state.currentUser = { usuario: 'admin', nombre: 'Equipo de Niños', rol: 'Maestra' };
+      }
+      // Detección Inteligente de Turno al restaurar sesión
+      state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
+      const turnoSelect = document.getElementById('selectedTurno');
+      if (turnoSelect) {
+        turnoSelect.value = state.selectedTurno;
       }
       unlockAppView();
       updateConnectionBadge();
@@ -627,6 +673,13 @@ async function handleLogin(event) {
       state.isAuthenticated = true;
       state.sessionToken = token;
       state.currentUser = authUser;
+
+      // Detección Inteligente de Turno al iniciar sesión
+      state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
+      const turnoSelect = document.getElementById('selectedTurno');
+      if (turnoSelect) {
+        turnoSelect.value = state.selectedTurno;
+      }
 
       sessionStorage.setItem('asistencia_auth_token', token);
       sessionStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
@@ -811,6 +864,12 @@ function setTodayDate() {
   state.selectedDate = getTodayString();
   const dateInput = document.getElementById('selectedDate');
   if (dateInput) dateInput.value = state.selectedDate;
+
+  // Detección Inteligente de Turno al tocar 'Hoy'
+  state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
+  const turnoSelect = document.getElementById('selectedTurno');
+  if (turnoSelect) turnoSelect.value = state.selectedTurno;
+
   fetchData(false);
 }
 
@@ -2187,6 +2246,278 @@ async function handleNuevoNino(event) {
   }).then(() => {
     switchTab('asistencia');
   });
+}
+
+// ==========================================================================
+// MODAL QR & CARTEL DE INSCRIPCIÓN PARA FAMILIAS (GOOGLE FORMS)
+// ==========================================================================
+function abrirModalQRRegistro() {
+  const qrImgUrl = 'icons/qr-formulario-registro.png?v=74';
+
+  Swal.fire({
+    title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl flex items-center justify-center gap-2">📱 Formulario de Inscripción de Familias</span>',
+    html: `
+      <div class="flex flex-col items-center justify-center pt-1 pb-1">
+        <!-- Contenedor QR con marco blanco, borde ámbar y sombra suave -->
+        <div class="p-3.5 sm:p-4 bg-white rounded-3xl border-2 border-amber-300 shadow-lg shadow-amber-900/10 inline-block mb-3.5 transition-transform hover:scale-[1.02]">
+          <img src="${qrImgUrl}" alt="QR Formulario de Inscripción" class="w-52 h-52 sm:w-60 sm:h-60 object-contain mx-auto rounded-xl">
+        </div>
+        
+        <!-- Subtítulo Explicativo -->
+        <p class="text-xs sm:text-sm font-semibold text-slate-700 text-center max-w-sm mb-4 leading-relaxed">
+          Escaneá con la cámara del celular para inscribir a tus hijos en IGR KIDS.
+        </p>
+
+        <!-- Botones de Acción -->
+        <div class="w-full flex flex-col gap-2.5">
+          <!-- Botón Principal: Abrir Google Form -->
+          <a href="${GOOGLE_FORMS_REGISTRO_URL}" target="_blank" rel="noopener noreferrer" class="w-full py-3 px-4 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 active:scale-[0.98] text-amber-950 font-black text-sm rounded-2xl shadow-md shadow-amber-400/25 border border-amber-300 flex items-center justify-center gap-2 transition-all">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            <span>📲 Abrir Formulario Web</span>
+          </a>
+
+          <!-- Botones Secundarios: Descargar QR & Imprimir Cartel -->
+          <div class="grid grid-cols-2 gap-2 w-full">
+            <button type="button" onclick="descargarQRRegistro()" class="py-2.5 px-3 bg-white hover:bg-amber-50 text-slate-700 font-bold text-xs sm:text-sm rounded-2xl border border-amber-200/90 shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer">
+              <i class="fa-solid fa-download text-amber-600"></i>
+              <span>📥 Descargar QR</span>
+            </button>
+            <button type="button" onclick="imprimirCartelQR()" class="py-2.5 px-3 bg-white hover:bg-amber-50 text-slate-700 font-bold text-xs sm:text-sm rounded-2xl border border-amber-200/90 shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer">
+              <i class="fa-solid fa-print text-amber-600"></i>
+              <span>🖨️ Imprimir Cartel</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `,
+    showConfirmButton: true,
+    confirmButtonText: 'Cerrar',
+    confirmButtonColor: '#94a3b8',
+    customClass: {
+      popup: 'rounded-3xl border border-amber-200 shadow-2xl p-5 sm:p-7 max-w-md w-full',
+      confirmButton: 'rounded-2xl font-bold px-6 py-2 shadow-sm text-white bg-slate-400 hover:bg-slate-500 transition-all text-xs cursor-pointer'
+    }
+  });
+}
+
+function descargarQRRegistro() {
+  const link = document.createElement('a');
+  link.href = 'icons/qr-formulario-registro.png';
+  link.download = 'QR_Inscripcion_Familias_IGR_KIDS.png';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToastNotification('Descargando imagen QR...', 'info');
+}
+
+function imprimirCartelQR() {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Ventana emergente bloqueada',
+      text: 'Por favor, autorizá las ventanas emergentes en tu navegador para imprimir el cartel.',
+      confirmButtonColor: '#ca8a04'
+    });
+    return;
+  }
+
+  const qrUrl = new URL('icons/qr-formulario-registro.png', window.location.href).href;
+  const logoUrl = new URL('icons/logo-icon.png', window.location.href).href;
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cartel de Inscripción de Familias - IGR KIDS</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 1.2cm 1.5cm 1cm 1.5cm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #ffffff;
+      color: #0f172a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 94vh;
+      text-align: center;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      background: #fef9c3;
+      border: 2px solid #facc15;
+      color: #713f12;
+      padding: 6px 20px;
+      border-radius: 9999px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .header-logo {
+      width: 90px;
+      height: 90px;
+      object-fit: contain;
+      margin-bottom: 8px;
+    }
+    h1 {
+      font-size: 36px;
+      font-weight: 900;
+      color: #0f172a;
+      margin: 0 0 6px 0;
+      line-height: 1.1;
+      letter-spacing: -0.5px;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ca8a04;
+      margin: 0 0 16px 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .qr-container {
+      background: #ffffff;
+      padding: 20px;
+      border: 4px solid #facc15;
+      border-radius: 28px;
+      box-shadow: 0 10px 25px rgba(202, 138, 4, 0.12);
+      display: inline-block;
+      margin: 10px auto;
+    }
+    .qr-container img {
+      width: 270px;
+      height: 270px;
+      display: block;
+      margin: 0 auto;
+    }
+    .instructions {
+      max-width: 500px;
+      margin: 14px auto 8px auto;
+    }
+    .instruction-step {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+    .instruction-desc {
+      font-size: 14px;
+      font-weight: 500;
+      color: #475569;
+      line-height: 1.45;
+    }
+    .features {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #854d0e;
+    }
+    .feature-item {
+      background: #fffdf5;
+      border: 1px dashed #facc15;
+      padding: 6px 14px;
+      border-radius: 12px;
+    }
+    .footer {
+      border-top: 1.5px solid #fef08a;
+      width: 100%;
+      padding-top: 10px;
+      margin-top: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+    .no-print-bar {
+      width: 100%;
+      background: #fef08a;
+      padding: 10px;
+      position: sticky;
+      top: 0;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      z-index: 100;
+      border-bottom: 1px solid #eab308;
+    }
+    .btn-print {
+      background: #ca8a04;
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    @media print {
+      .no-print-bar {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimir Cartel A4</button>
+  </div>
+  <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding-top: 10px;">
+    <img src="${logoUrl}" alt="Logo IGR KIDS" class="header-logo">
+    <div class="badge">💛 Recepción e Inscripción</div>
+    <h1>¡Bienvenidos a IGR KIDS!</h1>
+    <h2>Inscripción de Familias y Niños</h2>
+
+    <div class="qr-container">
+      <img src="${qrUrl}" alt="QR Formulario de Inscripción">
+    </div>
+
+    <div class="instructions">
+      <div class="instruction-step">📱 Escaneá con la cámara de tu celular</div>
+      <div class="instruction-desc">
+        Abrí la cámara de tu smartphone, apuntá al código QR y completá el formulario oficial de inscripción en menos de 2 minutos.
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature-item">🔒 Seguro y Confidencial</div>
+      <div class="feature-item">👶 Todas las Salas</div>
+      <div class="feature-item">⚡ Rápido y Fácil</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Iglesia Gran Rey • Ministerio IGR KIDS • Cuidado y Seguridad Infantil
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 500);
+    };
+  <\/script>
+</body>
+</html>`;
+
+  printWindow.document.open();
+  printWindow.document.write(htmlContent);
+  printWindow.document.close();
 }
 
 // ==========================================================================
