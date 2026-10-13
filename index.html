@@ -6,14 +6,14 @@
   <title>IGR KIDS - Portal de Asistencia Infantil</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
     <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=77">
+  <link rel="manifest" href="manifest.json?v=78">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IGR KIDS">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=77">
-  <link rel="icon" type="image/png" href="icons/favicon.png?v=77">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=78">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=78">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=77">
+  <link rel="stylesheet" href="styles.css?v=78">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -86,7 +86,7 @@
 
       <!-- Icon & Portal Header -->
       <div class="text-center relative z-10">
-        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=77" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
+        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=78" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
         <h2 class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-900 tracking-tight">
           IGR KIDS
         </h2>
@@ -285,7 +285,7 @@
           <!-- Logo & App Name -->
           <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
             <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-white p-1 border border-amber-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-              <img src="icons/logo-icon.png?v=77" alt="IGR KIDS" class="w-full h-full object-contain">
+              <img src="icons/logo-icon.png?v=78" alt="IGR KIDS" class="w-full h-full object-contain">
             </div>
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 sm:gap-2">
@@ -842,6 +842,21 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-4">
             
+            <!-- Report Card: WhatsApp Summary (Arriba de todo para acceso inmediato) -->
+            <div class="bg-gradient-to-br from-white to-green-50 border border-green-200/80 rounded-3xl p-5 flex flex-col justify-between shadow-sm">
+              <div>
+                <div class="w-12 h-12 rounded-2xl bg-green-600 text-white flex items-center justify-center text-xl shadow-md shadow-green-600/20 mb-4">
+                  <i class="fa-brands fa-whatsapp"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900">Resumen para WhatsApp</h3>
+                <p class="text-xs text-slate-600 mt-1">Copia un resumen formateado con totales por sala listo para enviar al grupo de líderes y maestros.</p>
+              </div>
+              <button onclick="copyWhatsAppReport()" class="mt-6 w-full py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold rounded-2xl shadow-md transition-all flex items-center justify-center gap-2">
+                <i class="fa-regular fa-copy"></i>
+                Copiar Resumen WhatsApp
+              </button>
+            </div>
+
             <!-- Report Card: REPORTE PASTORES (Auditoría Confidencial) -->
             <div class="bg-gradient-to-br from-[#0B0F19] to-slate-900 border border-amber-400/50 rounded-3xl p-5 flex flex-col justify-between shadow-lg text-white">
               <div>
@@ -890,21 +905,6 @@
               </button>
             </div>
 
-            <!-- Report Card: WhatsApp Summary -->
-            <div class="bg-gradient-to-br from-white to-green-50 border border-green-200/80 rounded-3xl p-5 flex flex-col justify-between shadow-sm">
-              <div>
-                <div class="w-12 h-12 rounded-2xl bg-green-600 text-white flex items-center justify-center text-xl shadow-md shadow-green-600/20 mb-4">
-                  <i class="fa-brands fa-whatsapp"></i>
-                </div>
-                <h3 class="text-lg font-bold text-slate-900">Resumen para WhatsApp</h3>
-                <p class="text-xs text-slate-600 mt-1">Copia un resumen formateado con totales por sala listo para enviar al grupo de líderes y maestros.</p>
-              </div>
-              <button onclick="copyWhatsAppReport()" class="mt-6 w-full py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold rounded-2xl shadow-md transition-all flex items-center justify-center gap-2">
-                <i class="fa-regular fa-copy"></i>
-                Copiar Resumen WhatsApp
-              </button>
-            </div>
-
           </div>
         </div>
       </section>
@@ -932,7 +932,7 @@
             <div class="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-4">
               <!-- Miniatura QR interactiva (tocar para ampliar) -->
               <div onclick="abrirModalQRRegistro()" title="Tocar para ampliar QR" class="cursor-pointer group relative shrink-0 p-2 bg-white rounded-2xl border-2 border-amber-300 shadow-sm hover:shadow-md transition-all hover:scale-105">
-                <img src="icons/qr-formulario-registro.png?v=77" alt="QR Inscripción" class="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-xl">
+                <img src="icons/qr-formulario-registro.png?v=78" alt="QR Inscripción" class="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-xl">
                 <div class="absolute inset-0 bg-amber-950/20 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-bold">
                   <i class="fa-solid fa-magnifying-glass-plus text-base mr-1"></i> Ver
                 </div>
@@ -1152,7 +1152,7 @@
         <!-- Encabezado con Logo Oficial y Título -->
         <div class="flex items-center gap-3.5 pr-8">
           <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 border-2 border-amber-300 shadow-md shadow-amber-900/10 flex items-center justify-center shrink-0 overflow-hidden">
-            <img src="icons/logo-icon.png?v=77" alt="IGR KIDS Logo" class="w-full h-full object-contain">
+            <img src="icons/logo-icon.png?v=78" alt="IGR KIDS Logo" class="w-full h-full object-contain">
           </div>
           <div>
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200 mb-1">
@@ -1200,6 +1200,6 @@
 
     </div>
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=77"></script>
+  <script src="app.js?v=78"></script>
 </body>
 </html>
