@@ -337,7 +337,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v78] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v79] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -352,9 +352,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=78')
+      navigator.serviceWorker.register('./sw.js?v=79')
         .then(reg => {
-          console.log('[PWA v78] Service Worker registrado:', reg.scope);
+          console.log('[PWA v79] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -362,7 +362,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v78] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v79] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -380,6 +380,11 @@ function initPWA() {
 }
 
 function initApp() {
+  // Saneamiento proactivo de claves legacy no parametrizadas por turno
+  try {
+    localStorage.removeItem(`asistencia_date_${getTodayString()}`);
+  } catch (e) {}
+
   // Listeners reactivos para estado de red en vivo (Online / Offline)
   window.addEventListener('online', updateConnectionBadge);
   window.addEventListener('offline', updateConnectionBadge);
@@ -396,6 +401,13 @@ function initApp() {
         const tSel = document.getElementById('selectedTurno');
         if (tSel) tSel.value = state.selectedTurno;
       }
+      const exactBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno);
+      if (exactBackup && exactBackup.length > 0) {
+        state.ninos = prepareKidsIndex(exactBackup, false);
+      } else {
+        state.ninos = state.ninos.map(n => ({ ...n, presente: false, horaIngreso: null }));
+      }
+      updateUI();
       fetchData(false);
     });
   }
@@ -472,6 +484,14 @@ function switchAuthMode(mode) {
 function handleTurnoChange(newTurno) {
   state.selectedTurno = newTurno;
   showToastNotification(`Turno cambiado: ${newTurno}`, 'info');
+  // Cargar de inmediato los datos del turno seleccionado o vaciar para evitar desfasaje visual
+  const exactBackup = getLocalDataBackup(state.selectedDate, newTurno);
+  if (exactBackup && exactBackup.length > 0) {
+    state.ninos = prepareKidsIndex(exactBackup, false);
+  } else {
+    state.ninos = state.ninos.map(n => ({ ...n, presente: false, horaIngreso: null }));
+  }
+  updateUI();
   fetchData(false);
 }
 
@@ -870,6 +890,14 @@ function setTodayDate() {
   const turnoSelect = document.getElementById('selectedTurno');
   if (turnoSelect) turnoSelect.value = state.selectedTurno;
 
+  const exactBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno);
+  if (exactBackup && exactBackup.length > 0) {
+    state.ninos = prepareKidsIndex(exactBackup, false);
+  } else {
+    state.ninos = state.ninos.map(n => ({ ...n, presente: false, horaIngreso: null }));
+  }
+  updateUI();
+
   fetchData(false);
 }
 
@@ -897,14 +925,17 @@ function getAnyRecentBackup() {
   return null;
 }
 
-function prepareKidsIndex(ninos) {
+function prepareKidsIndex(ninos, isFreshFromServer = false) {
   if (!Array.isArray(ninos)) return [];
-  const storedLocal = getLocalAttendance(state.selectedDate, state.selectedTurno);
+  const storedLocal = isFreshFromServer ? {} : getLocalAttendance(state.selectedDate, state.selectedTurno);
 
   return ninos.map(n => {
-    if (storedLocal && storedLocal[n.id] !== undefined) {
-      n.presente = storedLocal[n.id].presente;
-      n.horaIngreso = storedLocal[n.id].horaIngreso;
+    // Si viene del servidor, Google Sheets tiene la verdad absoluta para esta fecha y turno
+    if (isFreshFromServer) {
+      n.presente = Boolean(n.presente);
+    } else if (storedLocal && storedLocal[n.id] !== undefined) {
+      n.presente = Boolean(storedLocal[n.id].presente);
+      n.horaIngreso = storedLocal[n.id].horaIngreso || null;
       if (storedLocal[n.id].sala) n.salaActual = storedLocal[n.id].sala;
     }
 
@@ -937,12 +968,14 @@ async function fetchData(showToast = false) {
 
   // ⚡ 1. Renderizado INSTANTÁNEO (0 ms) desde Respaldo Local si la lista está vacía
   if (state.ninos.length === 0) {
-    const cached = getLocalDataBackup(state.selectedDate, state.selectedTurno) || 
-                   getLocalDataBackup(state.selectedDate) || 
-                   getAnyRecentBackup();
-    if (cached && Array.isArray(cached) && cached.length > 0) {
-      console.log(`[Cache Ultra-Rápido] Cargando ${cached.length} niños desde memoria local`);
-      state.ninos = prepareKidsIndex(cached);
+    const exactBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno);
+    const anyBackup = exactBackup || getLocalDataBackup(state.selectedDate) || getAnyRecentBackup();
+    if (anyBackup && Array.isArray(anyBackup) && anyBackup.length > 0) {
+      console.log(`[Cache Ultra-Rápido] Cargando ${anyBackup.length} niños desde memoria local`);
+      // Si el backup no es exactamente de esta fecha y turno, limpiamos los flags de presente
+      // para no arrastrar asistencias de otros días u horarios
+      const cleanBackup = exactBackup ? anyBackup : anyBackup.map(k => ({ ...k, presente: false, horaIngreso: null }));
+      state.ninos = prepareKidsIndex(cleanBackup, false);
       updateUI();
     }
   }
@@ -961,10 +994,10 @@ async function fetchData(showToast = false) {
           salaActual: localStatus.sala || n.salaSugerida
         };
       }
-      return { ...n };
+      return { ...n, presente: false, horaIngreso: null };
     });
 
-    state.ninos = prepareKidsIndex(state.ninos);
+    state.ninos = prepareKidsIndex(state.ninos, false);
     updateUI();
     setLoadingState(false);
     if (showToast) {
@@ -982,7 +1015,28 @@ async function fetchData(showToast = false) {
     });
 
     if (data && data.success && Array.isArray(data.ninos)) {
-      state.ninos = prepareKidsIndex(data.ninos);
+      // 1. Procesar datos del servidor respetando su estado real
+      state.ninos = prepareKidsIndex(data.ninos, true);
+
+      // 2. Sincronizar y sanear el almacenamiento local con la verdad del servidor para este turno
+      const newLocalAttendance = {};
+      state.ninos.forEach(n => {
+        if (n.presente) {
+          newLocalAttendance[n.id] = {
+            presente: true,
+            horaIngreso: n.horaIngreso,
+            sala: n.salaActual || n.salaSugerida,
+            turno: state.selectedTurno
+          };
+        }
+      });
+      const key = `asistencia_date_${state.selectedDate}_${encodeURIComponent(state.selectedTurno || '10:00 hs (Mañana)')}`;
+      localStorage.setItem(key, JSON.stringify(newLocalAttendance));
+      // Limpiar residuo legacy si existiera
+      try {
+        localStorage.removeItem(`asistencia_date_${state.selectedDate}`);
+      } catch (e) {}
+
       saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
       updateUI();
       if (showToast) {
@@ -993,12 +1047,14 @@ async function fetchData(showToast = false) {
     }
   } catch (error) {
     console.warn('Error al conectar con Google Sheets, usando respaldo local:', error);
-    const cachedBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno) || getAnyRecentBackup();
+    const exactBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno);
+    const cachedBackup = exactBackup || getAnyRecentBackup();
     if (cachedBackup && cachedBackup.length > 0) {
-      state.ninos = prepareKidsIndex(cachedBackup);
+      const cleanBackup = exactBackup ? cachedBackup : cachedBackup.map(k => ({ ...k, presente: false, horaIngreso: null }));
+      state.ninos = prepareKidsIndex(cleanBackup, false);
       showToastNotification(`Modo sin conexión: datos cargados (${state.selectedTurno})`, 'warning');
     } else if (state.ninos.length === 0) {
-      state.ninos = prepareKidsIndex(DEMO_NINOS);
+      state.ninos = prepareKidsIndex(DEMO_NINOS, false);
       showToastNotification('No se pudo conectar a Google Sheets. Verifique la URL en Configuración.', 'error');
     }
     updateUI();
@@ -1011,7 +1067,7 @@ async function fetchData(showToast = false) {
 function getLocalAttendance(dateStr, turnoStr = state.selectedTurno) {
   try {
     const key = `asistencia_date_${dateStr}_${encodeURIComponent(turnoStr || '10:00 hs (Mañana)')}`;
-    const data = localStorage.getItem(key) || localStorage.getItem(`asistencia_date_${dateStr}`);
+    const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : {};
   } catch (e) {
     return {};
@@ -2269,7 +2325,7 @@ async function handleNuevoNino(event) {
 // MODAL QR & CARTEL DE INSCRIPCIÓN PARA FAMILIAS (GOOGLE FORMS)
 // ==========================================================================
 function abrirModalQRRegistro() {
-  const qrImgUrl = 'icons/qr-formulario-registro.png?v=78';
+  const qrImgUrl = 'icons/qr-formulario-registro.png?v=79';
 
   Swal.fire({
     title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl flex items-center justify-center gap-2">📱 Formulario de Inscripción de Familias</span>',

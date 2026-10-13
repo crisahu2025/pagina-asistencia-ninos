@@ -5,7 +5,7 @@
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v78';
+const CACHE_NAME = 'igr-kids-v79';
 
 const PRECACHE_ASSETS = [
   './',
@@ -46,7 +46,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW v78] Pre-caching partial warning:', err);
+        console.warn('[SW v79] Pre-caching partial warning:', err);
       });
     })
   );
