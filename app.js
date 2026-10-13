@@ -337,7 +337,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v76] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v77] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -352,9 +352,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=76')
+      navigator.serviceWorker.register('./sw.js?v=77')
         .then(reg => {
-          console.log('[PWA v76] Service Worker registrado:', reg.scope);
+          console.log('[PWA v77] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -362,7 +362,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v76] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v77] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -2269,7 +2269,7 @@ async function handleNuevoNino(event) {
 // MODAL QR & CARTEL DE INSCRIPCIÓN PARA FAMILIAS (GOOGLE FORMS)
 // ==========================================================================
 function abrirModalQRRegistro() {
-  const qrImgUrl = 'icons/qr-formulario-registro.png?v=76';
+  const qrImgUrl = 'icons/qr-formulario-registro.png?v=77';
 
   Swal.fire({
     title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl flex items-center justify-center gap-2">📱 Formulario de Inscripción de Familias</span>',
