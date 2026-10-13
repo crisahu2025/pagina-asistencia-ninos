@@ -108,6 +108,28 @@ html, body {
   font-weight: 800 !important;
 }
 
+/* Header Dropdown Tab buttons styling (Protocolo V75) */
+#headerDropdownMenu .tab-btn {
+  background-color: rgba(30, 41, 59, 0.7) !important;
+  border: 1px solid rgba(51, 65, 85, 0.8) !important;
+  color: #e2e8f0 !important;
+  box-shadow: none !important;
+}
+
+#headerDropdownMenu .tab-btn:hover {
+  background-color: rgba(51, 65, 85, 0.9) !important;
+  color: #ffffff !important;
+  border-color: rgba(100, 116, 139, 0.8) !important;
+}
+
+#headerDropdownMenu .tab-btn.active-tab {
+  background: linear-gradient(135deg, #fef08a 0%, #facc15 100%) !important;
+  color: #713f12 !important;
+  border: 1px solid #eab308 !important;
+  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.22) !important;
+  font-weight: 800 !important;
+}
+
 /* Filter pills */
 .filter-pill {
   background-color: #fffdf5;

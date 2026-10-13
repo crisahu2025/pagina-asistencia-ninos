@@ -54,7 +54,7 @@ const state = {
   selectedDate: getTodayString(),
   selectedTurno: calcularTurnoPorHora(getTodayString()),
   filterSala: 'TODAS',
-  filterEstado: 'TODOS',
+  filterEstado: 'SOLO_AUSENTES',
   searchTerm: '',
   presentesSearchTerm: '',
   presentesViewMode: localStorage.getItem('igr_presentes_view_mode') || 'grid',
@@ -337,7 +337,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v74] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v75] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -352,9 +352,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=74')
+      navigator.serviceWorker.register('./sw.js?v=75')
         .then(reg => {
-          console.log('[PWA v74] Service Worker registrado:', reg.scope);
+          console.log('[PWA v75] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -362,7 +362,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v74] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v75] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -1293,13 +1293,30 @@ function updateStats() {
   const ausentes = total - presentes;
   const pct = total > 0 ? Math.round((presentes / total) * 100) : 0;
 
-  document.getElementById('statTotal').textContent = total;
-  document.getElementById('statPresentes').textContent = presentes;
-  document.getElementById('statAusentes').textContent = ausentes;
-  document.getElementById('statPorcentaje').textContent = `${pct}%`;
+  const statTotal = document.getElementById('statTotal');
+  if (statTotal) statTotal.textContent = total;
+  const statPresentes = document.getElementById('statPresentes');
+  if (statPresentes) statPresentes.textContent = presentes;
+  const statAusentes = document.getElementById('statAusentes');
+  if (statAusentes) statAusentes.textContent = ausentes;
+  const statPorcentaje = document.getElementById('statPorcentaje');
+  if (statPorcentaje) statPorcentaje.textContent = `${pct}%`;
 
-  document.getElementById('badgeTotalNinos').textContent = total;
-  document.getElementById('badgeTotalPresentes').textContent = presentes;
+  const badgeTotalNinos = document.getElementById('badgeTotalNinos');
+  if (badgeTotalNinos) badgeTotalNinos.textContent = total;
+  const badgeTotalPresentes = document.getElementById('badgeTotalPresentes');
+  if (badgeTotalPresentes) badgeTotalPresentes.textContent = presentes;
+
+  // Badge flotante en el botón de Menú Cuadrado del Header
+  const headerMenuBadge = document.getElementById('headerMenuBadge');
+  if (headerMenuBadge) {
+    if (presentes > 0) {
+      headerMenuBadge.textContent = presentes;
+      headerMenuBadge.classList.remove('hidden');
+    } else {
+      headerMenuBadge.classList.add('hidden');
+    }
+  }
 }
 
 function normalizarTexto(str) {
@@ -2252,7 +2269,7 @@ async function handleNuevoNino(event) {
 // MODAL QR & CARTEL DE INSCRIPCIÓN PARA FAMILIAS (GOOGLE FORMS)
 // ==========================================================================
 function abrirModalQRRegistro() {
-  const qrImgUrl = 'icons/qr-formulario-registro.png?v=74';
+  const qrImgUrl = 'icons/qr-formulario-registro.png?v=75';
 
   Swal.fire({
     title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl flex items-center justify-center gap-2">📱 Formulario de Inscripción de Familias</span>',
@@ -2724,7 +2741,40 @@ function switchTab(tabId) {
 }
 
 // ==========================================================================
-// FILTRO DESPLEGABLE DE EDADES / SALAS (PROTOCOLO CORPORATIVO V54)
+// MENÚ PRINCIPAL DESPLEGABLE DEL HEADER (PROTOCOLO V75)
+// ==========================================================================
+
+function toggleHeaderMenu(event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const menu = document.getElementById('headerDropdownMenu');
+  const btn = document.getElementById('btnMenuHeader');
+  if (!menu) return;
+
+  const isHidden = menu.classList.contains('hidden');
+  if (isHidden) {
+    menu.classList.remove('hidden');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    closeEdadesDropdown();
+  } else {
+    menu.classList.add('hidden');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function closeHeaderMenu() {
+  const menu = document.getElementById('headerDropdownMenu');
+  const btn = document.getElementById('btnMenuHeader');
+  if (menu && !menu.classList.contains('hidden')) {
+    menu.classList.add('hidden');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+}
+
+// ==========================================================================
+// FILTRO DESPLEGABLE DE SALAS (PROTOCOLO CORPORATIVO V75)
 // ==========================================================================
 
 function toggleEdadesDropdown(event) {
@@ -2742,6 +2792,7 @@ function toggleEdadesDropdown(event) {
     menu.classList.remove('hidden');
     if (chevron) chevron.classList.add('rotate-180');
     if (btn) btn.setAttribute('aria-expanded', 'true');
+    closeHeaderMenu();
   } else {
     menu.classList.add('hidden');
     if (chevron) chevron.classList.remove('rotate-180');
@@ -2763,13 +2814,13 @@ function closeEdadesDropdown() {
 function selectEdadFilter(salaKey, label) {
   state.filterSala = salaKey;
 
-  // Actualizar texto del botón principal "Edades"
+  // Actualizar texto del botón principal "Salas"
   const btnText = document.getElementById('btnEdadesText');
   if (btnText) {
     if (salaKey === 'TODAS') {
-      btnText.textContent = 'Edades';
+      btnText.textContent = 'Salas';
     } else {
-      btnText.textContent = `Edades: ${label}`;
+      btnText.textContent = label;
     }
   }
 
@@ -2802,7 +2853,7 @@ function selectEdadFilter(salaKey, label) {
 }
 
 function setFilterSala(salaName) {
-  let label = 'Todas las Edades';
+  let label = 'Todas las Salas';
   if (salaName === 'Sala Cunas (0-2 años)') label = '0 a 2 años';
   else if (salaName === 'Párvulos (3-5 años)') label = '3 a 5 años';
   else if (salaName === 'Primarios (6-8 años)') label = '6 a 8 años';
@@ -2827,17 +2878,26 @@ function setViewMode(mode) {
   renderKidsList();
 }
 
-// Eventos globales para cierre del dropdown de Edades
+// Eventos globales para cierre de dropdowns flotantes
 document.addEventListener('click', (e) => {
-  const container = document.getElementById('edadesDropdownContainer');
-  if (container && !container.contains(e.target)) {
+  // Cierre de dropdown Salas
+  const edadesContainer = document.getElementById('edadesDropdownContainer');
+  if (edadesContainer && !edadesContainer.contains(e.target)) {
     closeEdadesDropdown();
+  }
+
+  // Cierre de menú header
+  const menuHeaderBtn = document.getElementById('btnMenuHeader');
+  const menuHeaderDropdown = document.getElementById('headerDropdownMenu');
+  if (menuHeaderDropdown && !menuHeaderDropdown.contains(e.target) && menuHeaderBtn && !menuHeaderBtn.contains(e.target)) {
+    closeHeaderMenu();
   }
 });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeEdadesDropdown();
+    closeHeaderMenu();
   }
 });
 

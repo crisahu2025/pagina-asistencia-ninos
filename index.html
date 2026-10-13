@@ -6,14 +6,14 @@
   <title>IGR KIDS - Portal de Asistencia Infantil</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
     <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=74">
+  <link rel="manifest" href="manifest.json?v=75">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IGR KIDS">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=74">
-  <link rel="icon" type="image/png" href="icons/favicon.png?v=74">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=75">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=75">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=74">
+  <link rel="stylesheet" href="styles.css?v=75">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -86,7 +86,7 @@
 
       <!-- Icon & Portal Header -->
       <div class="text-center relative z-10">
-        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=74" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
+        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=75" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
         <h2 class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-900 tracking-tight">
           IGR KIDS
         </h2>
@@ -285,7 +285,7 @@
           <!-- Logo & App Name -->
           <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
             <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-white p-1 border border-amber-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-              <img src="icons/logo-icon.png?v=74" alt="IGR KIDS" class="w-full h-full object-contain">
+              <img src="icons/logo-icon.png?v=75" alt="IGR KIDS" class="w-full h-full object-contain">
             </div>
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 sm:gap-2">
@@ -300,55 +300,142 @@
             </div>
           </div>
 
-          <!-- User Badge & Actions -->
-          <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            
-            <!-- Logged-in Teacher / User Badge -->
-            <div id="userBadgeHeader" class="hidden min-[480px]:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-amber-50/90 rounded-2xl border border-amber-200/80 text-xs font-bold text-amber-950 shadow-sm max-w-[100px] sm:max-w-[200px] truncate shrink-0">
-              <i class="fa-solid fa-user-shield text-amber-600 shrink-0 text-xs"></i>
-              <span id="currentUserLabel" class="truncate">Equipo IGR KIDS</span>
-            </div>
-
-            <!-- Install PWA Button -->
-            <button id="btnInstallPwa" onclick="promptInstallPwa()" title="Instalar App en el Celular" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2.5 min-h-[42px] bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-yellow-500 active:scale-95 text-amber-950 text-xs font-extrabold rounded-2xl shadow-sm border border-amber-300 transition-all cursor-pointer shrink-0">
-              <i class="fa-solid fa-mobile-screen-button text-xs"></i>
-              <span class="hidden sm:inline">Instalar App</span>
-            </button>
-
-            <!-- Sync Button (Destacado, táctil y manual) -->
+          <!-- Top Actions: Hamburger Menu Container -->
+          <div class="relative shrink-0">
+            <!-- Botón Menú Cuadrado con 3 Líneas -->
             <button 
-              id="btnSync" 
-              onclick="fetchData(true)" 
-              title="Sincronizar datos" 
-              class="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-2.5 min-h-[42px] bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 text-amber-950 font-extrabold text-xs sm:text-sm rounded-2xl shadow-sm border border-amber-300 active:scale-95 transition-all cursor-pointer shrink-0"
+              id="btnMenuHeader" 
+              onclick="toggleHeaderMenu(event)" 
+              title="Menú del Sistema" 
+              class="relative w-10 h-10 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 text-amber-950 flex items-center justify-center shadow-md shadow-amber-500/20 border border-amber-300 active:scale-95 transition-all cursor-pointer"
+              aria-expanded="false"
+              aria-haspopup="true"
             >
-              <i id="syncIcon" class="fa-solid fa-arrows-rotate text-xs sm:text-sm"></i>
-              <span class="whitespace-nowrap">Sincronizar</span>
+              <i class="fa-solid fa-bars text-base"></i>
+              <!-- Badge flotante con presentes si hay activos -->
+              <span id="headerMenuBadge" class="hidden absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-emerald-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-white shadow-sm">0</span>
             </button>
 
-            <!-- Logout Button -->
-            <button onclick="handleLogout()" title="Cerrar sesión" class="w-10 h-10 min-h-[42px] min-w-[38px] sm:min-w-[42px] rounded-2xl bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 border border-slate-200 flex items-center justify-center transition-all shadow-sm shrink-0 active:scale-95">
-              <i class="fa-solid fa-power-off text-xs sm:text-sm"></i>
-            </button>
+            <!-- Menú Desplegable Flotante -->
+            <div 
+              id="headerDropdownMenu" 
+              class="hidden absolute right-0 mt-2 w-72 sm:w-80 rounded-3xl bg-[#0F172A] border border-slate-700/90 shadow-2xl shadow-black/80 z-50 p-2.5 animate-fadeIn space-y-2 text-left"
+            >
+              <!-- Info del Usuario & Cerrar Sesión -->
+              <div class="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60 flex items-center justify-between gap-2" id="userBadgeHeader">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="w-9 h-9 rounded-xl bg-amber-400 text-amber-950 flex items-center justify-center font-black text-sm shrink-0">
+                    <i class="fa-solid fa-user-shield"></i>
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Usuario</p>
+                    <p id="currentUserLabel" class="text-xs sm:text-sm font-extrabold text-white truncate">Equipo IGR KIDS</p>
+                  </div>
+                </div>
+                <!-- Botón Cerrar Sesión -->
+                <button 
+                  onclick="handleLogout()" 
+                  title="Cerrar sesión" 
+                  class="w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 flex items-center justify-center transition-all cursor-pointer shrink-0"
+                >
+                  <i class="fa-solid fa-power-off text-xs"></i>
+                </button>
+              </div>
+
+              <!-- Botón Sincronizar -->
+              <button 
+                id="btnSync" 
+                onclick="fetchData(true); closeHeaderMenu();" 
+                title="Sincronizar datos" 
+                class="w-full flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 text-amber-950 rounded-2xl font-black text-xs shadow-sm border border-amber-300 active:scale-98 transition-all cursor-pointer"
+              >
+                <div class="flex items-center gap-2.5">
+                  <i id="syncIcon" class="fa-solid fa-arrows-rotate text-sm"></i>
+                  <span>Sincronizar Datos</span>
+                </div>
+                <span class="text-[10px] bg-amber-950/20 text-amber-950 px-2 py-0.5 rounded-lg font-bold">Manual</span>
+              </button>
+
+              <!-- Navegación Principal Agrupada -->
+              <div class="px-2 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                <span>Vistas y Módulos</span>
+                <i class="fa-solid fa-compass text-amber-400"></i>
+              </div>
+
+              <div class="space-y-1">
+                <!-- 1. Tomar Asistencia -->
+                <button 
+                  onclick="switchTab('asistencia'); closeHeaderMenu();" 
+                  id="tabBtn-asistencia" 
+                  class="tab-btn active-tab w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-clipboard-user text-amber-400 w-4 text-center"></i>
+                    <span>Tomar Asistencia</span>
+                  </div>
+                  <span id="badgeTotalNinos" class="px-2 py-0.5 text-xs rounded-full bg-amber-400/20 text-amber-400 border border-amber-400/30 font-black">0</span>
+                </button>
+
+                <!-- 2. Presentes del Día -->
+                <button 
+                  onclick="switchTab('presentes'); closeHeaderMenu();" 
+                  id="tabBtn-presentes" 
+                  class="tab-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-circle-check text-emerald-400 w-4 text-center"></i>
+                    <span>Presentes del Día</span>
+                  </div>
+                  <span id="badgeTotalPresentes" class="px-2 py-0.5 text-xs rounded-full bg-emerald-400/20 text-emerald-400 border border-emerald-400/30 font-black">0</span>
+                </button>
+
+                <!-- 3. Estadísticas -->
+                <button 
+                  onclick="toggleEstadisticas(); closeHeaderMenu();" 
+                  id="btnToggleEstadisticas" 
+                  class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold text-slate-200 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 transition-all cursor-pointer"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-chart-pie text-blue-400 w-4 text-center"></i>
+                    <span>Estadísticas</span>
+                  </div>
+                  <i id="iconChevronEstadisticas" class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                </button>
+
+                <!-- 4. Instalar App PWA (si corresponde) -->
+                <button 
+                  id="btnInstallPwa" 
+                  onclick="promptInstallPwa(); closeHeaderMenu();" 
+                  class="hidden w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all cursor-pointer"
+                >
+                  <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-mobile-screen-button text-amber-400 w-4 text-center"></i>
+                    <span>Instalar App Móvil</span>
+                  </div>
+                  <i class="fa-solid fa-download text-xs text-amber-400"></i>
+                </button>
+              </div>
+
+            </div>
           </div>
 
         </div>
 
         <!-- ROW 2: Date & Turno Controls Strip -->
-        <div class="flex flex-wrap items-center gap-2 py-2 max-w-full">
+        <div class="flex items-center justify-between gap-2 py-1.5 max-w-full">
           <!-- Date selector -->
-          <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs max-w-full">
-            <i class="fa-regular fa-calendar-days text-amber-600 ml-2 shrink-0"></i>
-            <input type="date" id="selectedDate" class="bg-transparent border-0 text-xs sm:text-sm font-semibold text-slate-700 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none max-w-[130px] sm:max-w-none">
-            <button onclick="setTodayDate()" title="Ir a hoy" class="px-2 py-1 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-xl transition-all shadow-sm shrink-0">
+          <div class="relative flex items-center bg-amber-50/70 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs flex-1 min-w-0 max-w-[200px] sm:max-w-none">
+            <i class="fa-regular fa-calendar-days text-amber-600 ml-1.5 shrink-0 text-xs"></i>
+            <input type="date" id="selectedDate" class="bg-transparent border-0 text-xs sm:text-sm font-semibold text-slate-700 focus:ring-0 py-0.5 px-1.5 cursor-pointer outline-none w-full min-w-0">
+            <button onclick="setTodayDate()" title="Ir a hoy" class="px-2 py-0.5 text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 rounded-xl transition-all shadow-sm shrink-0">
               Hoy
             </button>
           </div>
 
           <!-- Turno Dominical Selector -->
-          <div class="relative flex items-center bg-amber-50/60 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs max-w-full">
-            <i class="fa-solid fa-clock text-amber-600 ml-2 shrink-0"></i>
-            <select id="selectedTurno" onchange="handleTurnoChange(this.value)" class="bg-transparent border-0 text-xs sm:text-sm font-bold text-amber-950 focus:ring-0 py-0.5 px-2 cursor-pointer outline-none font-['Inter']">
+          <div class="relative flex items-center bg-amber-50/70 rounded-2xl p-1 border border-amber-200/80 shadow-sm text-xs flex-1 min-w-0">
+            <i class="fa-solid fa-clock text-amber-600 ml-1.5 shrink-0 text-xs"></i>
+            <select id="selectedTurno" onchange="handleTurnoChange(this.value)" class="bg-transparent border-0 text-xs sm:text-sm font-bold text-amber-950 focus:ring-0 py-0.5 px-1.5 cursor-pointer outline-none font-['Inter'] w-full min-w-0 truncate">
               <option value="10:00 hs (Mañana)">10:00 hs (Mañana)</option>
               <option value="18:00 hs (Tarde)">18:00 hs (Tarde)</option>
               <option value="20:00 hs (Noche)">20:00 hs (Noche)</option>
@@ -356,71 +443,39 @@
           </div>
         </div>
 
-        <!-- ROW 3: NAVIGATION TABS (Card Style - Grid on Mobile, Flex on Desktop) -->
-        <nav class="grid grid-cols-2 sm:flex sm:flex-nowrap gap-2 sm:gap-2.5 w-full border-t border-amber-100/60 py-2.5 items-center">
-          <!-- Tab 1: Toma de Asistencia -->
-          <button onclick="switchTab('asistencia')" id="tabBtn-asistencia" class="tab-btn active-tab col-span-1 flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm w-full sm:w-auto min-w-0">
-            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-xs shrink-0">
-                <i class="fa-solid fa-clipboard-user"></i>
-              </div>
-              <span class="truncate">Toma Asistencia</span>
-            </div>
-            <span id="badgeTotalNinos" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-amber-200 text-amber-950 font-black shrink-0">0</span>
+        <!-- ROW 3: BOTONES RÁPIDOS COMPACTOS EN UNA SOLA FILA (Registrar Niño, QR, Reportes) -->
+        <div class="grid grid-cols-3 gap-2 py-1.5 border-t border-amber-100/60 w-full">
+          <!-- 1. Registrar Niño -->
+          <button 
+            onclick="switchTab('nuevo')" 
+            id="tabBtn-nuevo" 
+            class="tab-btn flex items-center justify-center gap-1.5 px-2 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 text-amber-950 font-black text-xs rounded-2xl shadow-sm border border-amber-300 active:scale-95 transition-all cursor-pointer min-w-0"
+          >
+            <i class="fa-solid fa-plus text-[11px] shrink-0"></i>
+            <span class="truncate">Registrar Niño</span>
           </button>
 
-          <!-- Tab 2: Presentes Hoy -->
-          <button onclick="switchTab('presentes')" id="tabBtn-presentes" class="tab-btn col-span-1 flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm w-full sm:w-auto min-w-0">
-            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs shrink-0">
-                <i class="fa-solid fa-circle-check"></i>
-              </div>
-              <span class="truncate">Presentes Hoy</span>
-            </div>
-            <span id="badgeTotalPresentes" class="ml-1 px-2 py-0.5 text-xs font-black rounded-full bg-emerald-100 text-emerald-800 shrink-0">0</span>
+          <!-- 2. QR (Abreviado de "QR Familias") -->
+          <button 
+            onclick="abrirModalQRRegistro()" 
+            id="btnNavQRFamilias" 
+            type="button" 
+            class="tab-btn flex items-center justify-center gap-1.5 px-2 py-2 bg-white hover:bg-amber-50 text-amber-950 font-black text-xs rounded-2xl shadow-sm border border-amber-300/80 active:scale-95 transition-all cursor-pointer min-w-0"
+          >
+            <i class="fa-solid fa-qrcode text-[11px] text-amber-600 shrink-0"></i>
+            <span class="truncate">QR</span>
           </button>
 
-          <!-- Tab 3: Estadísticas -->
-          <button onclick="toggleEstadisticas()" id="btnToggleEstadisticas" class="tab-btn col-span-1 flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm hover:border-amber-400 w-full sm:w-auto min-w-0">
-            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center text-xs shrink-0">
-                <i class="fa-solid fa-chart-pie"></i>
-              </div>
-              <span class="truncate">Estadísticas</span>
-            </div>
-            <i id="iconChevronEstadisticas" class="fa-solid fa-chevron-down text-[10px] text-slate-400 ml-1 shrink-0"></i>
+          <!-- 3. Reportes -->
+          <button 
+            onclick="switchTab('reportes')" 
+            id="tabBtn-reportes" 
+            class="tab-btn flex items-center justify-center gap-1.5 px-2 py-2 bg-white hover:bg-slate-100 text-slate-800 font-black text-xs rounded-2xl shadow-sm border border-slate-200 active:scale-95 transition-all cursor-pointer min-w-0"
+          >
+            <i class="fa-solid fa-file-arrow-down text-[11px] text-slate-600 shrink-0"></i>
+            <span class="truncate">Reportes</span>
           </button>
-
-          <!-- Tab 4: Reportes & Descargas -->
-          <button onclick="switchTab('reportes')" id="tabBtn-reportes" class="tab-btn col-span-1 flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm w-full sm:w-auto min-w-0">
-            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-xs shrink-0">
-                <i class="fa-solid fa-file-arrow-down"></i>
-              </div>
-              <span class="truncate">Reportes</span>
-            </div>
-          </button>
-
-          <!-- Tab 5: Registrar Niño -->
-          <button onclick="switchTab('nuevo')" id="tabBtn-nuevo" class="tab-btn col-span-1 flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm w-full sm:w-auto min-w-0">
-            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-yellow-100 text-yellow-900 flex items-center justify-center text-xs shrink-0">
-                <i class="fa-solid fa-plus"></i>
-              </div>
-              <span class="truncate">Registrar Niño</span>
-            </div>
-          </button>
-
-          <!-- Botón QR Familias -->
-          <button onclick="abrirModalQRRegistro()" id="btnNavQRFamilias" type="button" class="tab-btn col-span-1 flex items-center justify-between sm:justify-start gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-2xl transition-all shrink-0 cursor-pointer shadow-sm w-full sm:w-auto min-w-0 bg-white hover:bg-amber-50 text-amber-950 border border-amber-300">
-            <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-xs shrink-0">
-                <i class="fa-solid fa-qrcode"></i>
-              </div>
-              <span class="truncate">QR Familias</span>
-            </div>
-          </button>
-        </nav>
+        </div>
 
       </div>
     </header>
@@ -484,46 +539,46 @@
       <!-- ============================================================= -->
       <section id="tab-asistencia" class="tab-content block space-y-5">
         
-        <!-- Filter and Search Header (Dark Premium Redesign) -->
-        <div class="search-card bg-[#0B0F19] p-4 sm:p-5 rounded-3xl border border-slate-800/80 shadow-xl shadow-black/25 space-y-3.5 relative">
+        <!-- Filter and Search Header (Dark Premium Compact Design) -->
+        <div class="search-card bg-[#0B0F19] p-3 sm:p-4 rounded-3xl border border-slate-800/80 shadow-xl shadow-black/25 space-y-2.5 relative">
           
-          <!-- Barra Superior: Filtro de Edades, Selector de Estado y Toggle Cuadrícula/Tabla -->
-          <div class="flex flex-wrap items-center justify-between gap-2.5 relative z-20">
+          <!-- Barra Superior: Filtro de Salas, Selector de Estado y Toggle Cuadrícula/Tabla (Fila Única de 3) -->
+          <div class="grid grid-cols-[auto_1fr_auto] items-center gap-2 relative z-20">
             
-            <!-- Botón Desplegable de Edades -->
+            <!-- 1. Botón Desplegable de Salas -->
             <div class="relative inline-block text-left" id="edadesDropdownContainer">
               <button 
                 type="button"
                 id="btnEdadesFilter" 
                 onclick="toggleEdadesDropdown(event)" 
-                class="inline-flex items-center gap-2 px-3.5 py-2 bg-[#131B2E] hover:bg-slate-800 text-slate-200 hover:text-amber-400 border border-slate-700/80 hover:border-amber-400/60 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-amber-400/40 cursor-pointer"
+                class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-[#131B2E] hover:bg-slate-800 text-slate-200 hover:text-amber-400 border border-slate-700/80 hover:border-amber-400/60 rounded-xl text-xs font-bold shadow-sm transition-all focus:outline-none focus:ring-1 focus:ring-amber-400/40 cursor-pointer whitespace-nowrap"
                 aria-expanded="false"
                 aria-haspopup="true"
               >
-                <i class="fa-solid fa-cake-candles text-amber-400"></i>
-                <span id="btnEdadesText" class="font-bold text-amber-400">Edades</span>
-                <i id="btnEdadesChevron" class="fa-solid fa-chevron-down text-[11px] text-slate-400 transition-transform duration-200"></i>
+                <i class="fa-solid fa-shapes text-amber-400 text-xs"></i>
+                <span id="btnEdadesText" class="font-bold text-amber-400">Salas</span>
+                <i id="btnEdadesChevron" class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-200"></i>
               </button>
 
-              <!-- Menú Flotante Desplegable de Edades -->
+              <!-- Menú Flotante Desplegable de Salas -->
               <div 
                 id="edadesDropdownMenu" 
                 class="hidden absolute left-0 mt-2 w-64 sm:w-72 rounded-2xl bg-[#0F172A] border border-slate-700/80 shadow-2xl shadow-black/80 z-30 py-1.5 animate-fadeIn"
               >
                 <div class="px-3.5 py-2 border-b border-slate-800/80 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                  <span>Filtrar por Edades</span>
+                  <span>Filtrar por Salas</span>
                   <i class="fa-solid fa-filter text-amber-400 text-xs"></i>
                 </div>
                 <div class="p-1 space-y-0.5" id="edadesOptionsList">
                   <button 
                     type="button" 
-                    onclick="selectEdadFilter('TODAS', 'Todas las Edades')" 
+                    onclick="selectEdadFilter('TODAS', 'Todas las Salas')" 
                     class="edad-option-btn w-full text-left px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-amber-400 bg-slate-800/80 hover:bg-slate-800 transition-colors flex items-center justify-between group cursor-pointer" 
                     data-sala="TODAS"
                   >
                     <span class="flex items-center gap-2.5">
                       <i class="fa-solid fa-layer-group text-amber-400 w-4 text-center"></i>
-                      <span class="font-semibold">Todas las Edades</span>
+                      <span class="font-semibold">Todas las Salas</span>
                     </span>
                     <i class="fa-solid fa-check text-amber-400 check-indicator"></i>
                   </button>
@@ -583,59 +638,58 @@
               </div>
             </div>
 
-            <!-- Attendance filter & view toggle (Derecha de la barra superior) -->
-            <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-              <!-- Estado dropdown -->
+            <!-- 2. Estado dropdown (Centrado y compacto: "Ausentes", "Todos", "Presentes") -->
+            <div class="min-w-0">
               <select 
                 id="filterEstado" 
                 onchange="handleFilterEstadoChange(this.value)" 
-                class="bg-[#131B2E] border border-slate-700/80 text-xs font-bold text-slate-200 rounded-xl py-2 px-3 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all cursor-pointer"
+                class="w-full bg-[#131B2E] border border-slate-700/80 text-xs font-bold text-slate-200 rounded-xl py-2 px-2 focus:ring-1 focus:ring-amber-400 focus:border-amber-400 outline-none transition-all cursor-pointer text-center"
               >
-                <option value="TODOS" class="bg-slate-900 text-white">Todos (Presentes y Ausentes)</option>
-                <option value="SOLO_AUSENTES" class="bg-slate-900 text-white">Solo Ausentes (Por ingresar)</option>
-                <option value="SOLO_PRESENTES" class="bg-slate-900 text-white">Solo Presentes (Ya ingresados)</option>
+                <option value="SOLO_AUSENTES" class="bg-slate-900 text-white" selected>Ausentes</option>
+                <option value="TODOS" class="bg-slate-900 text-white">Todos</option>
+                <option value="SOLO_PRESENTES" class="bg-slate-900 text-white">Presentes</option>
               </select>
+            </div>
 
-              <!-- View toggle (Grid / Table) -->
-              <div class="flex items-center bg-[#131B2E] rounded-xl p-0.5 border border-slate-700/80">
-                <button 
-                  id="viewGridBtn" 
-                  onclick="setViewMode('grid')" 
-                  class="p-1.5 rounded-lg text-amber-400 bg-slate-800 shadow-sm font-bold transition-all cursor-pointer" 
-                  title="Vista Cuadrícula"
-                >
-                  <i class="fa-solid fa-grip text-sm"></i>
-                </button>
-                <button 
-                  id="viewTableBtn" 
-                  onclick="setViewMode('table')" 
-                  class="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer" 
-                  title="Vista Tabla"
-                >
-                  <i class="fa-solid fa-list text-sm"></i>
-                </button>
-              </div>
+            <!-- 3. Toggle Cuadrícula / Tabla -->
+            <div class="flex items-center bg-[#131B2E] rounded-xl p-0.5 border border-slate-700/80 shrink-0">
+              <button 
+                id="viewGridBtn" 
+                onclick="setViewMode('grid')" 
+                class="p-1.5 rounded-lg text-amber-400 bg-slate-800 shadow-sm font-bold transition-all cursor-pointer" 
+                title="Vista Cuadrícula"
+              >
+                <i class="fa-solid fa-grip text-xs sm:text-sm"></i>
+              </button>
+              <button 
+                id="viewTableBtn" 
+                onclick="setViewMode('table')" 
+                class="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 transition-all cursor-pointer" 
+                title="Vista Tabla"
+              >
+                <i class="fa-solid fa-list text-xs sm:text-sm"></i>
+              </button>
             </div>
           </div>
 
           <!-- Cuerpo: ÚNICAMENTE la barra de búsqueda para encontrar al niño -->
-          <div class="relative z-10">
-            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-amber-400">
-              <i class="fa-solid fa-magnifying-glass text-lg"></i>
+          <div class="relative z-10 pt-0.5">
+            <div class="absolute inset-y-0 left-0 pl-3.5 pt-0.5 flex items-center pointer-events-none text-amber-400">
+              <i class="fa-solid fa-magnifying-glass text-sm"></i>
             </div>
             <input 
               type="text" 
               id="searchInput" 
               placeholder="Buscar por nombre del niño, papás o teléfono..." 
-              class="w-full pl-12 pr-12 py-3.5 bg-[#131B2E] border border-slate-700/80 rounded-2xl text-base font-medium text-white placeholder-slate-400 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 shadow-inner transition-all"
+              class="w-full pl-9 pr-9 py-2.5 bg-[#131B2E] border border-slate-700/80 rounded-2xl text-xs sm:text-sm font-medium text-white placeholder-slate-400 focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 shadow-inner transition-all"
               autocomplete="off"
             >
             <button 
               id="btnClearSearch" 
               onclick="clearSearch()" 
-              class="hidden absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+              class="hidden absolute inset-y-0 right-0 pr-3 pt-0.5 flex items-center text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
-              <i class="fa-solid fa-circle-xmark text-lg"></i>
+              <i class="fa-solid fa-circle-xmark text-sm"></i>
             </button>
           </div>
 
@@ -888,7 +942,7 @@
             <div class="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-4">
               <!-- Miniatura QR interactiva (tocar para ampliar) -->
               <div onclick="abrirModalQRRegistro()" title="Tocar para ampliar QR" class="cursor-pointer group relative shrink-0 p-2 bg-white rounded-2xl border-2 border-amber-300 shadow-sm hover:shadow-md transition-all hover:scale-105">
-                <img src="icons/qr-formulario-registro.png?v=74" alt="QR Inscripción" class="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-xl">
+                <img src="icons/qr-formulario-registro.png?v=75" alt="QR Inscripción" class="w-24 h-24 sm:w-28 sm:h-28 object-contain rounded-xl">
                 <div class="absolute inset-0 bg-amber-950/20 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-bold">
                   <i class="fa-solid fa-magnifying-glass-plus text-base mr-1"></i> Ver
                 </div>
@@ -1108,7 +1162,7 @@
         <!-- Encabezado con Logo Oficial y Título -->
         <div class="flex items-center gap-3.5 pr-8">
           <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 border-2 border-amber-300 shadow-md shadow-amber-900/10 flex items-center justify-center shrink-0 overflow-hidden">
-            <img src="icons/logo-icon.png?v=74" alt="IGR KIDS Logo" class="w-full h-full object-contain">
+            <img src="icons/logo-icon.png?v=75" alt="IGR KIDS Logo" class="w-full h-full object-contain">
           </div>
           <div>
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200 mb-1">
@@ -1156,6 +1210,6 @@
 
     </div>
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=74"></script>
+  <script src="app.js?v=75"></script>
 </body>
 </html>
