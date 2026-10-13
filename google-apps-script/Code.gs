@@ -377,13 +377,101 @@ function obtenerDatosCompletos(fecha, turno) {
   const ninos = obtenerTodosLosNinos();
   const asistencias = obtenerAsistenciasPorFecha(fechaConsulta, turnoConsulta);
 
-  const mapaAsistencias = {};
-  asistencias.forEach(a => {
-    mapaAsistencias[a.idNino] = a;
+  // 1. Indexar niños actuales por ID para búsqueda rápida
+  const mapaNinosPorId = {};
+  ninos.forEach(nino => {
+    mapaNinosPorId[nino.id] = nino;
   });
 
+  const mapaAsistenciasFinal = {};
+  const asistenciasPendientes = [];
+
+  // 2. Emparejamiento directo por ID (solo si el niño con ese ID exacto existe en el padrón actual)
+  asistencias.forEach(a => {
+    if (a.idNino && mapaNinosPorId[a.idNino]) {
+      mapaAsistenciasFinal[a.idNino] = a;
+    } else {
+      // ID provisorio (NINO_NEW_) o fila corrida por inserción de datos en Sheets
+      asistenciasPendientes.push(a);
+    }
+  });
+
+  // 3. Emparejar asistencias pendientes de forma resiliente a corrimiento de filas
+  let huboCorreccionEnHoja = false;
+  let sheetAsis = null;
+
+  asistenciasPendientes.forEach(a => {
+    const nomSanA = sanitizarId(a.nombreNino);
+    const telA = normalizarTelefono(a.telefono);
+    const primerNombreA = nomSanA.split("_")[0];
+
+    // Extraer slug y fila anterior del idNino si venía en formato NINO_R..._S..._slug
+    let slugA = "";
+    let filaAnterior = 0;
+    if (a.idNino) {
+      const matchSlug = String(a.idNino).match(/^NINO_R\d+_S\d+_(.+)$/);
+      if (matchSlug) slugA = matchSlug[1];
+      const matchFila = String(a.idNino).match(/^NINO_R(\d+)_/);
+      if (matchFila) filaAnterior = parseInt(matchFila[1], 10);
+    }
+
+    // Buscar candidatos no asignados todavía
+    const candidatos = ninos.filter(n => {
+      if (mapaAsistenciasFinal[n.id]) return false;
+      const nomSanN = sanitizarId(n.nombre);
+      const telN = normalizarTelefono(n.telefono);
+      const primerNombreN = nomSanN.split("_")[0];
+
+      // 1. Coincidencia por slug del ID anterior (resiliente a corrimiento de filas)
+      if (slugA && nomSanN === slugA) return true;
+      // 2. Coincidencia exacta por nombre sanitizado
+      if (nomSanN === nomSanA) return true;
+      // 3. Coincidencia por teléfono idéntico + primer nombre idéntico (ej: "Xiomara" vs "Xiomara Otranto")
+      if (telA && telN && telA === telN && primerNombreA === primerNombreN) return true;
+      // 4. Coincidencia si el nombre del niño empieza por el nombre registrado
+      if (primerNombreA && nomSanN.startsWith(nomSanA)) return true;
+      return false;
+    });
+
+    if (candidatos.length > 0) {
+      // Priorizar candidatos con teléfono coincidente y cercanía a la fila anterior
+      candidatos.sort((x, y) => {
+        const telXMatch = (telA && normalizarTelefono(x.telefono) === telA) ? 0 : 1;
+        const telYMatch = (telA && normalizarTelefono(y.telefono) === telA) ? 0 : 1;
+        if (telXMatch !== telYMatch) return telXMatch - telYMatch;
+
+        if (filaAnterior > 0) {
+          const distX = Math.abs((x.filaOriginal || 0) - filaAnterior);
+          const distY = Math.abs((y.filaOriginal || 0) - filaAnterior);
+          return distX - distY;
+        }
+        return (y.filaOriginal || 0) - (x.filaOriginal || 0);
+      });
+
+      const elegido = candidatos[0];
+      mapaAsistenciasFinal[elegido.id] = a;
+
+      // Actualizar en caliente la celda en la hoja Asistencias para que quede sanado en la BD
+      if (a.filaAsistencia && a.filaAsistencia > 1) {
+        try {
+          if (!sheetAsis) sheetAsis = asegurarHojaAsistencias();
+          sheetAsis.getRange(a.filaAsistencia, 4).setValue(elegido.id);
+          huboCorreccionEnHoja = true;
+        } catch (e) {
+          // No interrumpir lectura si falla la auto-curación de celda
+        }
+      }
+    }
+  });
+
+  if (huboCorreccionEnHoja) {
+    try {
+      SpreadsheetApp.flush();
+    } catch (e) {}
+  }
+
   const ninosConEstado = ninos.map(nino => {
-    const asis = mapaAsistencias[nino.id];
+    const asis = mapaAsistenciasFinal[nino.id];
     return {
       ...nino,
       presente: !!asis,
@@ -528,7 +616,7 @@ function registrarAsistencia(datos) {
     const fecha = normalizarFecha(datos.fecha || getFechaActual());
     const hora = formatearHoraBackend(datos.hora || getHoraActual());
     const turno = normalizarTurno(datos.turno || TURNO_DEFAULT);
-    const idNino = String(datos.idNino || "").trim();
+    let idNino = String(datos.idNino || "").trim();
     const nombreNino = String(datos.nombreNino || "").trim();
     const nombrePapas = String(datos.nombrePapas || "").trim();
     const telefono = String(datos.telefono || "").trim();
@@ -539,6 +627,31 @@ function registrarAsistencia(datos) {
 
     if (!nombreNino && !idNino) {
       return { success: false, message: "El nombre o ID del niño es requerido" };
+    }
+
+    // Resolver ID definitivo si es temporal (NINO_NEW_) o si sólo vino el nombre
+    if ((!idNino || idNino.startsWith("NINO_NEW_")) && nombreNino) {
+      try {
+        const todosNinos = obtenerTodosLosNinos();
+        const nomSan = sanitizarId(nombreNino);
+        const telNorm = normalizarTelefono(telefono);
+        const primerNom = nomSan.split("_")[0];
+
+        const coincidente = todosNinos.slice().reverse().find(n => {
+          const nSan = sanitizarId(n.nombre);
+          const nTel = normalizarTelefono(n.telefono);
+          if (nSan === nomSan) return true;
+          if (telNorm && nTel === telNorm && nSan.startsWith(primerNom)) return true;
+          if (primerNom && nSan.startsWith(nomSan)) return true;
+          return false;
+        });
+
+        if (coincidente && coincidente.id) {
+          idNino = coincidente.id;
+        }
+      } catch (errResolveId) {
+        // Fallback: mantener idNino provisto
+      }
     }
 
     const data = sheetAsis.getDataRange().getValues();
