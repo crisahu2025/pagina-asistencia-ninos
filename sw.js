@@ -5,31 +5,31 @@
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v79';
+const CACHE_NAME = 'igr-kids-v80';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './pastores.html',
-  './styles.css?v=75',
-  './app.js?v=75',
-  './manifest.json?v=75',
+  './styles.css?v=80',
+  './app.js?v=80',
+  './manifest.json?v=80',
   './manifest.json',
-  './icons/favicon.png?v=75',
+  './icons/favicon.png?v=80',
   './icons/favicon.png',
-  './icons/apple-touch-icon.png?v=75',
+  './icons/apple-touch-icon.png?v=80',
   './icons/apple-touch-icon.png',
-  './icons/icon-192.png?v=75',
+  './icons/icon-192.png?v=80',
   './icons/icon-192.png',
-  './icons/icon-512.png?v=75',
+  './icons/icon-512.png?v=80',
   './icons/icon-512.png',
-  './icons/logo-icon.png?v=75',
+  './icons/logo-icon.png?v=80',
   './icons/logo-icon.png',
-  './icons/app-logo-full.png?v=75',
+  './icons/app-logo-full.png?v=80',
   './icons/app-logo-full.png',
-  './icons/qr-formulario-registro.png?v=75',
+  './icons/qr-formulario-registro.png?v=80',
   './icons/qr-formulario-registro.png',
-  './icons/qr-formulario-registro.svg?v=75',
+  './icons/qr-formulario-registro.svg?v=80',
   './icons/qr-formulario-registro.svg',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
@@ -46,7 +46,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[SW v79] Pre-caching partial warning:', err);
+        console.warn('[SW v80] Pre-caching partial warning:', err);
       });
     })
   );
@@ -59,7 +59,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[SW v74] Eliminando caché antiguo:', cacheName);
+            console.log('[SW v80] Eliminando caché antiguo:', cacheName);
             return caches.delete(cacheName);
           }
         })

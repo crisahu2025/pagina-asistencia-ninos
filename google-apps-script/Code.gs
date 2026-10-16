@@ -525,12 +525,12 @@ function obtenerTodosLosNinos() {
 
     slotsNinos.forEach(slot => {
       const nombreNino = String(fila[slot.colNombre] || "").trim();
-      if (nombreNino && nombreNino.length > 1 && !nombreNino.toLowerCase().includes("nombre")) {
+      if (esNombreNinoValido(nombreNino)) {
         const edadRaw = fila[slot.colEdad];
         const edadDetalle = formatearEdadBackend(edadRaw);
-        const extraInfo = String(fila[slot.colExtra] || "").trim();
+        const alergiaLimpia = limpiarAlergiaBackend(fila[slot.colExtra]);
 
-        let salaSugerida = determinarSala(edadDetalle, extraInfo);
+        let salaSugerida = determinarSala(edadDetalle, alergiaLimpia);
         const idUnico = "NINO_R" + (i + 1) + "_S" + slot.slot + "_" + sanitizarId(nombreNino);
 
         listaNinos.push({
@@ -543,8 +543,9 @@ function obtenerTodosLosNinos() {
           nombrePapas: nombrePapas || "No especificado",
           telefono: normalizarTelefono(telefono),
           telefonoRaw: telefono,
-          observacionesMedicas: notasGenerales,
-          extra: extraInfo
+          observacionesMedicas: alergiaLimpia,
+          extra: alergiaLimpia,
+          personasAutorizadas: notasGenerales
         });
       }
     });
@@ -679,15 +680,15 @@ function registrarAsistencia(datos) {
 
     if (filaExistente > 0) {
       // Actualizar registro existente para esa MISMA fecha Y ESE MISMO turno (Upsert)
-      sheetAsis.getRange(filaExistente, 1).setValue(idAsistencia);
-      sheetAsis.getRange(filaExistente, 3).setValue(hora);
-      if (nombrePapas) sheetAsis.getRange(filaExistente, 6).setValue(nombrePapas);
-      if (telefono) sheetAsis.getRange(filaExistente, 7).setValue(telefono);
-      sheetAsis.getRange(filaExistente, 8).setValue(sala);
-      sheetAsis.getRange(filaExistente, 9).setValue(estado);
-      sheetAsis.getRange(filaExistente, 10).setValue(observaciones);
-      sheetAsis.getRange(filaExistente, 11).setValue(registradoPor);
-      sheetAsis.getRange(filaExistente, 12).setValue(turno);
+      sheetAsis.getRange(filaExistente, 1).setValue(sanitizarFormula(idAsistencia));
+      sheetAsis.getRange(filaExistente, 3).setValue(sanitizarFormula(hora));
+      if (nombrePapas) sheetAsis.getRange(filaExistente, 6).setValue(sanitizarFormula(nombrePapas));
+      if (telefono) sheetAsis.getRange(filaExistente, 7).setValue(sanitizarFormula(telefono));
+      sheetAsis.getRange(filaExistente, 8).setValue(sanitizarFormula(sala));
+      sheetAsis.getRange(filaExistente, 9).setValue(sanitizarFormula(estado));
+      sheetAsis.getRange(filaExistente, 10).setValue(sanitizarFormula(observaciones));
+      sheetAsis.getRange(filaExistente, 11).setValue(sanitizarFormula(registradoPor));
+      sheetAsis.getRange(filaExistente, 12).setValue(sanitizarFormula(turno));
 
       SpreadsheetApp.flush();
 
@@ -711,18 +712,18 @@ function registrarAsistencia(datos) {
     } else {
       // Insertar nuevo registro con la columna de Turno
       sheetAsis.appendRow([
-        idAsistencia,     // Col 1 (A): ID Asistencia
-        fecha,            // Col 2 (B): Fecha
-        hora,             // Col 3 (C): Hora Ingreso
-        idNino,           // Col 4 (D): ID Niño
-        nombreNino,       // Col 5 (E): Nombre Niño
-        nombrePapas,      // Col 6 (F): Papás
-        telefono,         // Col 7 (G): Teléfono
-        sala,             // Col 8 (H): Sala / Grupo
-        estado,           // Col 9 (I): Estado
-        observaciones,    // Col 10 (J): Observaciones
-        registradoPor,    // Col 11 (K): Registrado Por
-        turno             // Col 12 (L): Turno / Reunión
+        sanitizarFormula(idAsistencia),  // Col 1 (A): ID Asistencia
+        sanitizarFormula(fecha),         // Col 2 (B): Fecha
+        sanitizarFormula(hora),          // Col 3 (C): Hora Ingreso
+        sanitizarFormula(idNino),        // Col 4 (D): ID Niño
+        sanitizarFormula(nombreNino),    // Col 5 (E): Nombre Niño
+        sanitizarFormula(nombrePapas),   // Col 6 (F): Papás
+        sanitizarFormula(telefono),      // Col 7 (G): Teléfono
+        sanitizarFormula(sala),          // Col 8 (H): Sala / Grupo
+        sanitizarFormula(estado),        // Col 9 (I): Estado
+        sanitizarFormula(observaciones), // Col 10 (J): Observaciones
+        sanitizarFormula(registradoPor), // Col 11 (K): Registrado Por
+        sanitizarFormula(turno)          // Col 12 (L): Turno / Reunión
       ]);
 
       SpreadsheetApp.flush();
@@ -834,29 +835,32 @@ function agregarNuevoNino(datos) {
     const nombrePapas = String(datos.nombrePapas || "").trim();
     const telefono = String(datos.telefono || "").trim();
     const observaciones = String(datos.observaciones || "").trim();
+    const personasAutorizadas = String(datos.personasAutorizadas || "").trim();
 
     if (!nombreNino1) {
       return { success: false, message: "El nombre del niño es requerido" };
     }
 
+    const alergiaLimpia = limpiarAlergiaBackend(observaciones);
+
     const nuevaFila = [
-      timestamp,           // Col A: Timestamp
-      nombreNino1,         // Col B: Nombre Niño 1
-      edadNino1,           // Col C: Edad 1
-      salaNino1,           // Col D: Info 1
-      "",                  // Col E: Niño 2
-      "",                  // Col F: Edad 2
-      "",                  // Col G: Info 2
-      "",                  // Col H: Niño 3
-      "",                  // Col I: Edad 3
-      "",                  // Col J: Info 3
-      "",                  // Col K: Niño 4
-      "",                  // Col L: Edad 4
-      "",                  // Col M: Info 4
-      nombrePapas,         // Col N: Papás
-      "",                  // Col O: Mail/Otro
-      telefono,            // Col P: Teléfono
-      observaciones        // Col Q: Observaciones
+      timestamp,                             // Col A (0): Timestamp
+      sanitizarFormula(nombreNino1),         // Col B (1): Nombre Niño 1
+      sanitizarFormula(edadNino1),           // Col C (2): Edad 1
+      sanitizarFormula(observaciones),       // Col D (3): Alergias / Observaciones Médicas Niño 1
+      "",                                    // Col E (4): Niño 2
+      "",                                    // Col F (5): Edad 2
+      "",                                    // Col G (6): Alergias Niño 2
+      "",                                    // Col H (7): Niño 3
+      "",                                    // Col I (8): Edad 3
+      "",                                    // Col J (9): Alergias Niño 3
+      "",                                    // Col K (10): Niño 4
+      "",                                    // Col L (11): Edad 4
+      "",                                    // Col M (12): Alergias Niño 4
+      sanitizarFormula(nombrePapas),         // Col N (13): Papás
+      "",                                    // Col O (14): Mail/Otro
+      sanitizarFormula(telefono),            // Col P (15): Teléfono
+      sanitizarFormula(personasAutorizadas)  // Col Q (16): Personas autorizadas a retirar
     ];
 
     sheet.appendRow(nuevaFila);
@@ -870,7 +874,9 @@ function agregarNuevoNino(datos) {
         edad: edadNino1,
         sala: salaNino1,
         nombrePapas: nombrePapas,
-        telefono: telefono
+        telefono: telefono,
+        observacionesMedicas: alergiaLimpia,
+        extra: alergiaLimpia
       }
     };
   } catch (err) {
@@ -1006,12 +1012,12 @@ function registrarLogAcceso(usuario, nombre, rol, userAgent, turno, accion) {
       new Date(),
       getFechaActual(),
       getHoraActual(),
-      String(usuario || "").trim(),
-      String(nombre || "").trim(),
-      String(rol || "").trim(),
-      String(userAgent || "Web App").substring(0, 150),
-      normalizarTurno(turno || TURNO_DEFAULT),
-      String(accion || "Inicio de Sesión")
+      sanitizarFormula(String(usuario || "").trim()),
+      sanitizarFormula(String(nombre || "").trim()),
+      sanitizarFormula(String(rol || "").trim()),
+      sanitizarFormula(String(userAgent || "Web App").substring(0, 150)),
+      sanitizarFormula(normalizarTurno(turno || TURNO_DEFAULT)),
+      sanitizarFormula(String(accion || "Inicio de Sesión"))
     ];
     sheet.appendRow(fila);
   } catch (err) {
@@ -1076,17 +1082,17 @@ function registrarAvisoWhatsApp(params) {
 
     sheet.appendRow([
       timestamp,
-      fecha,
-      hora,
-      turno,
-      maestro,
-      idNino,
-      nombreNino,
-      sala,
-      nombrePapas,
-      telefono,
-      motivo,
-      mensaje
+      sanitizarFormula(fecha),
+      sanitizarFormula(hora),
+      sanitizarFormula(turno),
+      sanitizarFormula(maestro),
+      sanitizarFormula(idNino),
+      sanitizarFormula(nombreNino),
+      sanitizarFormula(sala),
+      sanitizarFormula(nombrePapas),
+      sanitizarFormula(telefono),
+      sanitizarFormula(motivo),
+      sanitizarFormula(mensaje)
     ]);
     SpreadsheetApp.flush();
 
@@ -1151,13 +1157,13 @@ function registrarNuevoUsuario(datos) {
     const idUsuario = "USR_" + Date.now();
     const timestamp = new Date();
     const nuevaFila = [
-      idUsuario,
+      sanitizarFormula(idUsuario),
       timestamp,
-      usuarioLimpio,
-      password,
-      nombre,
-      rol,
-      sala,
+      sanitizarFormula(usuarioLimpio),
+      sanitizarFormula(password),
+      sanitizarFormula(nombre),
+      sanitizarFormula(rol),
+      sanitizarFormula(sala),
       "Activo",
       ""
     ];
@@ -1195,8 +1201,134 @@ function registrarNuevoUsuario(datos) {
 }
 
 // ----------------------------------------------------
-// FUNCIONES AUXILIARES DE FORMATEO Y UTILIDADES
+// FUNCIONES AUXILIARES DE FORMATEO, LIMPIEZA Y SEGURIDAD
 // ----------------------------------------------------
+
+/**
+ * Previene ataques de CSV / Formula Injection al guardar datos en Google Sheets
+ */
+function sanitizarFormula(valor) {
+  if (valor === null || valor === undefined) return "";
+  const str = String(valor).trim();
+  if (/^[=+\-@]/.test(str)) {
+    return "'" + str;
+  }
+  return str;
+}
+
+/**
+ * Limpia y filtra el campo de alergias médicas (Columnas D, G, J y M).
+ * Devuelve "" si está vacío o si normalizado coincide con respuestas negativas o basura.
+ */
+function limpiarAlergiaBackend(valor) {
+  if (valor === null || valor === undefined) return "";
+  const textoLimpio = String(valor).trim();
+  if (!textoLimpio) return "";
+
+  // Si es únicamente un número (ej: "6")
+  if (/^\d+$/.test(textoLimpio)) return "";
+
+  const normalizado = textoLimpio
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalizado) return "";
+  if (/^\d+$/.test(normalizado)) return "";
+  if (/^no+$/.test(normalizado)) return "";
+
+  const respuestasNegativas = [
+    "no",
+    "noo",
+    "nooo",
+    "nada",
+    "ninguna",
+    "ninguno",
+    "ningun",
+    "no tiene",
+    "no tiene ninguna",
+    "no tiene alergia",
+    "no tiene alergias",
+    "no posee",
+    "no posee alergia",
+    "no posee alergias",
+    "no registra",
+    "no presenta",
+    "no aplica",
+    "ni una",
+    "sin alergias",
+    "sin alergia",
+    "sin observaciones",
+    "sin observacion",
+    "ninguna alergia",
+    "n a",
+    "na",
+    "s d",
+    "sd",
+    "m",
+    "x"
+  ];
+
+  if (respuestasNegativas.indexOf(normalizado) !== -1) {
+    return "";
+  }
+
+  return textoLimpio;
+}
+
+/**
+ * Valida que el nombre de un niño en las columnas de Hijo 1/2/3/4 sea un nombre real
+ * y no una respuesta negativa ("No", "Ninguno", "Nada", "-", etc.).
+ */
+function esNombreNinoValido(nombre) {
+  if (!nombre) return false;
+  const raw = String(nombre).trim();
+  if (raw.length <= 1) return false;
+
+  const norm = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!norm || norm.length <= 1) return false;
+  if (/^\d+$/.test(norm)) return false;
+  if (/^no+$/.test(norm)) return false;
+  if (norm.includes("nombre")) return false;
+
+  const nombresInvalidos = [
+    "no",
+    "noo",
+    "nooo",
+    "nada",
+    "ninguno",
+    "ninguna",
+    "ningun",
+    "no tiene",
+    "no posee",
+    "no aplica",
+    "na",
+    "n a",
+    "s d",
+    "sd",
+    "sin hermanos",
+    "hijo unico",
+    "hija unica",
+    "nadie",
+    "no hay"
+  ];
+
+  if (nombresInvalidos.indexOf(norm) !== -1) {
+    return false;
+  }
+
+  return true;
+}
 
 /**
  * Normaliza y valida el turno dominical recibido

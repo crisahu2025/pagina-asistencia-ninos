@@ -337,7 +337,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v79] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v80] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -352,9 +352,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=79')
+      navigator.serviceWorker.register('./sw.js?v=80')
         .then(reg => {
-          console.log('[PWA v79] Service Worker registrado:', reg.scope);
+          console.log('[PWA v80] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -362,7 +362,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v79] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v80] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -453,6 +453,88 @@ function initApp() {
   checkSavedSession();
 }
 
+function esRolAuxiliar() {
+  const rol = String(state.currentUser?.rol || '').trim().toLowerCase();
+  return rol === 'auxiliar';
+}
+
+function aplicarPermisosPorRol() {
+  const isAuxiliar = esRolAuxiliar();
+
+  const idsOcultarEnAuxiliar = [
+    'headerQuickActionsRow',
+    'tabBtn-nuevo',
+    'btnNavQRFamilias',
+    'tabBtn-reportes',
+    'btnToggleEstadisticas',
+    'btnPresentesExcel',
+    'btnPresentesImprimir',
+    'btnEmptyRegistrarNino',
+    'thPresentesTelefono'
+  ];
+
+  idsOcultarEnAuxiliar.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (isAuxiliar) {
+        el.classList.add('hidden');
+      } else {
+        el.classList.remove('hidden');
+      }
+    }
+  });
+
+  document.querySelectorAll('#tab-presentes button[onclick*="exportToExcel"], #tab-presentes button[onclick*="printAttendanceRoster"]').forEach(btn => {
+    if (isAuxiliar) {
+      btn.classList.add('hidden');
+    } else {
+      btn.classList.remove('hidden');
+    }
+  });
+
+  if (isAuxiliar) {
+    const secEstadisticas = document.getElementById('seccionEstadisticas');
+    if (secEstadisticas) secEstadisticas.classList.add('hidden');
+
+    const tabReportes = document.getElementById('tab-reportes');
+    if (tabReportes) tabReportes.classList.add('hidden');
+
+    const tabNuevo = document.getElementById('tab-nuevo');
+    if (tabNuevo) tabNuevo.classList.add('hidden');
+
+    const waModal = document.getElementById('whatsappModal');
+    if (waModal) waModal.classList.add('hidden');
+
+    if (state.activeTab === 'reportes' || state.activeTab === 'nuevo') {
+      switchTab('asistencia');
+    }
+  }
+
+  const thKidsContacto = document.getElementById('thKidsContacto');
+  if (thKidsContacto) {
+    thKidsContacto.textContent = isAuxiliar ? 'Mamá / Adulto' : 'Padres / Contacto';
+  }
+
+  const thPresentesPadres = document.getElementById('thPresentesPadres');
+  if (thPresentesPadres) {
+    thPresentesPadres.textContent = isAuxiliar ? 'Mamá / Adulto' : 'Padres';
+  }
+
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.placeholder = isAuxiliar
+      ? 'Buscar por nombre del niño o de la mamá...'
+      : 'Buscar por nombre del niño, papás o teléfono...';
+  }
+
+  const searchPresentesInput = document.getElementById('searchPresentesInput');
+  if (searchPresentesInput) {
+    searchPresentesInput.placeholder = isAuxiliar
+      ? 'Buscar niño presente o nombre de la mamá...'
+      : 'Buscar niño presente, nombre de papás o teléfono para contactar por WhatsApp...';
+  }
+}
+
 function switchAuthMode(mode) {
   const loginBtn = document.getElementById('tabAuthLoginBtn');
   const regBtn = document.getElementById('tabAuthRegisterBtn');
@@ -520,6 +602,7 @@ function checkSavedSession() {
       unlockAppView();
       updateConnectionBadge();
       updateUserBadge();
+      aplicarPermisosPorRol();
       fetchData(false);
       return;
     }
@@ -536,12 +619,14 @@ function updateUserBadge() {
     label.textContent = `${state.currentUser.nombre || state.currentUser.usuario} (${state.currentUser.rol || 'Maestra'})`;
     if (badge) badge.classList.remove('hidden');
   }
+  aplicarPermisosPorRol();
 }
 
 function unlockAppView() {
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appContainer').classList.remove('hidden');
   updateUserBadge();
+  aplicarPermisosPorRol();
 }
 
 function showLoginView() {
@@ -712,6 +797,7 @@ async function handleLogin(event) {
       unlockAppView();
       updateConnectionBadge();
       updateUserBadge();
+      aplicarPermisosPorRol();
       playChimeSound();
       showToastNotification(`¡Bienvenido/a, ${state.currentUser.nombre}!`, 'success');
       fetchData(false);
@@ -796,6 +882,7 @@ async function handleRegister(event) {
       unlockAppView();
       updateConnectionBadge();
       updateUserBadge();
+      aplicarPermisosPorRol();
       playChimeSound();
       triggerMiniConfetti();
 
@@ -939,13 +1026,9 @@ function prepareKidsIndex(ninos, isFreshFromServer = false) {
       if (storedLocal[n.id].sala) n.salaActual = storedLocal[n.id].sala;
     }
 
-    // 🏥 Mapeo de Alergias desde Columnas D, G, J y M del Excel (llegan en n.extra):
-    const alergiaCol = (n.extra && typeof n.extra === 'string') ? n.extra.trim() : '';
-    if (alergiaCol && tieneAlertaMedica(alergiaCol)) {
-      n.observacionesMedicas = alergiaCol;
-    } else if (alergiaCol && ['no', 'ninguna', 'ninguno', '-', '--', 'nada', 'sin observaciones'].includes(alergiaCol.toLowerCase())) {
-      n.observacionesMedicas = '';
-    }
+    // 🏥 Mapeo 100% fiel de Alergias desde Columnas D, G, J y M del Excel (llegan en n.extra):
+    const rawAlergia = (n.extra !== undefined && n.extra !== null) ? String(n.extra).trim() : String(n.observacionesMedicas || '').trim();
+    n.observacionesMedicas = tieneAlertaMedica(rawAlergia) ? rawAlergia : '';
 
     const normName = normalizarTexto(n.nombre || '');
     const normPapas = normalizarTexto(n.nombrePapas || '');
@@ -957,6 +1040,7 @@ function prepareKidsIndex(ninos, isFreshFromServer = false) {
     n._normPapas = normPapas;
     n._normSala = normSala;
     n._digits = digits;
+    n._searchIndexNoPhone = `${normName} ${normPapas} ${normSala} ${normObs}`;
     n._searchIndex = `${normName} ${normPapas} ${normSala} ${digits} ${normObs}`;
     n._edadLimpia = formatearEdad(n.edad);
     return n;
@@ -1122,9 +1206,9 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;');
 }
 
-function tieneAlertaMedica(obs) {
-  if (!obs) return false;
-  const texto = String(obs)
+function normalizarObservacionMedica(obs) {
+  if (obs === null || obs === undefined) return '';
+  return String(obs)
     .trim()
     .toLowerCase()
     .normalize('NFD')
@@ -1132,20 +1216,27 @@ function tieneAlertaMedica(obs) {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
 
+const VALORES_SIN_ALERTA = new Set([
+  'ninguna', 'ninguno', 'ningun', 'ninguna observacion', 'ninguna observaciones',
+  'sin observaciones', 'sin observacion', 'sin novedad', 'sin novedades',
+  'sin alergias', 'sin alergia', 'no', 'noo', 'nooo', 'noooo',
+  'no tiene', 'no tiene alergia', 'no tiene alergias', 'no tiene ninguna',
+  'ni una', 'ninguna alergia', 'ninguna alergias', 'nada de alergias', 'nada de alergia',
+  'no posee', 'no registra', 'no presenta', 'no aplica', 'na', 'n a', 'nada',
+  'ningun problema', 'ninguno ningun problema', 'ningun dato', 'no informa',
+  'ok', 's o', 's n', 'm', 'f', 'si', 'ninguna por ahora', 'ninguna hasta ahora',
+  'sala cunas', 'parvulos', 'primarios', 'pre adolescentes', 'preadolescentes', 'general',
+  'sala cunas 0 2 anos', 'parvulos 3 5 anos', 'primarios 6 8 anos', 'pre adolescentes 9 12 anos'
+]);
+
+function tieneAlertaMedica(obs) {
+  const texto = normalizarObservacionMedica(obs);
   if (!texto) return false;
-
-  const ignorarExactos = [
-    'ninguna', 'ninguno', 'ningun', 'ninguna observacion', 'ninguna observaciones',
-    'sin observaciones', 'sin observacion', 'sin novedad', 'sin novedades',
-    'sin alergias', 'sin alergia', 'no', 'no tiene', 'no posee', 'no registra',
-    'no presenta', 'no aplica', 'na', 'n a', 'nada', 'ningun problema',
-    'ninguno ningun problema', 'ningun dato', 'no informa', 'ok', 's o', 's n'
-  ];
-
-  if (ignorarExactos.includes(texto)) return false;
   if (texto.length < 2) return false;
-
+  if (/^\d+$/.test(texto)) return false;
+  if (VALORES_SIN_ALERTA.has(texto)) return false;
   return true;
 }
 
@@ -1159,6 +1250,7 @@ function mostrarAlertaMedicaCheckin(child) {
     } catch (e) {}
   }
 
+  const isAuxiliar = esRolAuxiliar();
   const salaDisplay = child.salaActual || child.salaSugerida || 'General';
   const papasDisplay = child.nombrePapas || 'Familia';
   const telDisplay = child.telefono || 'Sin teléfono';
@@ -1199,37 +1291,39 @@ function mostrarAlertaMedicaCheckin(child) {
           </p>
         </div>
 
-        <!-- Datos de los Padres / Contacto -->
+        <!-- Datos de la Mamá / Adulto Responsable -->
         <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-slate-500 font-semibold flex items-center gap-1.5">
-              <i class="fa-solid fa-user-group text-amber-600"></i> Papás / Tutores:
+              <i class="fa-solid ${isAuxiliar ? 'fa-user' : 'fa-user-group'} text-amber-600"></i> ${isAuxiliar ? 'Mamá / Adulto:' : 'Papás / Tutores:'}
             </span>
             <span class="font-bold text-slate-800 text-right truncate max-w-[200px]">
               ${escapeHtml(papasDisplay)}
             </span>
           </div>
-          <div class="flex items-center justify-between">
-            <span class="text-slate-500 font-semibold flex items-center gap-1.5">
-              <i class="fa-solid fa-phone text-amber-600"></i> Teléfono:
-            </span>
-            <span class="font-mono font-bold text-amber-900">
-              ${escapeHtml(telDisplay)}
-            </span>
-          </div>
+          ${!isAuxiliar ? `
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500 font-semibold flex items-center gap-1.5">
+                <i class="fa-solid fa-phone text-amber-600"></i> Teléfono:
+              </span>
+              <span class="font-mono font-bold text-amber-900">
+                ${escapeHtml(telDisplay)}
+              </span>
+            </div>
+          ` : ''}
         </div>
 
         <!-- Mensaje de advertencia preventiva -->
         <div class="p-3.5 rounded-2xl bg-amber-100/90 border border-amber-300 text-amber-950 text-xs font-bold flex items-start gap-2.5">
           <i class="fa-solid fa-bullhorn text-amber-700 text-base mt-0.5 shrink-0"></i>
-          <span class="leading-snug">Por favor, informá inmediatamente a las maestras de la sala antes de que el niño ingrese.</span>
+          <span class="leading-snug">Por favor, tené en cuenta esta condición (ej. alimentos dulces/salados o alergias) e informá en la sala.</span>
         </div>
       </div>
     `,
     showConfirmButton: true,
-    confirmButtonText: '✅ ¡Entendido y Notificado!',
+    confirmButtonText: isAuxiliar ? '✅ Entendido, continuar' : '✅ ¡Entendido y Notificado!',
     confirmButtonColor: '#ca8a04',
-    showDenyButton: true,
+    showDenyButton: !isAuxiliar,
     denyButtonText: '📲 Abrir WhatsApp',
     denyButtonColor: '#059669',
     focusConfirm: true,
@@ -1237,7 +1331,7 @@ function mostrarAlertaMedicaCheckin(child) {
       popup: 'rounded-3xl border-2 border-amber-400 shadow-2xl p-4 sm:p-6'
     }
   }).then((result) => {
-    if (result.isDenied) {
+    if (result.isDenied && !esRolAuxiliar()) {
       openWhatsAppModal(child.id);
     }
   });
@@ -1338,10 +1432,12 @@ async function toggleAsistencia(childId) {
 // RENDERING & UI UPDATES
 // ==========================================================================
 function updateUI() {
+  aplicarPermisosPorRol();
   updateStats();
   renderKidsList();
   renderPresentesList();
 }
+const renderUI = updateUI;
 
 function updateStats() {
   const total = state.ninos.length;
@@ -1414,7 +1510,7 @@ function getSearchScore(nino, normSearch, searchWords) {
   // Si al menos una palabra coincide en el nombre del niño
   if (searchWords && searchWords.length > 0 && searchWords.some(w => name.includes(w))) return 5;
 
-  // 2. PRIORIDAD SECUNDARIA: Coincidencia en los PADRES
+  // 2. PRIORIDAD SECUNDARIA: Coincidencia en los PADRES / MAMÁ
   if (papas === normSearch) return 10;
   if (papas.startsWith(normSearch)) return 11;
 
@@ -1425,10 +1521,12 @@ function getSearchScore(nino, normSearch, searchWords) {
   if (papas.includes(normSearch)) return 14;
   if (searchWords && searchWords.length > 0 && searchWords.some(w => papas.includes(w))) return 15;
 
-  // 3. PRIORIDAD TERCIARIA: Coincidencia en teléfono o sala
-  const digits = nino._digits || (nino.telefono || '').replace(/\D/g, '');
-  const searchDigits = normSearch.replace(/\D/g, '');
-  if (searchDigits && digits && digits.includes(searchDigits)) return 20;
+  // 3. PRIORIDAD TERCIARIA: Coincidencia en teléfono (solo si no es Auxiliar)
+  if (!esRolAuxiliar()) {
+    const digits = nino._digits || (nino.telefono || '').replace(/\D/g, '');
+    const searchDigits = normSearch.replace(/\D/g, '');
+    if (searchDigits && digits && digits.includes(searchDigits)) return 20;
+  }
 
   return 30;
 }
@@ -1439,6 +1537,7 @@ function getFilteredKids() {
     state.filterEstado = filterSelect.value;
   }
 
+  const isAuxiliar = esRolAuxiliar();
   const rawSearch = (state.searchTerm || '').trim();
   const normSearch = normalizarTexto(rawSearch);
   const searchWords = normSearch ? normSearch.split(/\s+/).filter(Boolean) : [];
@@ -1455,24 +1554,28 @@ function getFilteredKids() {
 
     // ⚡ Instant Pre-Indexed Search (Sub-millisecond)
     if (normSearch) {
-      if (!nino._searchIndex) {
+      if (!nino._searchIndex || !nino._searchIndexNoPhone) {
         const normName = normalizarTexto(nino.nombre || '');
         const normPapas = normalizarTexto(nino.nombrePapas || '');
         const normSala = normalizarTexto(nino.salaActual || nino.salaSugerida || '');
+        const normObs = normalizarTexto(nino.observacionesMedicas || '');
         const digits = (nino.telefono || '').replace(/\D/g, '');
         nino._normName = normName;
         nino._normPapas = normPapas;
         nino._normSala = normSala;
         nino._digits = digits;
-        nino._searchIndex = `${normName} ${normPapas} ${normSala} ${digits}`;
+        nino._searchIndexNoPhone = `${normName} ${normPapas} ${normSala} ${normObs}`;
+        nino._searchIndex = `${normName} ${normPapas} ${normSala} ${digits} ${normObs}`;
       }
+
+      const targetIndex = isAuxiliar ? nino._searchIndexNoPhone : nino._searchIndex;
 
       if (searchWords.length > 1) {
         for (let i = 0; i < searchWords.length; i++) {
-          if (!nino._searchIndex.includes(searchWords[i])) return false;
+          if (!targetIndex.includes(searchWords[i])) return false;
         }
       } else {
-        if (!nino._searchIndex.includes(normSearch)) return false;
+        if (!targetIndex.includes(normSearch)) return false;
       }
     }
 
@@ -1637,6 +1740,7 @@ function formatearHora(horaRaw) {
 
 function createKidCardHTML(nino) {
   const isPresent = nino.presente;
+  const isAuxiliar = esRolAuxiliar();
   const initials = getInitials(nino.nombre);
   const colorClass = getAvatarColor(nino.nombre);
   const highlightedName = highlightMatch(nino.nombre, state.searchTerm);
@@ -1682,17 +1786,19 @@ function createKidCardHTML(nino) {
         <div class="mt-3.5 pt-3 border-t border-amber-100/60 space-y-1.5 text-xs text-slate-600">
           <div class="flex items-center justify-between">
             <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
-              <i class="fa-solid fa-user-group text-amber-600/70"></i> Papás:
+              <i class="fa-solid ${isAuxiliar ? 'fa-user' : 'fa-user-group'} text-amber-600/70"></i> ${isAuxiliar ? 'Mamá / Adulto:' : 'Papás:'}
             </span>
             <span class="font-semibold text-slate-800 text-right truncate max-w-[170px] text-[11px] sm:text-xs">${highlightedPapas || 'No especificado'}</span>
           </div>
 
-          <div class="flex items-center justify-between">
-            <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
-              <i class="fa-solid fa-phone text-amber-600/70"></i> Teléfono:
-            </span>
-            <span class="font-mono font-bold text-amber-900 text-[11px] sm:text-xs">${nino.telefono || 'Sin teléfono'}</span>
-          </div>
+          ${!isAuxiliar ? `
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
+                <i class="fa-solid fa-phone text-amber-600/70"></i> Teléfono:
+              </span>
+              <span class="font-mono font-bold text-amber-900 text-[11px] sm:text-xs">${escapeHtml(nino.telefono || 'Sin teléfono')}</span>
+            </div>
+          ` : ''}
 
           ${tieneAlertaMedica(nino.observacionesMedicas) ? `
             <div 
@@ -1708,12 +1814,7 @@ function createKidCardHTML(nino) {
                 Ver <i class="fa-solid fa-chevron-right text-[8px]"></i>
               </span>
             </div>
-          ` : (nino.observacionesMedicas && nino.observacionesMedicas.trim() && nino.observacionesMedicas.trim() !== '-' ? `
-            <div class="mt-2 p-2 bg-amber-50/70 rounded-xl text-amber-950 text-[11px] flex items-start gap-1.5 border border-amber-200/60 font-medium">
-              <i class="fa-solid fa-notes-medical text-amber-600 mt-0.5 shrink-0"></i>
-              <span class="line-clamp-2">${escapeHtml(nino.observacionesMedicas)}</span>
-            </div>
-          ` : '')}
+          ` : ''}
         </div>
       </div>
 
@@ -1722,7 +1823,7 @@ function createKidCardHTML(nino) {
         <!-- Main Check-in Toggle Button -->
         <button 
           onclick="toggleAsistencia('${nino.id}')" 
-          class="flex-1 py-2 px-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer ${
+          class="w-full flex-1 py-2 px-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer ${
             isPresent 
               ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 active:scale-95' 
               : 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 shadow-emerald-600/20'
@@ -1732,14 +1833,16 @@ function createKidCardHTML(nino) {
           <span>${isPresent ? 'Desmarcar' : 'Marcar Presente'}</span>
         </button>
 
-        <!-- WhatsApp Parents Button -->
-        <button 
-          onclick="openWhatsAppModal('${nino.id}')" 
-          title="Avisar a los padres por WhatsApp" 
-          class="w-9 h-9 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center transition-all shrink-0 cursor-pointer active:scale-95"
-        >
-          <i class="fa-brands fa-whatsapp text-base"></i>
-        </button>
+        ${!isAuxiliar ? `
+          <!-- WhatsApp Parents Button -->
+          <button 
+            onclick="openWhatsAppModal('${nino.id}')" 
+            title="Avisar a los padres por WhatsApp" 
+            class="w-9 h-9 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center transition-all shrink-0 cursor-pointer active:scale-95"
+          >
+            <i class="fa-brands fa-whatsapp text-base"></i>
+          </button>
+        ` : ''}
       </div>
 
     </div>
@@ -1748,6 +1851,7 @@ function createKidCardHTML(nino) {
 
 function createKidTableRowHTML(nino) {
   const isPresent = nino.presente;
+  const isAuxiliar = esRolAuxiliar();
   const highlightedName = highlightMatch(nino.nombre, state.searchTerm);
   const highlightedPapas = highlightMatch(nino.nombrePapas, state.searchTerm);
   const edadLimpia = formatearEdad(nino.edad);
@@ -1767,19 +1871,15 @@ function createKidTableRowHTML(nino) {
             <span class="truncate max-w-[200px]">Alerta Médica: ${escapeHtml(nino.observacionesMedicas)}</span>
             <i class="fa-solid fa-chevron-right text-[8px] text-amber-800"></i>
           </div>
-        ` : (nino.observacionesMedicas && nino.observacionesMedicas.trim() && nino.observacionesMedicas.trim() !== '-' ? `
-          <div class="text-[11px] text-amber-700 flex items-center gap-1 font-medium mt-0.5">
-            <i class="fa-solid fa-notes-medical"></i> ${escapeHtml(nino.observacionesMedicas)}
-          </div>
-        ` : '')}
+        ` : ''}
       </td>
       <td class="py-3 px-4">
         <span class="inline-block px-2.5 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">${nino.salaSugerida}</span>
         ${edadLimpia ? `<div class="text-xs text-slate-400 mt-0.5">${edadLimpia}</div>` : ''}
       </td>
       <td class="py-3 px-4 text-xs">
-        <div class="font-bold text-slate-800">${highlightedPapas}</div>
-        <div class="font-mono text-amber-900 font-semibold">${nino.telefono}</div>
+        <div class="font-bold text-slate-800">${isAuxiliar ? '<span class="text-slate-400 font-medium mr-1">Mamá / Adulto:</span>' : ''}${highlightedPapas || 'No especificado'}</div>
+        ${!isAuxiliar ? `<div class="font-mono text-amber-900 font-semibold">${escapeHtml(nino.telefono || '')}</div>` : ''}
       </td>
       <td class="py-3 px-4">
         ${isPresent ? `
@@ -1794,17 +1894,19 @@ function createKidTableRowHTML(nino) {
         <div class="flex items-center justify-center gap-2">
           <button 
             onclick="toggleAsistencia('${nino.id}')" 
-            class="px-3 py-1.5 rounded-xl text-xs font-bold ${isPresent ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200' : 'bg-emerald-600 text-white hover:bg-emerald-700'}"
+            class="${isAuxiliar ? 'w-full ' : ''}px-3 py-1.5 rounded-xl text-xs font-bold ${isPresent ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200' : 'bg-emerald-600 text-white hover:bg-emerald-700'}"
           >
             ${isPresent ? 'Quitar' : 'Presente'}
           </button>
-          <button 
-            onclick="openWhatsAppModal('${nino.id}')" 
-            class="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"
-            title="Avisar a los padres"
-          >
-            <i class="fa-brands fa-whatsapp text-sm"></i>
-          </button>
+          ${!isAuxiliar ? `
+            <button 
+              onclick="openWhatsAppModal('${nino.id}')" 
+              class="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"
+              title="Avisar a los padres"
+            >
+              <i class="fa-brands fa-whatsapp text-sm"></i>
+            </button>
+          ` : ''}
         </div>
       </td>
     </tr>
@@ -1854,6 +1956,7 @@ function clearSearchPresentes() {
 }
 
 function renderPresentesList() {
+  const isAuxiliar = esRolAuxiliar();
   const allPresentes = state.ninos.filter(n => n.presente);
   const term = normalizarTexto(state.presentesSearchTerm || '').toLowerCase();
   const cleanDigits = term.replace(/\D/g, '');
@@ -1862,11 +1965,15 @@ function renderPresentesList() {
     if (!term) return true;
     const nombre = normalizarTexto(n.nombre || '').toLowerCase();
     const papas = normalizarTexto(n.nombrePapas || '').toLowerCase();
-    const telClean = (n.telefono || '').replace(/\D/g, '');
-    const telRaw = (n.telefono || '').toLowerCase();
     const sala = normalizarTexto(n.salaActual || n.salaSugerida || '').toLowerCase();
     const obs = normalizarTexto(n.observacionesMedicas || '').toLowerCase();
 
+    if (isAuxiliar) {
+      return nombre.includes(term) || papas.includes(term) || sala.includes(term) || obs.includes(term);
+    }
+
+    const telClean = (n.telefono || '').replace(/\D/g, '');
+    const telRaw = (n.telefono || '').toLowerCase();
     const matchPhone = cleanDigits.length >= 2 && telClean.includes(cleanDigits);
     return nombre.includes(term) || papas.includes(term) || matchPhone || telRaw.includes(term) || sala.includes(term) || obs.includes(term);
   });
@@ -1905,7 +2012,9 @@ function renderPresentesList() {
       empty.classList.remove('hidden');
       if (allPresentes.length > 0 && term) {
         if (emptyTitle) emptyTitle.textContent = `No se encontró a "${state.presentesSearchTerm}" en presentes`;
-        if (emptySub) emptySub.textContent = 'Verifica que el nombre de los papás, niño o teléfono esté bien escrito.';
+        if (emptySub) emptySub.textContent = isAuxiliar
+          ? 'Verificá que el nombre del niño o de la mamá esté bien escrito.'
+          : 'Verifica que el nombre de los papás, niño o teléfono esté bien escrito.';
       } else {
         if (emptyTitle) emptyTitle.textContent = 'Aún no hay niños marcados como presentes hoy';
         if (emptySub) emptySub.textContent = 'Ve a la pestaña "Toma de Asistencia" para comenzar a marcar los ingresos del domingo.';
@@ -1941,11 +2050,7 @@ function renderPresentesList() {
                   <span class="truncate max-w-[180px]">Alerta Médica: ${escapeHtml(nino.observacionesMedicas)}</span>
                   <i class="fa-solid fa-chevron-right text-[8px] text-amber-800"></i>
                 </div>
-              ` : (nino.observacionesMedicas && nino.observacionesMedicas.trim() && nino.observacionesMedicas.trim() !== '-' ? `
-                <div class="text-[11px] text-amber-700 font-medium flex items-center gap-1 mt-0.5">
-                  <i class="fa-solid fa-notes-medical"></i> ${escapeHtml(nino.observacionesMedicas)}
-                </div>
-              ` : '')}
+              ` : ''}
             </td>
             <td class="py-3 px-4 font-mono font-bold text-emerald-700 text-sm">
               <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs">
@@ -1956,15 +2061,18 @@ function renderPresentesList() {
               <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">${salaStr}</span>
             </td>
             <td class="py-3 px-4 text-xs font-semibold text-slate-700">${highlightMatch(papasStr, state.presentesSearchTerm)}</td>
-            <td class="py-3 px-4 font-mono text-xs font-bold text-amber-900">${nino.telefono || 'Sin teléfono'}</td>
+            ${!isAuxiliar ? `<td class="py-3 px-4 font-mono text-xs font-bold text-amber-900">${escapeHtml(nino.telefono || 'Sin teléfono')}</td>` : ''}
             <td class="py-3 px-4 text-center">
               <div class="flex items-center justify-center gap-2">
-                <button onclick="openWhatsAppModal('${nino.id}')" class="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer" title="Contactar familia por WhatsApp">
-                  <i class="fa-brands fa-whatsapp text-sm"></i>
-                  <span>WhatsApp</span>
-                </button>
-                <button onclick="toggleAsistencia('${nino.id}')" class="px-2.5 py-2 text-slate-400 hover:text-red-600 hover:bg-red-50 active:scale-95 rounded-xl text-xs font-semibold transition-all cursor-pointer" title="Desmarcar / Anular Ingreso">
-                  <i class="fa-solid fa-xmark text-sm"></i>
+                ${!isAuxiliar ? `
+                  <button onclick="openWhatsAppModal('${nino.id}')" class="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer" title="Contactar familia por WhatsApp">
+                    <i class="fa-brands fa-whatsapp text-sm"></i>
+                    <span>WhatsApp</span>
+                  </button>
+                ` : ''}
+                <button onclick="toggleAsistencia('${nino.id}')" class="${isAuxiliar ? 'w-full px-3 py-2 bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center gap-1.5 ' : 'px-2.5 py-2 text-slate-400 hover:text-red-600 hover:bg-red-50 '}active:scale-95 rounded-xl text-xs font-semibold transition-all cursor-pointer" title="Desmarcar / Anular Ingreso">
+                  <i class="fa-solid ${isAuxiliar ? 'fa-user-xmark' : 'fa-xmark'} text-sm"></i>
+                  ${isAuxiliar ? '<span>Desmarcar</span>' : ''}
                 </button>
               </div>
             </td>
@@ -2021,42 +2129,41 @@ function renderPresentesList() {
                     Ver <i class="fa-solid fa-chevron-right text-[8px]"></i>
                   </span>
                 </div>
-              ` : (nino.observacionesMedicas && nino.observacionesMedicas.trim() && nino.observacionesMedicas.trim() !== '-' ? `
-                <div class="mt-3.5 text-xs bg-amber-50/80 p-2.5 rounded-2xl border border-amber-200 text-amber-900 flex items-start gap-2">
-                  <i class="fa-solid fa-notes-medical text-amber-600 mt-0.5 shrink-0 text-xs"></i>
-                  <span><strong>Médico:</strong> ${escapeHtml(nino.observacionesMedicas)}</span>
-                </div>
-              ` : '')}
+              ` : ''}
 
-              <!-- Información de Papás y Contacto -->
+              <!-- Información de Mamá / Papás y Contacto -->
               <div class="mt-4 pt-3.5 border-t border-slate-100 space-y-2 text-xs">
                 <div class="flex items-center justify-between">
                   <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
-                    <i class="fa-solid fa-user-group text-emerald-600"></i> Papás:
+                    <i class="fa-solid ${isAuxiliar ? 'fa-user' : 'fa-user-group'} text-emerald-600"></i> ${isAuxiliar ? 'Mamá / Adulto:' : 'Papás:'}
                   </span>
                   <span class="font-bold text-slate-800 text-right truncate max-w-[180px] text-xs">
                     ${highlightMatch(papasStr, state.presentesSearchTerm)}
                   </span>
                 </div>
 
-                <div class="flex items-center justify-between">
-                  <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
-                    <i class="fa-solid fa-phone text-emerald-600"></i> Teléfono:
-                  </span>
-                  <span class="font-mono font-bold text-emerald-950 text-xs">${nino.telefono || 'Sin teléfono'}</span>
-                </div>
+                ${!isAuxiliar ? `
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
+                      <i class="fa-solid fa-phone text-emerald-600"></i> Teléfono:
+                    </span>
+                    <span class="font-mono font-bold text-emerald-950 text-xs">${escapeHtml(nino.telefono || 'Sin teléfono')}</span>
+                  </div>
+                ` : ''}
               </div>
             </div>
 
-            <!-- Botones de Acción: WhatsApp destacado y Desmarcar -->
+            <!-- Botones de Acción -->
             <div class="mt-5 pt-3.5 border-t border-slate-100 flex items-center gap-2">
-              <button onclick="openWhatsAppModal('${nino.id}')" class="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.98] text-white font-black rounded-2xl shadow-md shadow-emerald-500/25 text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer" title="Contactar a los padres por WhatsApp">
-                <i class="fa-brands fa-whatsapp text-lg"></i>
-                <span>WhatsApp Papás</span>
-              </button>
-              <button onclick="toggleAsistencia('${nino.id}')" class="py-3 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 active:scale-[0.98] rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5" title="Desmarcar / Anular Ingreso de hoy">
+              ${!isAuxiliar ? `
+                <button onclick="openWhatsAppModal('${nino.id}')" class="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.98] text-white font-black rounded-2xl shadow-md shadow-emerald-500/25 text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer" title="Contactar a los padres por WhatsApp">
+                  <i class="fa-brands fa-whatsapp text-lg"></i>
+                  <span>WhatsApp Papás</span>
+                </button>
+              ` : ''}
+              <button onclick="toggleAsistencia('${nino.id}')" class="${isAuxiliar ? 'w-full flex-1 ' : ''}py-3 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 active:scale-[0.98] rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5" title="Desmarcar / Anular Ingreso de hoy">
                 <i class="fa-solid fa-user-xmark"></i>
-                <span class="hidden sm:inline">Desmarcar</span>
+                <span class="${isAuxiliar ? 'inline' : 'hidden sm:inline'}">Desmarcar</span>
               </button>
             </div>
           </div>
@@ -2070,6 +2177,7 @@ function renderPresentesList() {
 // WHATSAPP MESSAGING MODAL & PRESETS
 // ==========================================================================
 function openWhatsAppModal(childId) {
+  if (esRolAuxiliar()) return;
   const child = state.ninos.find(n => n.id === childId);
   if (!child) return;
 
@@ -2168,6 +2276,7 @@ function registrarLogWhatsApp(data = {}) {
 }
 
 function sendWhatsAppNow() {
+  if (esRolAuxiliar()) return;
   const child = state.selectedChildForWa;
   if (!child) return;
 
@@ -2221,6 +2330,7 @@ function sendWhatsAppNow() {
 // ==========================================================================
 async function handleNuevoNino(event) {
   event.preventDefault();
+  if (esRolAuxiliar()) return;
 
   const nombre = document.getElementById('nuevoNombre').value.trim();
   const edad = document.getElementById('nuevaEdad').value.trim();
@@ -2325,7 +2435,8 @@ async function handleNuevoNino(event) {
 // MODAL QR & CARTEL DE INSCRIPCIÓN PARA FAMILIAS (GOOGLE FORMS)
 // ==========================================================================
 function abrirModalQRRegistro() {
-  const qrImgUrl = 'icons/qr-formulario-registro.png?v=79';
+  if (esRolAuxiliar()) return;
+  const qrImgUrl = 'icons/qr-formulario-registro.png?v=80';
 
   Swal.fire({
     title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl flex items-center justify-center gap-2">📱 Formulario de Inscripción de Familias</span>',
@@ -2597,6 +2708,7 @@ function imprimirCartelQR() {
 // EXPORT & REPORTING (EXCEL, PDF, WHATSAPP CON SOPORTE MULTI-TURNO)
 // ==========================================================================
 function exportToExcel() {
+  if (esRolAuxiliar()) return;
   const presentes = state.ninos.filter(n => n.presente);
   if (presentes.length === 0) {
     Swal.fire({
@@ -2632,6 +2744,7 @@ function exportToExcel() {
 }
 
 function exportToPDF() {
+  if (esRolAuxiliar()) return;
   const presentes = state.ninos.filter(n => n.presente);
   if (presentes.length === 0) {
     Swal.fire({
@@ -2679,10 +2792,12 @@ function exportToPDF() {
 }
 
 function printAttendanceRoster() {
+  if (esRolAuxiliar()) return;
   window.print();
 }
 
 function copyWhatsAppReport() {
+  if (esRolAuxiliar()) return;
   const presentes = state.ninos.filter(n => n.presente);
   
   let attendeesList = '';
@@ -2777,6 +2892,9 @@ function updateConnectionBadge() {
 // TABS & VIEW CONTROLS
 // ==========================================================================
 function switchTab(tabId) {
+  if (esRolAuxiliar() && (tabId === 'reportes' || tabId === 'nuevo')) {
+    tabId = 'asistencia';
+  }
   state.activeTab = tabId;
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -3115,6 +3233,7 @@ function triggerMiniConfetti() {
 // INTERACTIVE ESTADÍSTICAS TOGGLE
 // ==========================================================================
 function toggleEstadisticas() {
+  if (esRolAuxiliar()) return;
   const seccion = document.getElementById('seccionEstadisticas');
   const btn = document.getElementById('btnToggleEstadisticas');
   const chevron = document.getElementById('iconChevronEstadisticas');
@@ -3162,7 +3281,18 @@ let auditoriaState = {
   filtroTexto: ''
 };
 
+function generarReportePastores() {
+  if (esRolAuxiliar()) return;
+  abrirModalAuditoriaPrivada();
+}
+
+function abrirPortalPastores() {
+  if (esRolAuxiliar()) return;
+  window.location.href = 'pastores.html';
+}
+
 function abrirModalAuditoriaPrivada() {
+  if (esRolAuxiliar()) return;
   if (auditoriaState.desbloqueado) {
     mostrarModalAuditoria();
     return;
@@ -3217,6 +3347,7 @@ function abrirModalAuditoriaPrivada() {
 }
 
 function mostrarModalAuditoria() {
+  if (esRolAuxiliar()) return;
   const modal = document.getElementById('modalPanelAuditoria');
   if (modal) {
     modal.classList.remove('hidden');
@@ -3247,6 +3378,7 @@ function cambiarTipoPeriodoAuditoria(tipo) {
 }
 
 async function ejecutarConsultaAuditoria() {
+  if (esRolAuxiliar()) return;
   const tipo = auditoriaState.periodoTipo;
   const mes = document.getElementById('auditoriaMesSelect')?.value || '2026-09';
   const anio = document.getElementById('auditoriaAnioSelect')?.value || '2026';
@@ -3435,6 +3567,7 @@ function renderTablaAuditoria() {
 }
 
 function enviarWhatsAppPastoral(telefono, nombreNino, nombrePapas) {
+  if (esRolAuxiliar()) return;
   let num = telefono.replace(/\D/g, '');
   if (!num.startsWith('54') && num.length === 10) num = '549' + num;
   else if (num.startsWith('54') && !num.startsWith('549')) num = '549' + num.substring(2);
@@ -3451,6 +3584,7 @@ function enviarWhatsAppPastoral(telefono, nombreNino, nombrePapas) {
 }
 
 function exportarAuditoriaExcel() {
+  if (esRolAuxiliar()) return;
   const d = auditoriaState.datos;
   const lista = auditoriaState.pestanaActiva === 'ausentes' ? d.ausentes : d.presentes;
   const nombrePestana = auditoriaState.pestanaActiva === 'ausentes' ? 'Ausentes' : 'Presentes';
