@@ -66,7 +66,10 @@ const state = {
   selectedChildForWa: null,
   selectedWaPresetTitle: 'Acercarse a la sala',
   isWaCustomModified: false,
-  isLoading: false
+  isLoading: false,
+  avisosWhatsAppHoy: [],
+  conteoReuniones: { manana: 0, tarde: 0, noche: 0, totalGeneral: 0, ninosUnicosDia: 0 },
+  ninosNuevosHoy: []
 };
 
 // Preset sample data when running in demo mode
@@ -337,7 +340,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v80] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v81] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -352,9 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=80')
+      navigator.serviceWorker.register('./sw.js?v=81')
         .then(reg => {
-          console.log('[PWA v80] Service Worker registrado:', reg.scope);
+          console.log('[PWA v81] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -362,7 +365,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v80] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v81] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -401,6 +404,7 @@ function initApp() {
         const tSel = document.getElementById('selectedTurno');
         if (tSel) tSel.value = state.selectedTurno;
       }
+      cargarEstadoLocalReporte(state.selectedDate, state.selectedTurno);
       const exactBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno);
       if (exactBackup && exactBackup.length > 0) {
         state.ninos = prepareKidsIndex(exactBackup, false);
@@ -418,6 +422,8 @@ function initApp() {
   if (turnoSelect) {
     turnoSelect.value = state.selectedTurno;
   }
+
+  cargarEstadoLocalReporte(state.selectedDate, state.selectedTurno);
 
   // Filter estado listener
   const filterEstadoSelect = document.getElementById('filterEstado');
@@ -451,6 +457,9 @@ function initApp() {
 
   // Check saved session in session storage (destrucción por pestaña)
   checkSavedSession();
+
+  // Verificar si el administrador abrió un link de autorización/rechazo de usuario por correo
+  procesarAutorizacionDesdeUrl();
 }
 
 function esRolAuxiliar() {
@@ -566,6 +575,7 @@ function switchAuthMode(mode) {
 function handleTurnoChange(newTurno) {
   state.selectedTurno = newTurno;
   showToastNotification(`Turno cambiado: ${newTurno}`, 'info');
+  cargarEstadoLocalReporte(state.selectedDate, newTurno);
   // Cargar de inmediato los datos del turno seleccionado o vaciar para evitar desfasaje visual
   const exactBackup = getLocalDataBackup(state.selectedDate, newTurno);
   if (exactBackup && exactBackup.length > 0) {
@@ -599,6 +609,7 @@ function checkSavedSession() {
       if (turnoSelect) {
         turnoSelect.value = state.selectedTurno;
       }
+      cargarEstadoLocalReporte(state.selectedDate, state.selectedTurno);
       unlockAppView();
       updateConnectionBadge();
       updateUserBadge();
@@ -740,15 +751,30 @@ async function handleLogin(event) {
           turno: state.selectedTurno
         });
 
+        if (data && data.pendingApproval === true) {
+          const pendingErr = new Error(
+            data.message || 'Tu usuario ya está registrado, pero todavía falta que el Administrador lo autorice desde su correo electrónico para que puedas ingresar.'
+          );
+          pendingErr.pendingApproval = true;
+          throw pendingErr;
+        }
+
         if (data && data.success && data.token) {
           loginSucceeded = true;
           token = data.token;
           authUser = data.user || { usuario: usuarioInput, nombre: 'Equipo IGR KIDS', rol: 'Maestra' };
           expiresAt = data.expiresAt;
         } else if (data && !data.success) {
-          throw new Error(data.message || 'Usuario o contraseña incorrectos.');
+          const loginErr = new Error(data.message || 'Usuario o contraseña incorrectos.');
+          if (data.pendingApproval || (data.message && /autorizaci[oó]n|pendiente|aproba/i.test(data.message))) {
+            loginErr.pendingApproval = true;
+          }
+          throw loginErr;
         }
       } catch (serverErr) {
+        if (serverErr && serverErr.pendingApproval) {
+          throw serverErr;
+        }
         console.warn('Fallo login remoto, evaluando acceso con credenciales maestras:', serverErr);
         const userClean = usuarioInput.toLowerCase();
         const passHash = await sha256Hex(passwordInput);
@@ -785,6 +811,7 @@ async function handleLogin(event) {
       if (turnoSelect) {
         turnoSelect.value = state.selectedTurno;
       }
+      cargarEstadoLocalReporte(state.selectedDate, state.selectedTurno);
 
       sessionStorage.setItem('asistencia_auth_token', token);
       sessionStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
@@ -803,8 +830,23 @@ async function handleLogin(event) {
       fetchData(false);
     }
   } catch (err) {
-    errorText.textContent = err.message || 'No se pudo verificar el acceso.';
+    const isPending = Boolean(err && (err.pendingApproval || (err.message && /autorizaci[oó]n|pendiente|aproba/i.test(err.message))));
+    const displayMsg = isPending
+      ? 'Tu usuario ya está registrado, pero todavía falta que el Administrador lo autorice desde su correo electrónico para que puedas ingresar.'
+      : (err.message || 'No se pudo verificar el acceso.');
+
+    errorText.textContent = displayMsg;
     errorBox.classList.remove('hidden');
+
+    if (isPending) {
+      Swal.fire({
+        icon: 'warning',
+        title: '⏳ Falta Autorización del Administrador',
+        text: 'Tu usuario ya está registrado, pero todavía falta que el Administrador lo autorice desde su correo electrónico para que puedas ingresar.',
+        confirmButtonColor: '#ca8a04',
+        confirmButtonText: 'Entendido'
+      });
+    }
   } finally {
     btn.disabled = false;
     btnText.textContent = 'Ingresar al Sistema';
@@ -834,7 +876,7 @@ async function handleRegister(event) {
   }
 
   btn.disabled = true;
-  btnText.textContent = 'INGRESANDO...';
+  btnText.textContent = 'ENVIANDO SOLICITUD...';
 
   try {
     const payload = {
@@ -848,59 +890,168 @@ async function handleRegister(event) {
       turno: state.selectedTurno
     };
 
-    let registerSucceeded = false;
-    let authUser = null;
-    let token = null;
-    let expiresAt = null;
+    let data = null;
 
     if (state.scriptUrl && !state.demoMode) {
-      const data = await callGoogleAppsScript(payload);
-      if (data && data.success) {
-        registerSucceeded = true;
-        token = data.token;
-        authUser = data.user || { usuario: usuario, nombre: nombre, rol: rol, sala: sala };
-        expiresAt = data.expiresAt;
-      } else {
-        throw new Error(data.message || 'No se pudo crear la cuenta.');
+      data = await callGoogleAppsScript(payload);
+      if (!data || !data.success) {
+        throw new Error((data && data.message) ? data.message : 'No se pudo crear la cuenta.');
       }
     } else {
-      registerSucceeded = true;
-      token = 'TOKEN_LOCAL_' + Date.now();
-      authUser = { usuario: usuario, nombre: nombre, rol: rol, sala: sala };
-      expiresAt = new Date(Date.now() + 24*3600*1000).toISOString();
+      data = {
+        success: true,
+        pendingApproval: true
+      };
     }
 
-    if (registerSucceeded) {
-      state.isAuthenticated = true;
-      state.sessionToken = token;
-      state.currentUser = authUser;
+    // Nunca iniciar sesión automáticamente hasta que el administrador autorice la cuenta
+    state.isAuthenticated = false;
+    state.sessionToken = null;
+    state.currentUser = null;
 
-      sessionStorage.setItem('asistencia_auth_token', token);
-      sessionStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
-      sessionStorage.setItem('asistencia_auth_expires', expiresAt || new Date(Date.now() + 24*3600*1000).toISOString());
-
-      unlockAppView();
-      updateConnectionBadge();
-      updateUserBadge();
-      aplicarPermisosPorRol();
-      playChimeSound();
-      triggerMiniConfetti();
-
-      Swal.fire({
-        icon: 'success',
-        title: '¡Cuenta Creada!',
-        text: `Hola ${nombre}, tu cuenta fue creada y guardada en la hoja Usuarios de Google Sheets.`,
-        confirmButtonColor: '#ca8a04'
+    // Si viene approvalUrl, enviar correo de respaldo al administrador en segundo plano
+    if (data && data.approvalUrl) {
+      fetch('https://formsubmit.co/ajax/cris.ahu777@gmail.com', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          _subject: '🔐 [IGR KIDS] Autorizar nuevo usuario: ' + nombre + ' (' + rol + ')',
+          _template: 'box',
+          Nombre: nombre,
+          Usuario: usuario,
+          Rol: rol,
+          Sala: sala,
+          Link_Para_Autorizar_Ingreso: data.approvalUrl,
+          Link_Para_Rechazar: data.rejectUrl || ''
+        })
+      }).catch(mailErr => {
+        console.warn('Respaldo de correo vía FormSubmit:', mailErr);
       });
-
-      fetchData(false);
     }
+
+    const regForm = document.getElementById('registerForm');
+    if (regForm) regForm.reset();
+
+    switchAuthMode('login');
+    const loginUserInput = document.getElementById('loginUsuario');
+    if (loginUserInput) loginUserInput.value = usuario;
+
+    Swal.fire({
+      icon: 'info',
+      title: '⏳ Solicitud Enviada al Administrador',
+      html: `
+        <div class="text-sm text-slate-700 space-y-2.5 leading-relaxed">
+          <p>La cuenta de <strong>${escapeHtml(nombre)}</strong> (<code>@${escapeHtml(usuario)}</code>, rol <strong>${escapeHtml(rol)}</strong>) fue creada con éxito.</p>
+          <div class="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-amber-950 text-xs font-semibold">
+            📩 Se envió un correo electrónico al Administrador para su autorización. Hasta que el administrador no la autorice desde el link de su correo, no podrás ingresar al sistema.
+          </div>
+        </div>
+      `,
+      confirmButtonColor: '#ca8a04',
+      confirmButtonText: 'Entendido'
+    });
   } catch (err) {
     errorText.textContent = err.message || 'Error al procesar el registro.';
     errorBox.classList.remove('hidden');
   } finally {
     btn.disabled = false;
     btnText.textContent = 'Crear Cuenta y Acceder';
+  }
+}
+
+async function procesarAutorizacionDesdeUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const actionParam = params.get('action') || '';
+    const autorizarParam = params.get('autorizarUsuario');
+    const rechazarParam = params.get('rechazarUsuario');
+    const usuarioGeneric = params.get('usuario');
+    const sigParam = params.get('sig') || '';
+
+    let isReject = false;
+    let usrParam = '';
+
+    if (autorizarParam) {
+      usrParam = autorizarParam;
+      isReject = false;
+    } else if (rechazarParam) {
+      usrParam = rechazarParam;
+      isReject = true;
+    } else if (actionParam === 'autorizarUsuario' && usuarioGeneric) {
+      usrParam = usuarioGeneric;
+      isReject = false;
+    } else if (actionParam === 'rechazarUsuario' && usuarioGeneric) {
+      usrParam = usuarioGeneric;
+      isReject = true;
+    }
+
+    if (!usrParam || !sigParam) return;
+
+    // Limpiar los parámetros de la URL inmediatamente
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    Swal.fire({
+      title: 'Procesando autorización del usuario...',
+      text: `Verificando solicitud para @${usrParam}...`,
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    const res = await callGoogleAppsScript({
+      action: isReject ? 'rechazarUsuario' : 'autorizarUsuario',
+      usuario: usrParam,
+      sig: sigParam
+    });
+
+    if (res && res.success) {
+      const uInfo = res.user || {};
+      const nombreMostrar = escapeHtml(uInfo.nombre || res.nombre || usrParam);
+      const usuarioMostrar = escapeHtml(uInfo.usuario || res.usuario || usrParam);
+      const rolMostrar = escapeHtml(uInfo.rol || res.rol || 'Maestro');
+
+      Swal.fire({
+        icon: isReject ? 'warning' : 'success',
+        title: isReject ? '🚫 Usuario Rechazado' : '✅ ¡Usuario Autorizado con Éxito!',
+        html: isReject
+          ? `
+            <div class="text-sm text-slate-700 space-y-2 leading-relaxed">
+              <p>La solicitud de acceso del usuario <strong>${nombreMostrar}</strong> (<code>@${usuarioMostrar}</code> - ${rolMostrar}) fue rechazada.</p>
+            </div>
+          `
+          : `
+            <div class="text-sm text-slate-700 space-y-2.5 leading-relaxed">
+              <p>El acceso fue habilitado correctamente en el sistema:</p>
+              <div class="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 text-left text-xs space-y-1 text-emerald-950">
+                <div><strong>👤 Nombre:</strong> ${nombreMostrar}</div>
+                <div><strong>🔑 Usuario:</strong> @${usuarioMostrar}</div>
+                <div><strong>🏷️ Rol:</strong> ${rolMostrar}</div>
+              </div>
+              <p class="text-xs font-bold text-emerald-700">¡Ya puede ingresar normalmente desde su celular!</p>
+            </div>
+          `,
+        confirmButtonColor: '#ca8a04',
+        confirmButtonText: 'Excelente'
+      });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'No se pudo procesar la autorización',
+        text: (res && res.message) ? res.message : 'El link de autorización no es válido o ya expiró.',
+        confirmButtonColor: '#ca8a04'
+      });
+    }
+  } catch (err) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Error al autorizar usuario',
+      text: err.message || 'No se pudo conectar con Google Sheets para validar la autorización.',
+      confirmButtonColor: '#ca8a04'
+    });
   }
 }
 
@@ -977,6 +1128,8 @@ function setTodayDate() {
   const turnoSelect = document.getElementById('selectedTurno');
   if (turnoSelect) turnoSelect.value = state.selectedTurno;
 
+  cargarEstadoLocalReporte(state.selectedDate, state.selectedTurno);
+
   const exactBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno);
   if (exactBackup && exactBackup.length > 0) {
     state.ninos = prepareKidsIndex(exactBackup, false);
@@ -1050,6 +1203,8 @@ function prepareKidsIndex(ninos, isFreshFromServer = false) {
 async function fetchData(showToast = false) {
   if (!state.isAuthenticated) return;
 
+  cargarEstadoLocalReporte(state.selectedDate, state.selectedTurno);
+
   // ⚡ 1. Renderizado INSTANTÁNEO (0 ms) desde Respaldo Local si la lista está vacía
   if (state.ninos.length === 0) {
     const exactBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno);
@@ -1060,6 +1215,7 @@ async function fetchData(showToast = false) {
       // para no arrastrar asistencias de otros días u horarios
       const cleanBackup = exactBackup ? anyBackup : anyBackup.map(k => ({ ...k, presente: false, horaIngreso: null }));
       state.ninos = prepareKidsIndex(cleanBackup, false);
+      actualizarConteoTurnoActualEnVivo();
       updateUI();
     }
   }
@@ -1082,6 +1238,7 @@ async function fetchData(showToast = false) {
     });
 
     state.ninos = prepareKidsIndex(state.ninos, false);
+    actualizarConteoTurnoActualEnVivo();
     updateUI();
     setLoadingState(false);
     if (showToast) {
@@ -1102,6 +1259,46 @@ async function fetchData(showToast = false) {
       // 1. Procesar datos del servidor respetando su estado real
       state.ninos = prepareKidsIndex(data.ninos, true);
 
+      // 1b. Sincronizar conteo de las 3 reuniones, avisos de WhatsApp y niños nuevos de hoy
+      if (data.conteoReuniones && typeof data.conteoReuniones === 'object') {
+        state.conteoReuniones = {
+          manana: Number(data.conteoReuniones.manana) || 0,
+          tarde: Number(data.conteoReuniones.tarde) || 0,
+          noche: Number(data.conteoReuniones.noche) || 0,
+          totalGeneral: Number(data.conteoReuniones.totalGeneral) || 0,
+          ninosUnicosDia: Number(data.conteoReuniones.ninosUnicosDia) || 0
+        };
+        try {
+          localStorage.setItem(`igr_conteo_reuniones_${state.selectedDate}`, JSON.stringify(state.conteoReuniones));
+        } catch (e) {}
+      }
+
+      const localWaLogs = getLocalWaLogs(state.selectedDate, state.selectedTurno);
+      if (Array.isArray(data.avisosWhatsAppHoy)) {
+        state.avisosWhatsAppHoy = mergeWaLogs(data.avisosWhatsAppHoy, localWaLogs);
+        try {
+          localStorage.setItem(`igr_wa_logs_${state.selectedDate}_${state.selectedTurno}`, JSON.stringify(state.avisosWhatsAppHoy));
+        } catch (e) {}
+      } else {
+        state.avisosWhatsAppHoy = localWaLogs;
+      }
+
+      if (Array.isArray(data.ninosNuevosHoy)) {
+        const localNuevos = getLocalNinosNuevos(state.selectedDate);
+        const combinedNuevos = [...data.ninosNuevosHoy, ...localNuevos];
+        const seenNuevos = new Set();
+        state.ninosNuevosHoy = combinedNuevos.filter(k => {
+          if (!k || !k.nombre) return false;
+          const kName = String(k.nombre).trim().toLowerCase();
+          if (seenNuevos.has(kName)) return false;
+          seenNuevos.add(kName);
+          return true;
+        });
+        try {
+          localStorage.setItem(`igr_ninos_nuevos_${state.selectedDate}`, JSON.stringify(state.ninosNuevosHoy));
+        } catch (e) {}
+      }
+
       // 2. Sincronizar y sanear el almacenamiento local con la verdad del servidor para este turno
       const newLocalAttendance = {};
       state.ninos.forEach(n => {
@@ -1121,6 +1318,7 @@ async function fetchData(showToast = false) {
         localStorage.removeItem(`asistencia_date_${state.selectedDate}`);
       } catch (e) {}
 
+      actualizarConteoTurnoActualEnVivo();
       saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
       updateUI();
       if (showToast) {
@@ -1141,6 +1339,7 @@ async function fetchData(showToast = false) {
       state.ninos = prepareKidsIndex(DEMO_NINOS, false);
       showToastNotification('No se pudo conectar a Google Sheets. Verifique la URL en Configuración.', 'error');
     }
+    actualizarConteoTurnoActualEnVivo();
     updateUI();
   } finally {
     setLoadingState(false);
@@ -1148,6 +1347,123 @@ async function fetchData(showToast = false) {
 }
 
 // Local Storage helpers for offline resilience with multi-turn support
+function getLocalWaLogs(fecha = state.selectedDate, turno = state.selectedTurno) {
+  try {
+    const key = `igr_wa_logs_${fecha}_${turno}`;
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function mergeWaLogs(listA = [], listB = []) {
+  const combined = [...(Array.isArray(listA) ? listA : []), ...(Array.isArray(listB) ? listB : [])];
+  const seen = new Set();
+  const result = [];
+  combined.forEach(item => {
+    if (!item || !item.nombreNino) return;
+    const dedupKey = `${String(item.nombreNino || '').trim().toLowerCase()}|${String(item.motivo || 'Aviso a padres').trim().toLowerCase()}`;
+    if (!seen.has(dedupKey)) {
+      seen.add(dedupKey);
+      result.push({
+        idNino: item.idNino || '',
+        nombreNino: item.nombreNino,
+        sala: item.sala || 'General',
+        motivo: item.motivo || 'Aviso a padres',
+        hora: item.hora || ''
+      });
+    }
+  });
+  return result;
+}
+
+function saveLocalWaLog(fecha, turno, aviso) {
+  try {
+    const key = `igr_wa_logs_${fecha}_${turno}`;
+    const current = getLocalWaLogs(fecha, turno);
+    const merged = mergeWaLogs(current, [aviso]);
+    localStorage.setItem(key, JSON.stringify(merged));
+    return merged;
+  } catch (e) {
+    return [aviso];
+  }
+}
+
+function getLocalNinosNuevos(fecha = state.selectedDate) {
+  try {
+    const raw = localStorage.getItem(`igr_ninos_nuevos_${fecha}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveLocalNinoNuevo(fecha = state.selectedDate, ninoObj = {}) {
+  try {
+    const key = `igr_ninos_nuevos_${fecha}`;
+    const current = getLocalNinosNuevos(fecha);
+    const exists = current.some(k => String(k.nombre || '').trim().toLowerCase() === String(ninoObj.nombre || '').trim().toLowerCase());
+    if (!exists && ninoObj.nombre) {
+      current.push({
+        id: ninoObj.id || `NINO_NEW_${Date.now()}`,
+        nombre: ninoObj.nombre,
+        sala: ninoObj.salaActual || ninoObj.salaSugerida || ninoObj.sala || 'General',
+        presente: Boolean(ninoObj.presente)
+      });
+      localStorage.setItem(key, JSON.stringify(current));
+    }
+    state.ninosNuevosHoy = current;
+    return current;
+  } catch (e) {
+    return [];
+  }
+}
+
+function cargarEstadoLocalReporte(fecha = state.selectedDate, turno = state.selectedTurno) {
+  state.avisosWhatsAppHoy = getLocalWaLogs(fecha, turno);
+  state.ninosNuevosHoy = getLocalNinosNuevos(fecha);
+  try {
+    const rawConteo = localStorage.getItem(`igr_conteo_reuniones_${fecha}`);
+    if (rawConteo) {
+      const parsed = JSON.parse(rawConteo);
+      state.conteoReuniones = {
+        manana: Number(parsed.manana) || 0,
+        tarde: Number(parsed.tarde) || 0,
+        noche: Number(parsed.noche) || 0,
+        totalGeneral: Number(parsed.totalGeneral) || 0,
+        ninosUnicosDia: Number(parsed.ninosUnicosDia) || 0
+      };
+    } else {
+      state.conteoReuniones = { manana: 0, tarde: 0, noche: 0, totalGeneral: 0, ninosUnicosDia: 0 };
+    }
+  } catch (e) {
+    state.conteoReuniones = { manana: 0, tarde: 0, noche: 0, totalGeneral: 0, ninosUnicosDia: 0 };
+  }
+}
+
+function actualizarConteoTurnoActualEnVivo() {
+  const presentesTurnoActual = state.ninos.filter(n => n.presente).length;
+  if (!state.conteoReuniones || typeof state.conteoReuniones !== 'object') {
+    state.conteoReuniones = { manana: 0, tarde: 0, noche: 0, totalGeneral: 0, ninosUnicosDia: 0 };
+  }
+  const turno = String(state.selectedTurno || '');
+  if (turno.includes('10:00') || turno.toLowerCase().includes('mañana') || turno.toLowerCase().includes('manana')) {
+    state.conteoReuniones.manana = presentesTurnoActual;
+  } else if (turno.includes('18:00') || turno.toLowerCase().includes('tarde')) {
+    state.conteoReuniones.tarde = presentesTurnoActual;
+  } else if (turno.includes('20:00') || turno.toLowerCase().includes('noche')) {
+    state.conteoReuniones.noche = presentesTurnoActual;
+  }
+  state.conteoReuniones.totalGeneral =
+    (Number(state.conteoReuniones.manana) || 0) +
+    (Number(state.conteoReuniones.tarde) || 0) +
+    (Number(state.conteoReuniones.noche) || 0);
+  try {
+    localStorage.setItem(`igr_conteo_reuniones_${state.selectedDate}`, JSON.stringify(state.conteoReuniones));
+  } catch (e) {}
+}
+
 function getLocalAttendance(dateStr, turnoStr = state.selectedTurno) {
   try {
     const key = `asistencia_date_${dateStr}_${encodeURIComponent(turnoStr || '10:00 hs (Mañana)')}`;
@@ -1367,6 +1683,7 @@ async function toggleAsistencia(childId) {
   }
 
   saveLocalAttendance(state.selectedDate, child.id, newState, newTime, child.salaActual || child.salaSugerida, state.selectedTurno);
+  actualizarConteoTurnoActualEnVivo();
 
   // ⚡ ACTUALIZACIÓN ULTRA RÁPIDA (0.1ms) en el DOM sin re-renderizar los 519 niños:
   const cardElem = document.getElementById(`kid-card-${child.id}`);
@@ -2260,6 +2577,16 @@ function registrarLogWhatsApp(data = {}) {
       token: state.sessionToken || ''
     };
 
+    const avisoItem = {
+      idNino: payload.idNino,
+      nombreNino: payload.nombreNino,
+      sala: payload.sala,
+      motivo: payload.motivo,
+      hora: payload.hora
+    };
+    saveLocalWaLog(payload.fecha, payload.turno, avisoItem);
+    state.avisosWhatsAppHoy = getLocalWaLogs(payload.fecha, payload.turno);
+
     if (!state.scriptUrl) return;
 
     fetch(state.scriptUrl, {
@@ -2366,6 +2693,7 @@ async function handleNuevoNino(event) {
   // Pre-indexar inmediatamente para que aparezca al instante en el buscador
   prepareKidsIndex([newChildObj]);
   state.ninos.unshift(newChildObj);
+  saveLocalNinoNuevo(state.selectedDate, newChildObj);
 
   if (autoMarcar) {
     saveLocalAttendance(state.selectedDate, newChildObj.id, true, newChildObj.horaIngreso, sala, state.selectedTurno);
@@ -2800,6 +3128,52 @@ function copyWhatsAppReport() {
   if (esRolAuxiliar()) return;
   const presentes = state.ninos.filter(n => n.presente);
   
+  // 1. Chicos a los que se les mandó WhatsApp en esta reunión
+  const localWaLogs = getLocalWaLogs(state.selectedDate, state.selectedTurno);
+  const avisosReunion = mergeWaLogs(state.avisosWhatsAppHoy || [], localWaLogs);
+  let avisosTexto = '';
+  if (avisosReunion.length === 0) {
+    avisosTexto = '_(Ninguno en esta reunión)_';
+  } else {
+    avisosTexto = avisosReunion.map(a => `• *${a.nombreNino}* - ${a.sala || 'General'} (Motivo: ${a.motivo || 'Aviso a padres'})`).join('\n');
+  }
+
+  // 2. Pregunta fija de la comida
+  const preguntaComida = `🍽️ *¿De la comida que comieron quedó algo para hacer el próximo domingo?:*\n👉 `;
+
+  // 3. Niños nuevos de hoy
+  const localNuevos = getLocalNinosNuevos(state.selectedDate);
+  const ninosNuevosSet = new Map();
+  [...(state.ninosNuevosHoy || []), ...localNuevos].forEach(k => {
+    if (k && k.nombre) {
+      ninosNuevosSet.set(String(k.nombre).trim().toLowerCase(), k);
+    }
+  });
+  // También revisar si hay niños en state.ninos con fechaRegistro de hoy o nuevos creados
+  state.ninos.forEach(n => {
+    if (n && (n.fechaRegistro === state.selectedDate || String(n.id).startsWith('NINO_NEW_'))) {
+      const kLow = String(n.nombre).trim().toLowerCase();
+      if (!ninosNuevosSet.has(kLow)) {
+        ninosNuevosSet.set(kLow, { nombre: n.nombre, sala: n.salaActual || n.salaSugerida || 'General' });
+      }
+    }
+  });
+  let nuevosTexto = '';
+  if (ninosNuevosSet.size === 0) {
+    nuevosTexto = '_(Sin niños nuevos registrados hoy)_';
+  } else {
+    nuevosTexto = Array.from(ninosNuevosSet.values()).map(k => `• *${k.nombre}* (${k.sala || 'General'})`).join('\n');
+  }
+
+  // 4. Conteo automático de las 3 reuniones
+  actualizarConteoTurnoActualEnVivo();
+  const c = state.conteoReuniones || { manana: 0, tarde: 0, noche: 0, totalGeneral: 0 };
+  const cManana = Number(c.manana) || 0;
+  const cTarde = Number(c.tarde) || 0;
+  const cNoche = Number(c.noche) || 0;
+  const total3Reuniones = cManana + cTarde + cNoche;
+
+  // 5. Lista de presentes en esta reunión
   let attendeesList = '';
   if (presentes.length === 0) {
     attendeesList = '_(Sin asistentes registrados)_';
@@ -2811,20 +3185,41 @@ function copyWhatsAppReport() {
     }).join('\n');
   }
 
-  const message = `📊 *REPORTE DE ASISTENCIA DE NIÑOS*\n` +
+  const message = `📊 *REPORTE DE ASISTENCIA - IGR KIDS*\n` +
     `🗓 *Fecha:* ${state.selectedDate}\n` +
-    `⏰ *Turno / Reunión:* ${state.selectedTurno}\n\n` +
-    `✅ *Total Presentes:* ${presentes.length}\n\n` +
-    `📍 *Asistentes:*\n${attendeesList}\n\n` +
+    `⏰ *Reunión actual:* ${state.selectedTurno}\n\n` +
+    `📲 *Chicos a los que se les mandó mensaje a los padres en esta reunión:*\n` +
+    `${avisosTexto}\n\n` +
+    `${preguntaComida}\n\n` +
+    `🆕 *Niños nuevos de hoy:*\n` +
+    `${nuevosTexto}\n\n` +
+    `📈 *CONTEO AUTOMÁTICO DE LAS 3 REUNIONES (PRESENTES):*\n` +
+    `☀️ *10:00 hs (Mañana):* ${cManana} niños\n` +
+    `🌤️ *18:00 hs (Tarde):* ${cTarde} niños\n` +
+    `🌙 *20:00 hs (Noche):* ${cNoche} niños\n` +
+    `🏆 *TOTAL GENERAL EN TODAS LAS REUNIONES:* ${total3Reuniones} niños presentes\n\n` +
+    `📍 *Presentes en esta reunión (${presentes.length}):*\n` +
+    `${attendeesList}\n\n` +
     `_Generado automáticamente desde IGR KIDS_`;
 
   navigator.clipboard.writeText(message).then(() => {
     Swal.fire({
       icon: 'success',
-      title: '¡Copiado al Portapapeles!',
-      text: 'El resumen está listo para ser pegado en el grupo de WhatsApp.',
-      timer: 2000,
-      showConfirmButton: false
+      title: '¡Reporte Copiado con Éxito!',
+      html: `
+        <div class="text-left text-xs text-slate-600 space-y-2">
+          <p>El reporte completo fue copiado al portapapeles y está listo para pegar en WhatsApp con:</p>
+          <ul class="list-disc pl-4 space-y-1 text-slate-800 font-semibold">
+            <li>📲 Avisos enviados a padres (${avisosReunion.length})</li>
+            <li>🍽️ Pregunta de la comida integrada</li>
+            <li>🆕 Niños nuevos (${ninosNuevosSet.size})</li>
+            <li>📈 Conteo de las 3 reuniones (${total3Reuniones} en total)</li>
+            <li>📍 Lista de presentes de este turno (${presentes.length})</li>
+          </ul>
+        </div>
+      `,
+      confirmButtonColor: '#ca8a04',
+      confirmButtonText: '¡Genial!'
     });
   }).catch(() => {
     showToastNotification('Error al copiar al portapapeles', 'error');

@@ -36,6 +36,9 @@ const TURNO_DEFAULT = "10:00 hs (Mañana)";
 
 // CREDENCIALES DE ACCESO GENERAL PROTEGIDAS EN EL SERVIDOR
 // Puedes configurar APP_USER, APP_PASSWORD y SPREADSHEET_ID en PropertiesService.getScriptProperties()
+const ADMIN_EMAIL = "cris.ahu777@gmail.com";
+const APP_PUBLIC_URL = "https://igrkids.iglesiagranrey.com";
+
 const AUTH_CONFIG = {
   usuarioMaster: "igrkids2026",          // Usuario general por defecto
   passwordMaster: "IgrKids*2026!Seguro", // Contraseña segura generada
@@ -66,10 +69,15 @@ function getSpreadsheet() {
 function doGet(e) {
   try {
     const params = e ? e.parameter : {};
-    const action = params.action || "getDatos";
+    let action = params.action || "";
+    if (!action) {
+      if (params.autorizarUsuario) action = "autorizarUsuario";
+      else if (params.rechazarUsuario) action = "rechazarUsuario";
+      else action = "getDatos";
+    }
     let responseData = { success: false, message: "Acción no reconocida" };
 
-    // --- ACCIÓN DE AUTENTICACIÓN / LOGIN ---
+    // --- ACCIÓN DE AUTENTICACIÓN / LOGIN / AUTORIZACIÓN ---
     if (action === "login") {
       responseData = autenticarUsuario(
         params.usuario, 
@@ -79,6 +87,12 @@ function doGet(e) {
       );
     } else if (action === "crearUsuario" || action === "registroUsuario") {
       responseData = registrarNuevoUsuario(params);
+    } else if (action === "autorizarUsuario" || action === "rechazarUsuario") {
+      const targetUser = params.usuario || params.autorizarUsuario || params.rechazarUsuario || "";
+      responseData = procesarAutorizacionUsuario(targetUser, params.sig, action);
+      if (!params.callback && params.format !== "json") {
+        return crearRespuestaHTMLAutorizacion(responseData, action);
+      }
     } else if (action === "verificarToken") {
       responseData = validarToken(params.token);
     } 
@@ -175,6 +189,9 @@ function doPost(e) {
       );
     } else if (action === "crearUsuario" || action === "registroUsuario") {
       responseData = registrarNuevoUsuario(payload);
+    } else if (action === "autorizarUsuario" || action === "rechazarUsuario") {
+      const targetUser = payload.usuario || payload.autorizarUsuario || payload.rechazarUsuario || "";
+      responseData = procesarAutorizacionUsuario(targetUser, payload.sig, action);
     } else if (action === "marcarAsistencia") {
       responseData = registrarAsistencia(payload);
     } else if (action === "desmarcarAsistencia") {
@@ -228,11 +245,22 @@ function autenticarUsuario(usuarioIngresado, passwordIngresado, userAgent, turno
       const estadoFila = String(data[i][7] || "Activo").trim();
 
       if (uFila === user) {
-        if (estadoFila.toLowerCase() === "inactivo") {
-          return { success: false, message: "Tu usuario se encuentra inactivo. Consulta con la coordinación." };
-        }
-
         if (pFila === pass) {
+          const estadoLower = estadoFila.toLowerCase();
+          if (estadoLower === "pendiente") {
+            return {
+              success: false,
+              pendingApproval: true,
+              message: "⏳ Falta la autorización del administrador. Tu usuario ya fue creado pero aún debe ser aprobado por el administrador para poder ingresar."
+            };
+          }
+          if (estadoLower === "inactivo" || estadoLower === "rechazado") {
+            return {
+              success: false,
+              message: "🚫 Tu usuario se encuentra sin autorización o inactivo. Consultá con el administrador."
+            };
+          }
+
           // Actualizar último acceso (Columna I / índice 9)
           try {
             sheet.getRange(i + 1, 9).setValue(new Date());
@@ -294,6 +322,141 @@ function autenticarUsuario(usuarioIngresado, passwordIngresado, userAgent, turno
     success: false,
     message: "Usuario o contraseña incorrectos. Verifica los datos e intenta nuevamente."
   };
+}
+
+/**
+ * Genera una firma criptográfica determinística (SHA-256) para autorizar o rechazar un usuario por link
+ */
+function generarFirmaAutorizacion(usuario) {
+  const userClean = String(usuario || "").trim().toLowerCase();
+  const raw = userClean + "|APPROVE_USER|" + AUTH_CONFIG.secretSalt;
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw);
+  return Utilities.base64EncodeWebSafe(digest).replace(/[^a-zA-Z0-9]/g, "").substring(0, 20);
+}
+
+/**
+ * Procesa la autorización o rechazo de un usuario mediante link firmado del administrador
+ */
+function procesarAutorizacionUsuario(usuario, sig, accion) {
+  const lock = LockService.getScriptLock();
+  const hasLock = lock.tryLock(30000);
+  if (!hasLock) {
+    return { success: false, message: "El servidor está ocupado. Intentá de nuevo en unos segundos." };
+  }
+
+  try {
+    const usuarioLimpio = String(usuario || "").trim().toLowerCase();
+    const firmaRecibida = String(sig || "").trim();
+
+    if (!usuarioLimpio || !firmaRecibida) {
+      return { success: false, message: "Parámetros de autorización incompletos." };
+    }
+
+    const firmaEsperada = generarFirmaAutorizacion(usuarioLimpio);
+    if (firmaRecibida !== firmaEsperada) {
+      return { success: false, message: "Firma de autorización inválida." };
+    }
+
+    const sheet = asegurarHojaUsuarios();
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      const uFila = String(data[i][2] || "").trim().toLowerCase();
+      if (uFila === usuarioLimpio) {
+        const nombreFila = String(data[i][4] || "").trim() || usuarioLimpio;
+        const rolFila = String(data[i][5] || "").trim() || "Maestro";
+        const salaFila = String(data[i][6] || "").trim() || "General";
+
+        const esAutorizar = (accion === "autorizarUsuario");
+        const nuevoEstado = esAutorizar ? "Activo" : "Rechazado";
+
+        sheet.getRange(i + 1, 8).setValue(nuevoEstado);
+        SpreadsheetApp.flush();
+
+        registrarLogAcceso(
+          uFila,
+          nombreFila,
+          rolFila,
+          "Admin Approval Link",
+          TURNO_DEFAULT,
+          esAutorizar ? "Usuario Autorizado por Admin" : "Usuario Rechazado por Admin"
+        );
+
+        return {
+          success: true,
+          estado: nuevoEstado,
+          usuario: uFila,
+          nombre: nombreFila,
+          rol: rolFila,
+          sala: salaFila,
+          message: esAutorizar
+            ? "✅ El usuario @" + uFila + " (" + nombreFila + ") fue AUTORIZADO exitosamente y ya puede ingresar al sistema."
+            : "🚫 El usuario @" + uFila + " (" + nombreFila + ") fue RECHAZADO y no podrá ingresar al sistema."
+        };
+      }
+    }
+
+    return {
+      success: false,
+      message: "No se encontró el usuario @" + usuarioLimpio + " en la base de datos."
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: "Error al procesar la autorización: " + err.toString()
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Genera una tarjeta HTML cuando el administrador abre el enlace directamente en el navegador
+ */
+function crearRespuestaHTMLAutorizacion(res, accion) {
+  const esExito = !!res.success;
+  const esAutorizado = res.estado === "Activo" || accion === "autorizarUsuario";
+  const colorHeader = !esExito ? "#DC2626" : (esAutorizado ? "#059669" : "#D97706");
+  const icono = !esExito ? "⚠️" : (esAutorizado ? "✅" : "🚫");
+  const titulo = !esExito
+    ? "No se pudo completar la acción"
+    : (esAutorizado ? "¡Usuario Autorizado con Éxito!" : "Solicitud de Usuario Rechazada");
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Acceso — IGR KIDS</title>
+  <style>
+    body { margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; box-sizing: border-box; }
+    .card { max-width: 460px; width: 100%; background: #1e293b; border-radius: 20px; border: 1px solid #334155; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; }
+    .banner { background: ${colorHeader}; padding: 28px 20px; }
+    .icon { font-size: 48px; margin-bottom: 8px; }
+    h1 { margin: 0; font-size: 22px; font-weight: 800; color: #ffffff; }
+    .content { padding: 28px 24px; }
+    p { font-size: 15px; line-height: 1.6; color: #cbd5e1; margin: 0 0 20px; }
+    .badge { display: inline-block; padding: 8px 16px; border-radius: 999px; font-weight: 700; font-size: 13px; background: #0f172a; color: #38bdf8; border: 1px solid #334155; margin-bottom: 24px; }
+    .btn { display: inline-block; width: 100%; box-sizing: border-box; padding: 14px 20px; background: linear-gradient(135deg, #ca8a04, #eab308); color: #0f172a; font-weight: 800; text-decoration: none; border-radius: 12px; font-size: 15px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="banner">
+      <div class="icon">${icono}</div>
+      <h1>${titulo}</h1>
+    </div>
+    <div class="content">
+      ${res.usuario ? `<div class="badge">@${res.usuario} · ${res.rol || "Maestro"} (${res.sala || "General"})</div>` : ""}
+      <p>${res.message || ""}</p>
+      <a href="${APP_PUBLIC_URL}" class="btn">Ir a IGR KIDS</a>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  return HtmlService.createHtmlOutput(html)
+    .setTitle("Autorización de Usuario — IGR KIDS");
 }
 
 /**
@@ -483,6 +646,37 @@ function obtenerDatosCompletos(fecha, turno) {
     };
   });
 
+  // 4. Estadísticas automáticas para el Reporte de WhatsApp del día
+  const todasAsistenciasDia = obtenerAsistenciasPorFecha(fechaConsulta, "Todos");
+  let manana = 0;
+  let tarde = 0;
+  let noche = 0;
+  const setNinosUnicos = {};
+
+  todasAsistenciasDia.forEach(a => {
+    const tNorm = normalizarTurno(a.turno);
+    if (tNorm === "10:00 hs (Mañana)") manana++;
+    else if (tNorm === "18:00 hs (Tarde)") tarde++;
+    else if (tNorm === "20:00 hs (Noche)") noche++;
+
+    const claveUnica = a.idNino || sanitizarId(a.nombreNino);
+    if (claveUnica) setNinosUnicos[claveUnica] = true;
+  });
+
+  const totalGeneral = manana + tarde + noche;
+  const ninosUnicosDia = Object.keys(setNinosUnicos).length;
+
+  const ninosNuevosHoy = ninosConEstado
+    .filter(n => n.fechaRegistro === fechaConsulta)
+    .map(n => ({
+      id: n.id,
+      nombre: n.nombre,
+      sala: n.salaActual || n.salaSugerida,
+      presente: !!mapaAsistenciasFinal[n.id]
+    }));
+
+  const avisosWhatsAppHoy = obtenerAvisosWhatsAppPorFechaYTurno(fechaConsulta, turnoConsulta);
+
   return {
     success: true,
     fecha: fechaConsulta,
@@ -491,7 +685,16 @@ function obtenerDatosCompletos(fecha, turno) {
     totalNinos: ninos.length,
     totalPresentes: asistencias.length,
     ninos: ninosConEstado,
-    asistenciasHoy: asistencias
+    asistenciasHoy: asistencias,
+    conteoReuniones: {
+      manana: manana,
+      tarde: tarde,
+      noche: noche,
+      totalGeneral: totalGeneral,
+      ninosUnicosDia: ninosUnicosDia
+    },
+    avisosWhatsAppHoy: avisosWhatsAppHoy,
+    ninosNuevosHoy: ninosNuevosHoy
   };
 }
 
@@ -519,6 +722,7 @@ function obtenerTodosLosNinos() {
 
   for (let i = 1; i < data.length; i++) {
     const fila = data[i];
+    const fechaRegistroFila = fila[0] ? normalizarFecha(fila[0]) : "";
     const nombrePapas = String(fila[13] || fila[14] || "").trim();
     const telefono = String(fila[15] || fila[16] || "").trim();
     const notasGenerales = String(fila[16] || fila[17] || "").trim();
@@ -545,7 +749,8 @@ function obtenerTodosLosNinos() {
           telefonoRaw: telefono,
           observacionesMedicas: alergiaLimpia,
           extra: alergiaLimpia,
-          personasAutorizadas: notasGenerales
+          personasAutorizadas: notasGenerales,
+          fechaRegistro: fechaRegistroFila
         });
       }
     });
@@ -876,7 +1081,8 @@ function agregarNuevoNino(datos) {
         nombrePapas: nombrePapas,
         telefono: telefono,
         observacionesMedicas: alergiaLimpia,
-        extra: alergiaLimpia
+        extra: alergiaLimpia,
+        fechaRegistro: getFechaActual()
       }
     };
   } catch (err) {
@@ -1058,6 +1264,53 @@ function asegurarHojaAvisosWhatsApp() {
 }
 
 /**
+ * Obtiene los avisos de WhatsApp enviados a padres para una fecha y turno determinados
+ */
+function obtenerAvisosWhatsAppPorFechaYTurno(fecha, turno) {
+  try {
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_AVISOS_WHATSAPP);
+    if (!sheet) return [];
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return [];
+
+    const fechaBuscada = normalizarFecha(fecha || getFechaActual());
+    const turnoBuscado = (turno && String(turno).trim() !== "" && String(turno).toLowerCase() !== "todos")
+      ? normalizarTurno(turno)
+      : null;
+
+    const avisos = [];
+    for (let i = 1; i < data.length; i++) {
+      const fila = data[i];
+      const fechaFila = normalizarFecha(fila[1]);
+      const turnoFila = normalizarTurno(fila[3]);
+
+      const matchFecha = (fechaFila === fechaBuscada);
+      const matchTurno = !turnoBuscado || (turnoFila === turnoBuscado);
+
+      if (matchFecha && matchTurno) {
+        avisos.push({
+          hora: formatearHoraBackend(fila[2]),
+          turno: String(fila[3] || ""),
+          maestro: String(fila[4] || ""),
+          idNino: String(fila[5] || ""),
+          nombreNino: String(fila[6] || ""),
+          sala: String(fila[7] || ""),
+          nombrePapas: String(fila[8] || ""),
+          motivo: String(fila[10] || "")
+        });
+      }
+    }
+
+    return avisos;
+  } catch (err) {
+    console.warn("Error leyendo hoja Avisos WhatsApp:", err);
+    return [];
+  }
+}
+
+/**
  * Registra un aviso de WhatsApp en la hoja de auditoría "Avisos WhatsApp" (con LockService)
  */
 function registrarAvisoWhatsApp(params) {
@@ -1112,7 +1365,7 @@ function registrarAvisoWhatsApp(params) {
 }
 
 /**
- * Registra un nuevo usuario en la hoja Usuarios con LockService
+ * Registra un nuevo usuario en la hoja Usuarios en estado "Pendiente" de autorización por el administrador
  */
 function registrarNuevoUsuario(datos) {
   const lock = LockService.getScriptLock();
@@ -1164,29 +1417,68 @@ function registrarNuevoUsuario(datos) {
       sanitizarFormula(nombre),
       sanitizarFormula(rol),
       sanitizarFormula(sala),
-      "Activo",
+      "Pendiente",
       ""
     ];
 
     sheet.appendRow(nuevaFila);
     SpreadsheetApp.flush();
 
-    // Registrar en auditoría
-    registrarLogAcceso(usuarioLimpio, nombre, rol, userAgent, turno, "Cuenta Creada");
+    // Generar firma criptográfica y enlaces de autorización / rechazo
+    const sig = generarFirmaAutorizacion(usuarioLimpio);
+    const urlAutorizar = APP_PUBLIC_URL + "/?autorizarUsuario=" + encodeURIComponent(usuarioLimpio) + "&sig=" + encodeURIComponent(sig);
+    const urlRechazar = APP_PUBLIC_URL + "/?rechazarUsuario=" + encodeURIComponent(usuarioLimpio) + "&sig=" + encodeURIComponent(sig);
 
-    const expiresAt = new Date(Date.now() + AUTH_CONFIG.sessionExpiryHours * 60 * 60 * 1000).toISOString();
-    const token = generarTokenSesion(usuarioLimpio, expiresAt);
+    // Registrar en auditoría
+    registrarLogAcceso(usuarioLimpio, nombre, rol, userAgent, turno, "Cuenta Creada (Pendiente Autorización)");
+
+    // Intentar notificar por email al administrador
+    try {
+      const asuntoEmail = "🔐 [IGR KIDS] Solicitud de acceso: " + nombre + " (" + rol + ")";
+      const cuerpoHtml = `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 520px; margin: 0 auto; background: #0f172a; color: #f8fafc; border-radius: 16px; overflow: hidden; border: 1px solid #334155;">
+          <div style="background: linear-gradient(135deg, #ca8a04, #eab308); padding: 20px 24px; color: #0f172a;">
+            <h2 style="margin: 0; font-size: 20px; font-weight: 800;">🔐 Nueva Solicitud de Usuario — IGR KIDS</h2>
+          </div>
+          <div style="padding: 24px;">
+            <p style="margin-top: 0; color: #cbd5e1; font-size: 15px;">Un nuevo servidor solicitó acceso al sistema de asistencia <strong>IGR KIDS</strong> y se encuentra en estado <strong>Pendiente</strong>:</p>
+            <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; margin: 16px 0; font-size: 14px; line-height: 1.7;">
+              <div><strong>👤 Nombre Completo:</strong> ${nombre}</div>
+              <div><strong>🔑 Usuario:</strong> @${usuarioLimpio}</div>
+              <div><strong>🎓 Rol:</strong> ${rol}</div>
+              <div><strong>🏫 Sala Asignada:</strong> ${sala}</div>
+              <div><strong>📅 Fecha:</strong> ${getFechaActual()} ${getHoraActual()} hs</div>
+            </div>
+            <p style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;">Tocá uno de los siguientes botones para autorizar o rechazar el ingreso de este usuario:</p>
+            <div style="text-align: center; margin: 24px 0;">
+              <a href="${urlAutorizar}" style="display: inline-block; padding: 14px 24px; background: #059669; color: #ffffff; text-decoration: none; font-weight: 800; border-radius: 10px; font-size: 15px; margin: 6px;">✅ AUTORIZAR USUARIO</a>
+              <a href="${urlRechazar}" style="display: inline-block; padding: 14px 24px; background: #dc2626; color: #ffffff; text-decoration: none; font-weight: 800; border-radius: 10px; font-size: 15px; margin: 6px;">🚫 RECHAZAR</a>
+            </div>
+          </div>
+        </div>
+      `;
+      MailApp.sendEmail({
+        to: ADMIN_EMAIL,
+        subject: asuntoEmail,
+        htmlBody: cuerpoHtml
+      });
+    } catch (eMail) {
+      console.warn("No se pudo enviar email directo con MailApp:", eMail);
+    }
 
     return {
       success: true,
-      message: `¡Usuario ${nombre} creado con éxito!`,
-      token: token,
-      expiresAt: expiresAt,
+      pendingApproval: true,
+      approvalUrl: urlAutorizar,
+      rejectUrl: urlRechazar,
+      adminEmail: ADMIN_EMAIL,
+      message: "Tu cuenta fue creada y está pendiente de autorización del administrador. Recibirás acceso apenas sea aprobada.",
       user: {
         usuario: usuarioLimpio,
         nombre: nombre,
         rol: rol,
-        sala: sala
+        sala: sala,
+        estado: "Pendiente"
       }
     };
   } catch (err) {
@@ -1370,6 +1662,13 @@ function normalizarFecha(fechaVal) {
   const str = String(fechaVal).trim();
   if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
     return str.substring(0, 10);
+  }
+  const matchDMY = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (matchDMY) {
+    const dd = matchDMY[1].length === 1 ? "0" + matchDMY[1] : matchDMY[1];
+    const mm = matchDMY[2].length === 1 ? "0" + matchDMY[2] : matchDMY[2];
+    const yyyy = matchDMY[3];
+    return yyyy + "-" + mm + "-" + dd;
   }
   return str;
 }
