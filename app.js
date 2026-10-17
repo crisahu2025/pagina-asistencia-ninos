@@ -340,7 +340,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v81] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v82] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -355,9 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=81')
+      navigator.serviceWorker.register('./sw.js?v=82')
         .then(reg => {
-          console.log('[PWA v81] Service Worker registrado:', reg.scope);
+          console.log('[PWA v82] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -365,7 +365,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v81] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v82] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -471,9 +471,7 @@ function aplicarPermisosPorRol() {
   const isAuxiliar = esRolAuxiliar();
 
   const idsOcultarEnAuxiliar = [
-    'headerQuickActionsRow',
     'tabBtn-nuevo',
-    'btnNavQRFamilias',
     'tabBtn-reportes',
     'btnToggleEstadisticas',
     'btnPresentesExcel',
@@ -492,6 +490,24 @@ function aplicarPermisosPorRol() {
       }
     }
   });
+
+  // Configurar barra de accesos rápidos: los auxiliares ven ÚNICAMENTE el botón de QR
+  const headerQuickRow = document.getElementById('headerQuickActionsRow');
+  const btnQR = document.getElementById('btnNavQRFamilias');
+  if (headerQuickRow && btnQR) {
+    if (isAuxiliar) {
+      headerQuickRow.classList.remove('hidden');
+      headerQuickRow.className = 'flex items-center justify-center py-1.5 border-t border-amber-100/60 w-full';
+      btnQR.classList.remove('hidden');
+      btnQR.className = 'tab-btn w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-500 text-amber-950 font-black text-xs sm:text-sm rounded-2xl shadow-sm border border-amber-300 active:scale-95 transition-all cursor-pointer';
+      btnQR.innerHTML = '<i class="fa-solid fa-qrcode text-sm text-amber-950 shrink-0"></i> <span>📱 QR de Inscripción para Familias</span>';
+    } else {
+      headerQuickRow.classList.remove('hidden');
+      headerQuickRow.className = 'grid grid-cols-3 gap-2 py-1.5 border-t border-amber-100/60 w-full';
+      btnQR.className = 'tab-btn flex items-center justify-center gap-1.5 px-2 py-2 bg-white hover:bg-amber-50 text-amber-950 font-black text-xs rounded-2xl shadow-sm border border-amber-300/80 active:scale-95 transition-all cursor-pointer min-w-0';
+      btnQR.innerHTML = '<i class="fa-solid fa-qrcode text-[11px] text-amber-600 shrink-0"></i> <span class="truncate">QR</span>';
+    }
+  }
 
   document.querySelectorAll('#tab-presentes button[onclick*="exportToExcel"], #tab-presentes button[onclick*="printAttendanceRoster"]').forEach(btn => {
     if (isAuxiliar) {
@@ -2763,8 +2779,7 @@ async function handleNuevoNino(event) {
 // MODAL QR & CARTEL DE INSCRIPCIÓN PARA FAMILIAS (GOOGLE FORMS)
 // ==========================================================================
 function abrirModalQRRegistro() {
-  if (esRolAuxiliar()) return;
-  const qrImgUrl = 'icons/qr-formulario-registro.png?v=80';
+  const qrImgUrl = 'icons/qr-formulario-registro.png?v=82';
 
   Swal.fire({
     title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl flex items-center justify-center gap-2">📱 Formulario de Inscripción de Familias</span>',
