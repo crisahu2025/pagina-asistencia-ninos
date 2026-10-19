@@ -340,7 +340,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v84] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v85] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -355,9 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=84')
+      navigator.serviceWorker.register('./sw.js?v=85')
         .then(reg => {
-          console.log('[PWA v84] Service Worker registrado:', reg.scope);
+          console.log('[PWA v85] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -365,7 +365,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v84] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v85] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -1354,6 +1354,38 @@ async function fetchData(showToast = false) {
         }
       });
 
+      // Blindaje adicional: asegurar cualquier niño nuevo pendiente en la cola offline (incluso de fechas anteriores)
+      offlineQueue.forEach(item => {
+        if (item.action === 'agregarNino' && item.payload) {
+          const p = item.payload;
+          const hermanitos = [
+            { nombre: p.nombreNino, edad: p.edadNino, sala: p.salaNino, obs: p.observaciones },
+            { nombre: p.nombreNino2, edad: p.edadNino2, sala: p.salaNino2, obs: p.observaciones2 },
+            { nombre: p.nombreNino3, edad: p.edadNino3, sala: p.salaNino3, obs: p.observaciones3 }
+          ];
+          hermanitos.forEach((h, hIdx) => {
+            if (h.nombre && !serverNames.has(String(h.nombre).trim().toLowerCase())) {
+              const pendingKid = {
+                id: `NINO_PENDING_${item.id || item.timestamp || Date.now()}_${hIdx}`,
+                nombre: h.nombre,
+                edad: h.edad || '',
+                salaSugerida: h.sala || 'General',
+                salaActual: h.sala || 'General',
+                nombrePapas: p.nombrePapas || '',
+                telefono: p.telefono || '',
+                observacionesMedicas: h.obs || '',
+                extra: h.obs || '',
+                presente: false,
+                horaIngreso: null,
+                estadoAsistencia: 'Ausente'
+              };
+              serverKids.unshift(pendingKid);
+              serverNames.add(String(h.nombre).trim().toLowerCase());
+            }
+          });
+        }
+      });
+
       // Indexar la lista final combinada
       state.ninos = prepareKidsIndex(serverKids, true);
 
@@ -1432,7 +1464,42 @@ async function fetchData(showToast = false) {
     const exactBackup = getLocalDataBackup(state.selectedDate, state.selectedTurno);
     const cachedBackup = exactBackup || getAnyRecentBackup();
     if (cachedBackup && cachedBackup.length > 0) {
-      const cleanBackup = exactBackup ? cachedBackup : cachedBackup.map(k => ({ ...k, presente: false, horaIngreso: null }));
+      let cleanBackup = exactBackup ? [...cachedBackup] : cachedBackup.map(k => ({ ...k, presente: false, horaIngreso: null }));
+
+      // Resguardar niños nuevos registrados localmente o pendientes en cola offline
+      const localNuevos = getLocalNinosNuevos(state.selectedDate);
+      const namesSet = new Set(cleanBackup.map(k => String(k.nombre || '').trim().toLowerCase()));
+      localNuevos.forEach(ln => {
+        if (ln && ln.nombre && !namesSet.has(String(ln.nombre).trim().toLowerCase())) {
+          cleanBackup.unshift(ln);
+          namesSet.add(String(ln.nombre).trim().toLowerCase());
+        }
+      });
+
+      const offlineQueue = getOfflineQueue();
+      offlineQueue.forEach(item => {
+        if (item.action === 'agregarNino' && item.payload) {
+          const p = item.payload;
+          [p.nombreNino, p.nombreNino2, p.nombreNino3].forEach((nom, idx) => {
+            if (nom && !namesSet.has(String(nom).trim().toLowerCase())) {
+              cleanBackup.unshift({
+                id: `NINO_PENDING_${item.id || item.timestamp || Date.now()}_${idx}`,
+                nombre: nom,
+                salaSugerida: p[`salaNino${idx === 0 ? '' : idx + 1}`] || 'General',
+                salaActual: p[`salaNino${idx === 0 ? '' : idx + 1}`] || 'General',
+                nombrePapas: p.nombrePapas || '',
+                telefono: p.telefono || '',
+                observacionesMedicas: p[`observaciones${idx === 0 ? '' : idx + 1}`] || '',
+                presente: false,
+                horaIngreso: null,
+                estadoAsistencia: 'Ausente'
+              });
+              namesSet.add(String(nom).trim().toLowerCase());
+            }
+          });
+        }
+      });
+
       state.ninos = prepareKidsIndex(cleanBackup, false);
       showToastNotification(`Modo sin conexión: datos cargados (${state.selectedTurno})`, 'warning');
     } else if (state.ninos.length === 0) {
