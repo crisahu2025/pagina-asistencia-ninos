@@ -340,7 +340,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v82] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v83] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -355,9 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=82')
+      navigator.serviceWorker.register('./sw.js?v=83')
         .then(reg => {
-          console.log('[PWA v82] Service Worker registrado:', reg.scope);
+          console.log('[PWA v83] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -365,7 +365,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v82] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v83] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -604,14 +604,15 @@ function handleTurnoChange(newTurno) {
 }
 
 function checkSavedSession() {
-  // Priorizar sessionStorage para resguardo de tokens por pestaña
-  const token = sessionStorage.getItem('asistencia_auth_token') || localStorage.getItem('asistencia_auth_token');
-  const userStr = sessionStorage.getItem('asistencia_auth_user') || localStorage.getItem('asistencia_auth_user');
-  const expiresAt = sessionStorage.getItem('asistencia_auth_expires') || localStorage.getItem('asistencia_auth_expires');
+  // Mandato Cristian: Mantener sesión persistente en móviles (iPhone y Android) para que no se cierre a cada rato
+  const token = localStorage.getItem('asistencia_auth_token') || sessionStorage.getItem('asistencia_auth_token');
+  const userStr = localStorage.getItem('asistencia_auth_user') || sessionStorage.getItem('asistencia_auth_user');
+  const expiresAt = localStorage.getItem('asistencia_auth_expires') || sessionStorage.getItem('asistencia_auth_expires');
 
-  if (token && userStr && expiresAt) {
+  if (token && userStr) {
     const now = new Date().toISOString();
-    if (expiresAt > now) {
+    // Si no tiene fecha de expiración o aún no venció
+    if (!expiresAt || expiresAt > now) {
       state.isAuthenticated = true;
       state.sessionToken = token;
       try {
@@ -619,6 +620,18 @@ function checkSavedSession() {
       } catch (e) {
         state.currentUser = { usuario: 'admin', nombre: 'Equipo de Niños', rol: 'Maestra' };
       }
+
+      // Renovación sliding automática a 1 año (365 días) en ambos storages
+      const longExpiry = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
+      try {
+        localStorage.setItem('asistencia_auth_token', token);
+        localStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
+        localStorage.setItem('asistencia_auth_expires', longExpiry);
+        sessionStorage.setItem('asistencia_auth_token', token);
+        sessionStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
+        sessionStorage.setItem('asistencia_auth_expires', longExpiry);
+      } catch (e) {}
+
       // Detección Inteligente de Turno al restaurar sesión
       state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
       const turnoSelect = document.getElementById('selectedTurno');
@@ -829,13 +842,18 @@ async function handleLogin(event) {
       }
       cargarEstadoLocalReporte(state.selectedDate, state.selectedTurno);
 
-      sessionStorage.setItem('asistencia_auth_token', token);
-      sessionStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
-      sessionStorage.setItem('asistencia_auth_expires', expiresAt || new Date(Date.now() + 24*3600*1000).toISOString());
+      // Duración prolongada de 1 año (365 días) para sesión continua y persistente (Mandato Cristian)
+      const longExpiry = expiresAt || new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
 
-      localStorage.removeItem('asistencia_auth_token');
-      localStorage.removeItem('asistencia_auth_user');
-      localStorage.removeItem('asistencia_auth_expires');
+      try {
+        sessionStorage.setItem('asistencia_auth_token', token);
+        sessionStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
+        sessionStorage.setItem('asistencia_auth_expires', longExpiry);
+
+        localStorage.setItem('asistencia_auth_token', token);
+        localStorage.setItem('asistencia_auth_user', JSON.stringify(state.currentUser));
+        localStorage.setItem('asistencia_auth_expires', longExpiry);
+      } catch (e) {}
 
       unlockAppView();
       updateConnectionBadge();
@@ -2669,67 +2687,240 @@ function sendWhatsAppNow() {
 }
 
 // ==========================================================================
-// NUEVO NIÑO REGISTRATION
 // ==========================================================================
+// REGISTRO DE NIÑOS Y FAMILIAS (CON SOPORTE MULTI-HERMANITOS)
+// ==========================================================================
+function agregarSeccionHermanito() {
+  const sec2 = document.getElementById('seccionHermanito2');
+  const sec3 = document.getElementById('seccionHermanito3');
+  const btnTexto = document.getElementById('btnAgregarHermanitoTexto');
+  const btnContenedor = document.getElementById('contenedorBotonHermanito');
+  const btnGuardarTexto = document.getElementById('btnGuardarNinoTexto');
+
+  if (sec2 && sec2.classList.contains('hidden')) {
+    sec2.classList.remove('hidden');
+    if (btnTexto) btnTexto.textContent = '+ Agregar tercer hermanito / niño (con los mismos papás)';
+    if (btnGuardarTexto) btnGuardarTexto.textContent = 'Guardar Familia (2 Niños)';
+    const input2 = document.getElementById('nuevoNombre2');
+    if (input2) input2.focus();
+    return;
+  }
+
+  if (sec3 && sec3.classList.contains('hidden')) {
+    sec3.classList.remove('hidden');
+    if (btnContenedor) btnContenedor.classList.add('hidden');
+    if (btnGuardarTexto) btnGuardarTexto.textContent = 'Guardar Familia (3 Niños)';
+    const input3 = document.getElementById('nuevoNombre3');
+    if (input3) input3.focus();
+  }
+}
+
+function quitarHermanito(num) {
+  const btnContenedor = document.getElementById('contenedorBotonHermanito');
+  const btnTexto = document.getElementById('btnAgregarHermanitoTexto');
+  const btnGuardarTexto = document.getElementById('btnGuardarNinoTexto');
+
+  if (num === 2) {
+    const sec2 = document.getElementById('seccionHermanito2');
+    if (sec2) sec2.classList.add('hidden');
+    const n2 = document.getElementById('nuevoNombre2');
+    const e2 = document.getElementById('nuevaEdad2');
+    const o2 = document.getElementById('nuevasObservaciones2');
+    if (n2) n2.value = '';
+    if (e2) e2.value = '';
+    if (o2) o2.value = '';
+
+    // Si también estaba visible el 3, también lo limpiamos
+    quitarHermanito(3);
+
+    if (btnContenedor) btnContenedor.classList.remove('hidden');
+    if (btnTexto) btnTexto.textContent = '+ Agregar hermanito / segundo niño (con los mismos papás)';
+    if (btnGuardarTexto) btnGuardarTexto.textContent = 'Guardar Niño';
+    return;
+  }
+
+  if (num === 3) {
+    const sec3 = document.getElementById('seccionHermanito3');
+    if (sec3) sec3.classList.add('hidden');
+    const n3 = document.getElementById('nuevoNombre3');
+    const e3 = document.getElementById('nuevaEdad3');
+    const o3 = document.getElementById('nuevasObservaciones3');
+    if (n3) n3.value = '';
+    if (e3) e3.value = '';
+    if (o3) o3.value = '';
+
+    if (btnContenedor) btnContenedor.classList.remove('hidden');
+    if (btnTexto) btnTexto.textContent = '+ Agregar tercer hermanito / niño (con los mismos papás)';
+    const sec2 = document.getElementById('seccionHermanito2');
+    if (sec2 && !sec2.classList.contains('hidden')) {
+      if (btnGuardarTexto) btnGuardarTexto.textContent = 'Guardar Familia (2 Niños)';
+    } else {
+      if (btnGuardarTexto) btnGuardarTexto.textContent = 'Guardar Niño';
+    }
+  }
+}
+
+function prepararFormularioParaHermanito(papas, telefono) {
+  // Limpiar formulario dejando los datos de la familia precargados
+  quitarHermanito(2);
+  quitarHermanito(3);
+
+  const n1 = document.getElementById('nuevoNombre');
+  const e1 = document.getElementById('nuevaEdad');
+  const o1 = document.getElementById('nuevasObservaciones');
+  if (n1) n1.value = '';
+  if (e1) e1.value = '';
+  if (o1) o1.value = '';
+
+  const p = document.getElementById('nuevosPapas');
+  const t = document.getElementById('nuevoTelefono');
+  if (p && papas) p.value = papas;
+  if (t && telefono) t.value = telefono;
+
+  switchTab('nuevo');
+  setTimeout(() => {
+    if (n1) n1.focus();
+  }, 250);
+}
+
 async function handleNuevoNino(event) {
   event.preventDefault();
   if (esRolAuxiliar()) return;
 
-  const nombre = document.getElementById('nuevoNombre').value.trim();
-  const edad = document.getElementById('nuevaEdad').value.trim();
-  const sala = document.getElementById('nuevaSala').value;
   const papas = document.getElementById('nuevosPapas').value.trim();
   const telefono = document.getElementById('nuevoTelefono').value.trim();
-  const observaciones = document.getElementById('nuevasObservaciones').value.trim();
   const autoMarcar = document.getElementById('checkMarcarPresente').checked;
 
-  if (!nombre || !papas || !telefono) {
-    showToastNotification('Completa todos los campos obligatorios (*)', 'warning');
+  if (!papas || !telefono) {
+    showToastNotification('Completa el nombre de los papás y el teléfono de contacto (*)', 'warning');
     return;
   }
 
+  // Niño 1 (Obligatorio)
+  const nombre1 = document.getElementById('nuevoNombre').value.trim();
+  const edad1 = document.getElementById('nuevaEdad').value.trim();
+  const sala1 = document.getElementById('nuevaSala').value;
+  const obs1 = document.getElementById('nuevasObservaciones').value.trim();
+
+  if (!nombre1) {
+    showToastNotification('Por favor ingresa el nombre del primer niño/a (*)', 'warning');
+    const input1 = document.getElementById('nuevoNombre');
+    if (input1) input1.focus();
+    return;
+  }
+
+  const ninosToRegister = [];
+  const baseTs = Date.now();
+
+  // Niño 1
+  ninosToRegister.push({
+    slot: 1,
+    id: "NINO_NEW_" + baseTs,
+    nombre: nombre1,
+    edad: edad1,
+    sala: sala1,
+    observaciones: obs1
+  });
+
+  // Niño 2 (Opcional - solo si la sección está visible y tiene nombre)
+  const sec2 = document.getElementById('seccionHermanito2');
+  const nombre2 = document.getElementById('nuevoNombre2')?.value.trim() || '';
+  if (sec2 && !sec2.classList.contains('hidden') && nombre2) {
+    const edad2 = document.getElementById('nuevaEdad2')?.value.trim() || '';
+    const sala2 = document.getElementById('nuevaSala2')?.value || sala1;
+    const obs2 = document.getElementById('nuevasObservaciones2')?.value.trim() || '';
+    ninosToRegister.push({
+      slot: 2,
+      id: "NINO_NEW_" + (baseTs + 1),
+      nombre: nombre2,
+      edad: edad2,
+      sala: sala2,
+      observaciones: obs2
+    });
+  }
+
+  // Niño 3 (Opcional - solo si la sección está visible y tiene nombre)
+  const sec3 = document.getElementById('seccionHermanito3');
+  const nombre3 = document.getElementById('nuevoNombre3')?.value.trim() || '';
+  if (sec3 && !sec3.classList.contains('hidden') && nombre3) {
+    const edad3 = document.getElementById('nuevaEdad3')?.value.trim() || '';
+    const sala3 = document.getElementById('nuevaSala3')?.value || sala1;
+    const obs3 = document.getElementById('nuevasObservaciones3')?.value.trim() || '';
+    ninosToRegister.push({
+      slot: 3,
+      id: "NINO_NEW_" + (baseTs + 2),
+      nombre: nombre3,
+      edad: edad3,
+      sala: sala3,
+      observaciones: obs3
+    });
+  }
+
   const btn = document.getElementById('btnGuardarNino');
+  const originalBtnHtml = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
 
-  const newChildObj = {
-    id: "NINO_NEW_" + Date.now(),
-    nombre: nombre,
-    edad: edad,
-    salaSugerida: sala,
-    salaActual: sala,
-    nombrePapas: papas,
-    telefono: telefono,
-    observacionesMedicas: observaciones,
-    presente: autoMarcar,
-    horaIngreso: autoMarcar ? getCurrentTime() : null,
-    estadoAsistencia: autoMarcar ? 'Presente' : 'Ausente'
-  };
+  const newChildObjects = [];
 
-  // Pre-indexar inmediatamente para que aparezca al instante en el buscador
-  prepareKidsIndex([newChildObj]);
-  state.ninos.unshift(newChildObj);
-  saveLocalNinoNuevo(state.selectedDate, newChildObj);
+  for (const ninoData of ninosToRegister) {
+    const newChildObj = {
+      id: ninoData.id,
+      nombre: ninoData.nombre,
+      edad: ninoData.edad,
+      salaSugerida: ninoData.sala,
+      salaActual: ninoData.sala,
+      nombrePapas: papas,
+      telefono: telefono,
+      observacionesMedicas: ninoData.observaciones,
+      extra: ninoData.observaciones,
+      presente: autoMarcar,
+      horaIngreso: autoMarcar ? getCurrentTime() : null,
+      estadoAsistencia: autoMarcar ? 'Presente' : 'Ausente'
+    };
 
-  if (autoMarcar) {
-    saveLocalAttendance(state.selectedDate, newChildObj.id, true, newChildObj.horaIngreso, sala, state.selectedTurno);
+    prepareKidsIndex([newChildObj]);
+    state.ninos.unshift(newChildObj);
+    saveLocalNinoNuevo(state.selectedDate, newChildObj);
+
+    if (autoMarcar) {
+      saveLocalAttendance(state.selectedDate, newChildObj.id, true, newChildObj.horaIngreso, newChildObj.salaActual, state.selectedTurno);
+    }
+
+    newChildObjects.push(newChildObj);
   }
 
   saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
+  actualizarConteoTurnoActualEnVivo();
   updateUI();
 
+  // Sincronizar en segundo plano con Google Apps Script
   if (!state.demoMode && state.scriptUrl) {
     try {
       const payload = {
         action: 'agregarNino',
-        nombreNino: nombre,
-        edadNino: edad,
-        salaNino: sala,
+        nombreNino: ninosToRegister[0].nombre,
+        edadNino: ninosToRegister[0].edad,
+        salaNino: ninosToRegister[0].sala,
+        observaciones: ninosToRegister[0].observaciones,
         nombrePapas: papas,
         telefono: telefono,
-        observaciones: observaciones,
         token: state.sessionToken || ''
       };
+
+      if (ninosToRegister[1]) {
+        payload.nombreNino2 = ninosToRegister[1].nombre;
+        payload.edadNino2 = ninosToRegister[1].edad;
+        payload.salaNino2 = ninosToRegister[1].sala;
+        payload.observaciones2 = ninosToRegister[1].observaciones;
+      }
+
+      if (ninosToRegister[2]) {
+        payload.nombreNino3 = ninosToRegister[2].nombre;
+        payload.edadNino3 = ninosToRegister[2].edad;
+        payload.salaNino3 = ninosToRegister[2].sala;
+        payload.observaciones3 = ninosToRegister[2].observaciones;
+      }
 
       await fetch(state.scriptUrl, {
         method: 'POST',
@@ -2740,46 +2931,84 @@ async function handleNuevoNino(event) {
 
       if (autoMarcar) {
         const registradoPorNombre = state.currentUser ? (state.currentUser.nombre || state.currentUser.usuario) : 'Recepción';
-        const asisParams = new URLSearchParams({
-          action: 'marcarAsistencia',
-          idNino: newChildObj.id,
-          nombreNino: nombre,
-          nombrePapas: papas,
-          telefono: telefono,
-          sala: sala,
-          fecha: state.selectedDate,
-          hora: newChildObj.horaIngreso,
-          turno: state.selectedTurno,
-          estado: 'Presente',
-          registradoPor: registradoPorNombre,
-          token: state.sessionToken || ''
-        });
-        fetch(`${state.scriptUrl}?${asisParams.toString()}`, { mode: 'no-cors' });
+        for (const child of newChildObjects) {
+          const asisParams = new URLSearchParams({
+            action: 'marcarAsistencia',
+            idNino: child.id,
+            nombreNino: child.nombre,
+            nombrePapas: papas,
+            telefono: telefono,
+            sala: child.salaActual,
+            fecha: state.selectedDate,
+            hora: child.horaIngreso,
+            turno: state.selectedTurno,
+            estado: 'Presente',
+            registradoPor: registradoPorNombre,
+            token: state.sessionToken || ''
+          });
+          fetch(`${state.scriptUrl}?${asisParams.toString()}`, { mode: 'no-cors' });
+        }
       }
     } catch (e) {
-      console.warn('Sync new child in background:', e);
+      console.warn('Sync new children in background:', e);
     }
   }
 
+  // Reset del formulario y ocultar secciones de hermanitos
   document.getElementById('formNuevoNino').reset();
+  quitarHermanito(2);
+  quitarHermanito(3);
   btn.disabled = false;
-  btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>Guardar en Google Sheets</span>';
+  btn.innerHTML = originalBtnHtml;
 
-  Swal.fire({
-    icon: 'success',
-    title: '¡Niño Registrado!',
-    text: `${nombre} ha sido agregado exitosamente a la lista.`,
-    confirmButtonColor: '#ca8a04'
-  }).then(() => {
-    switchTab('asistencia');
-  });
+  const total = newChildObjects.length;
+  const nombresStr = newChildObjects.map(c => `<b>${escapeHtml(c.nombre)}</b>`).join(' y ');
+
+  if (total > 1) {
+    Swal.fire({
+      icon: 'success',
+      title: `¡${total} Hermanitos Registrados!`,
+      html: `
+        <div class="text-center space-y-2">
+          <p class="text-sm text-slate-700">${nombresStr} fueron agregados correctamente al registro de la familia de <b>${escapeHtml(papas)}</b>.</p>
+          ${autoMarcar ? '<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300">✅ Todos marcados como PRESENTES</span>' : ''}
+        </div>
+      `,
+      confirmButtonText: 'Listo (Ver Lista)',
+      confirmButtonColor: '#ca8a04'
+    }).then(() => {
+      switchTab('asistencia');
+    });
+  } else {
+    Swal.fire({
+      icon: 'success',
+      title: '¡Niño Registrado!',
+      html: `
+        <div class="text-center space-y-2">
+          <p class="text-sm text-slate-700">${nombresStr} ha sido agregado exitosamente a la lista.</p>
+          ${autoMarcar ? '<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300">✅ Marcado como PRESENTE</span>' : ''}
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Listo (Ver Lista)',
+      cancelButtonText: '+ Registrar hermanito (mismos papás)',
+      confirmButtonColor: '#ca8a04',
+      cancelButtonColor: '#0284c7'
+    }).then(result => {
+      if (result.dismiss === Swal.DismissReason.cancel) {
+        prepararFormularioParaHermanito(papas, telefono);
+      } else {
+        switchTab('asistencia');
+      }
+    });
+  }
 }
 
 // ==========================================================================
 // MODAL QR & CARTEL DE INSCRIPCIÓN PARA FAMILIAS (GOOGLE FORMS)
 // ==========================================================================
 function abrirModalQRRegistro() {
-  const qrImgUrl = 'icons/qr-formulario-registro.png?v=82';
+  const qrImgUrl = 'icons/qr-formulario-registro.png?v=83';
 
   Swal.fire({
     title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl flex items-center justify-center gap-2">📱 Formulario de Inscripción de Familias</span>',
