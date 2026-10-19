@@ -44,7 +44,7 @@ const AUTH_CONFIG = {
   passwordMaster: "IgrKids*2026!Seguro", // Contraseña segura generada
   nombreUsuario: "Equipo IGR KIDS",      // Nombre que se mostrará al ingresar
   rol: "Administrador / Recepción",
-  sessionExpiryHours: 24,                // Duración de la sesión activa en horas
+  sessionExpiryHours: 8760,              // Duración de la sesión activa en horas (1 año / permanente según mandato Cristian)
   secretSalt: "SECURE_KIDS_ACCESS_2026_CODE_AHUMADA"
 };
 
@@ -132,6 +132,8 @@ function doGet(e) {
         params.fecha || getFechaActual(), 
         params.turno || TURNO_DEFAULT
       );
+    } else if (action === "agregarNino") {
+      responseData = agregarNuevoNino(params);
     } else if (action === "registrarAvisoWhatsApp" || action === "registroWhatsApp" || action === "logWhatsApp") {
       responseData = registrarAvisoWhatsApp(params);
     } else if (action === "getTurnos") {
@@ -1037,31 +1039,45 @@ function agregarNuevoNino(datos) {
     const nombreNino1 = String(datos.nombreNino || "").trim();
     const edadNino1 = String(datos.edadNino || "").trim();
     const salaNino1 = String(datos.salaNino || "").trim();
+    const observaciones1 = String(datos.observaciones || "").trim();
+
+    const nombreNino2 = String(datos.nombreNino2 || "").trim();
+    const edadNino2 = String(datos.edadNino2 || "").trim();
+    const salaNino2 = String(datos.salaNino2 || "").trim();
+    const observaciones2 = String(datos.observaciones2 || "").trim();
+
+    const nombreNino3 = String(datos.nombreNino3 || "").trim();
+    const edadNino3 = String(datos.edadNino3 || "").trim();
+    const salaNino3 = String(datos.salaNino3 || "").trim();
+    const observaciones3 = String(datos.observaciones3 || "").trim();
+
+    const nombreNino4 = String(datos.nombreNino4 || "").trim();
+    const edadNino4 = String(datos.edadNino4 || "").trim();
+    const salaNino4 = String(datos.salaNino4 || "").trim();
+    const observaciones4 = String(datos.observaciones4 || "").trim();
+
     const nombrePapas = String(datos.nombrePapas || "").trim();
     const telefono = String(datos.telefono || "").trim();
-    const observaciones = String(datos.observaciones || "").trim();
     const personasAutorizadas = String(datos.personasAutorizadas || "").trim();
 
     if (!nombreNino1) {
       return { success: false, message: "El nombre del niño es requerido" };
     }
 
-    const alergiaLimpia = limpiarAlergiaBackend(observaciones);
-
     const nuevaFila = [
       timestamp,                             // Col A (0): Timestamp
       sanitizarFormula(nombreNino1),         // Col B (1): Nombre Niño 1
       sanitizarFormula(edadNino1),           // Col C (2): Edad 1
-      sanitizarFormula(observaciones),       // Col D (3): Alergias / Observaciones Médicas Niño 1
-      "",                                    // Col E (4): Niño 2
-      "",                                    // Col F (5): Edad 2
-      "",                                    // Col G (6): Alergias Niño 2
-      "",                                    // Col H (7): Niño 3
-      "",                                    // Col I (8): Edad 3
-      "",                                    // Col J (9): Alergias Niño 3
-      "",                                    // Col K (10): Niño 4
-      "",                                    // Col L (11): Edad 4
-      "",                                    // Col M (12): Alergias Niño 4
+      sanitizarFormula(observaciones1),      // Col D (3): Alergias / Observaciones Médicas Niño 1
+      sanitizarFormula(nombreNino2),         // Col E (4): Niño 2
+      sanitizarFormula(edadNino2),           // Col F (5): Edad 2
+      sanitizarFormula(observaciones2),      // Col G (6): Alergias Niño 2
+      sanitizarFormula(nombreNino3),         // Col H (7): Niño 3
+      sanitizarFormula(edadNino3),           // Col I (8): Edad 3
+      sanitizarFormula(observaciones3),      // Col J (9): Alergias Niño 3
+      sanitizarFormula(nombreNino4),         // Col K (10): Niño 4
+      sanitizarFormula(edadNino4),           // Col L (11): Edad 4
+      sanitizarFormula(observaciones4),      // Col M (12): Alergias Niño 4
       sanitizarFormula(nombrePapas),         // Col N (13): Papás
       "",                                    // Col O (14): Mail/Otro
       sanitizarFormula(telefono),            // Col P (15): Teléfono
@@ -1071,19 +1087,63 @@ function agregarNuevoNino(datos) {
     sheet.appendRow(nuevaFila);
     SpreadsheetApp.flush();
 
-    return {
-      success: true,
-      message: `Niño ${nombreNino1} agregado exitosamente al registro`,
-      nuevoNino: {
-        nombre: nombreNino1,
-        edad: edadNino1,
-        sala: salaNino1,
+    const ninosAgregados = [{
+      nombre: nombreNino1,
+      edad: edadNino1,
+      sala: salaNino1,
+      nombrePapas: nombrePapas,
+      telefono: telefono,
+      observacionesMedicas: limpiarAlergiaBackend(observaciones1),
+      extra: limpiarAlergiaBackend(observaciones1),
+      fechaRegistro: getFechaActual()
+    }];
+
+    if (nombreNino2) {
+      ninosAgregados.push({
+        nombre: nombreNino2,
+        edad: edadNino2,
+        sala: salaNino2,
         nombrePapas: nombrePapas,
         telefono: telefono,
-        observacionesMedicas: alergiaLimpia,
-        extra: alergiaLimpia,
+        observacionesMedicas: limpiarAlergiaBackend(observaciones2),
+        extra: limpiarAlergiaBackend(observaciones2),
         fechaRegistro: getFechaActual()
-      }
+      });
+    }
+
+    if (nombreNino3) {
+      ninosAgregados.push({
+        nombre: nombreNino3,
+        edad: edadNino3,
+        sala: salaNino3,
+        nombrePapas: nombrePapas,
+        telefono: telefono,
+        observacionesMedicas: limpiarAlergiaBackend(observaciones3),
+        extra: limpiarAlergiaBackend(observaciones3),
+        fechaRegistro: getFechaActual()
+      });
+    }
+
+    if (nombreNino4) {
+      ninosAgregados.push({
+        nombre: nombreNino4,
+        edad: edadNino4,
+        sala: salaNino4,
+        nombrePapas: nombrePapas,
+        telefono: telefono,
+        observacionesMedicas: limpiarAlergiaBackend(observaciones4),
+        extra: limpiarAlergiaBackend(observaciones4),
+        fechaRegistro: getFechaActual()
+      });
+    }
+
+    return {
+      success: true,
+      message: ninosAgregados.length > 1
+        ? `${ninosAgregados.length} hermanitos agregados exitosamente al registro`
+        : `Niño ${nombreNino1} agregado exitosamente al registro`,
+      ninos: ninosAgregados,
+      nuevoNino: ninosAgregados[0]
     };
   } catch (err) {
     return {
