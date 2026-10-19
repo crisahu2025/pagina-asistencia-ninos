@@ -340,7 +340,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v85] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v86] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -355,9 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=85')
+      navigator.serviceWorker.register('./sw.js?v=86')
         .then(reg => {
-          console.log('[PWA v85] Service Worker registrado:', reg.scope);
+          console.log('[PWA v86] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -365,7 +365,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v85] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v86] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -1323,6 +1323,7 @@ async function fetchData(showToast = false) {
       const localStored = getLocalAttendance(state.selectedDate, state.selectedTurno);
 
       // 1b. Procesar datos del servidor respetando su estado pero PREVALECIENDO las marcas locales pendientes
+      let recoveredCount = 0;
       let serverKids = data.ninos.map(sk => {
         const kid = { ...sk };
         const kidIdStr = String(kid.id);
@@ -1335,11 +1336,34 @@ async function fetchData(showToast = false) {
           kid.estadoAsistencia = pm.estado;
           if (pm.sala) kid.salaActual = pm.sala;
         } else if (localStored[kidIdStr] && localStored[kidIdStr].presente && !kid.presente) {
-          // Resguardo de seguridad: si localmente está presente y el servidor aún no sincronizó, preservarlo
+          // Resguardo de seguridad y auto-recuperación: si localmente este celular lo tenía presente
           kid.presente = true;
           kid.horaIngreso = localStored[kidIdStr].horaIngreso || kid.horaIngreso;
           kid.estadoAsistencia = 'Presente';
           if (localStored[kidIdStr].sala) kid.salaActual = localStored[kidIdStr].sala;
+
+          // Recuperación proactiva: encolar para sincronizarlo inmediatamente a Google Sheets
+          const regUser = (state.currentUser && (state.currentUser.nombre || state.currentUser.usuario))
+            ? (state.currentUser.nombre || state.currentUser.usuario)
+            : (localStored[kidIdStr].registradoPor || 'Recuperado de Celular');
+
+          enqueueOfflineAction({
+            id: `sync_recovered_${kid.id}_${Date.now()}`,
+            action: 'marcarAsistencia',
+            idNino: kid.id,
+            nombreNino: kid.nombre,
+            nombrePapas: kid.nombrePapas || '',
+            telefono: kid.telefono || '',
+            sala: kid.salaActual || kid.salaSugerida || 'General',
+            fecha: state.selectedDate,
+            hora: kid.horaIngreso || '18:00',
+            turno: state.selectedTurno,
+            estado: 'Presente',
+            registradoPor: regUser,
+            token: state.sessionToken || '',
+            timestamp: Date.now()
+          });
+          recoveredCount++;
         }
         return kid;
       });
@@ -1351,6 +1375,32 @@ async function fetchData(showToast = false) {
         if (ln && ln.nombre && !serverNames.has(String(ln.nombre).trim().toLowerCase())) {
           serverKids.unshift(ln);
           serverNames.add(String(ln.nombre).trim().toLowerCase());
+
+          // Recuperar y subir niño nuevo si no estaba en la cola pendiente
+          const alreadyQueued = offlineQueue.some(item =>
+            item.action === 'agregarNino' &&
+            item.payload &&
+            String(item.payload.nombreNino || '').trim().toLowerCase() === String(ln.nombre).trim().toLowerCase()
+          );
+
+          if (!alreadyQueued) {
+            enqueueOfflineAction({
+              id: `sync_recovered_new_${ln.id || Date.now()}`,
+              action: 'agregarNino',
+              payload: {
+                action: 'agregarNino',
+                nombreNino: ln.nombre,
+                edadNino: ln.edad || '',
+                salaNino: ln.salaActual || ln.salaSugerida || 'General',
+                observaciones: ln.observacionesMedicas || ln.extra || '',
+                nombrePapas: ln.nombrePapas || '',
+                telefono: ln.telefono || '',
+                token: state.sessionToken || ''
+              },
+              timestamp: Date.now()
+            });
+            recoveredCount++;
+          }
         }
       });
 
@@ -1453,7 +1503,9 @@ async function fetchData(showToast = false) {
       // Procesar cualquier acción que haya quedado pendiente en cola offline
       procesarColaOffline();
 
-      if (showToast) {
+      if (recoveredCount > 0) {
+        showToastNotification(`🔄 Se recuperaron ${recoveredCount} registro(s) guardados en este celular y se enviaron a la planilla.`, 'success');
+      } else if (showToast) {
         showToastNotification(`Sincronizado con Google Sheets (${state.selectedTurno})`, 'success');
       }
     } else {
