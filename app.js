@@ -340,7 +340,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v83] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v84] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -355,9 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=83')
+      navigator.serviceWorker.register('./sw.js?v=84')
         .then(reg => {
-          console.log('[PWA v83] Service Worker registrado:', reg.scope);
+          console.log('[PWA v84] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -365,7 +365,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v83] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v84] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -389,9 +389,27 @@ function initApp() {
   } catch (e) {}
 
   // Listeners reactivos para estado de red en vivo (Online / Offline)
-  window.addEventListener('online', updateConnectionBadge);
+  window.addEventListener('online', () => {
+    updateConnectionBadge();
+    procesarColaOffline();
+    fetchData(false);
+  });
   window.addEventListener('offline', updateConnectionBadge);
+  window.addEventListener('focus', () => {
+    if (navigator.onLine && getOfflineQueue().length > 0) {
+      procesarColaOffline();
+    }
+  });
+
+  // Reintento periódico de sincronización offline en segundo plano (cada 20s)
+  setInterval(() => {
+    if (navigator.onLine && getOfflineQueue().length > 0) {
+      procesarColaOffline();
+    }
+  }, 20000);
+
   updateConnectionBadge();
+  actualizarIndicadorColaSync();
 
   // Set date input value
   const dateInput = document.getElementById('selectedDate');
@@ -1290,10 +1308,56 @@ async function fetchData(showToast = false) {
     });
 
     if (data && data.success && Array.isArray(data.ninos)) {
-      // 1. Procesar datos del servidor respetando su estado real
-      state.ninos = prepareKidsIndex(data.ninos, true);
+      // 1. Obtener cola de sincronización pendiente y datos locales para PROTEGER marcas offline
+      const offlineQueue = getOfflineQueue();
+      const pendingMarks = {};
+      offlineQueue.forEach(item => {
+        if ((item.action === 'marcarAsistencia' || item.action === 'desmarcarAsistencia') &&
+            item.fecha === state.selectedDate &&
+            item.turno === state.selectedTurno &&
+            item.idNino) {
+          pendingMarks[String(item.idNino)] = item;
+        }
+      });
 
-      // 1b. Sincronizar conteo de las 3 reuniones, avisos de WhatsApp y niños nuevos de hoy
+      const localStored = getLocalAttendance(state.selectedDate, state.selectedTurno);
+
+      // 1b. Procesar datos del servidor respetando su estado pero PREVALECIENDO las marcas locales pendientes
+      let serverKids = data.ninos.map(sk => {
+        const kid = { ...sk };
+        const kidIdStr = String(kid.id);
+
+        if (pendingMarks[kidIdStr]) {
+          // La acción local offline del usuario manda sobre datos viejos del servidor
+          const pm = pendingMarks[kidIdStr];
+          kid.presente = (pm.estado === 'Presente');
+          kid.horaIngreso = pm.hora || kid.horaIngreso;
+          kid.estadoAsistencia = pm.estado;
+          if (pm.sala) kid.salaActual = pm.sala;
+        } else if (localStored[kidIdStr] && localStored[kidIdStr].presente && !kid.presente) {
+          // Resguardo de seguridad: si localmente está presente y el servidor aún no sincronizó, preservarlo
+          kid.presente = true;
+          kid.horaIngreso = localStored[kidIdStr].horaIngreso || kid.horaIngreso;
+          kid.estadoAsistencia = 'Presente';
+          if (localStored[kidIdStr].sala) kid.salaActual = localStored[kidIdStr].sala;
+        }
+        return kid;
+      });
+
+      // 1c. Resguardar y fusionar niños nuevos registrados localmente que aún no figuren en la planilla
+      const localNuevos = getLocalNinosNuevos(state.selectedDate);
+      const serverNames = new Set(serverKids.map(k => String(k.nombre || '').trim().toLowerCase()));
+      localNuevos.forEach(ln => {
+        if (ln && ln.nombre && !serverNames.has(String(ln.nombre).trim().toLowerCase())) {
+          serverKids.unshift(ln);
+          serverNames.add(String(ln.nombre).trim().toLowerCase());
+        }
+      });
+
+      // Indexar la lista final combinada
+      state.ninos = prepareKidsIndex(serverKids, true);
+
+      // 1d. Sincronizar conteo de las 3 reuniones, avisos de WhatsApp y niños nuevos de hoy
       if (data.conteoReuniones && typeof data.conteoReuniones === 'object') {
         state.conteoReuniones = {
           manana: Number(data.conteoReuniones.manana) || 0,
@@ -1318,7 +1382,6 @@ async function fetchData(showToast = false) {
       }
 
       if (Array.isArray(data.ninosNuevosHoy)) {
-        const localNuevos = getLocalNinosNuevos(state.selectedDate);
         const combinedNuevos = [...data.ninosNuevosHoy, ...localNuevos];
         const seenNuevos = new Set();
         state.ninosNuevosHoy = combinedNuevos.filter(k => {
@@ -1333,7 +1396,7 @@ async function fetchData(showToast = false) {
         } catch (e) {}
       }
 
-      // 2. Sincronizar y sanear el almacenamiento local con la verdad del servidor para este turno
+      // 2. Sincronizar y sanear el almacenamiento local con el estado unificado para este turno
       const newLocalAttendance = {};
       state.ninos.forEach(n => {
         if (n.presente) {
@@ -1347,7 +1410,6 @@ async function fetchData(showToast = false) {
       });
       const key = `asistencia_date_${state.selectedDate}_${encodeURIComponent(state.selectedTurno || '10:00 hs (Mañana)')}`;
       localStorage.setItem(key, JSON.stringify(newLocalAttendance));
-      // Limpiar residuo legacy si existiera
       try {
         localStorage.removeItem(`asistencia_date_${state.selectedDate}`);
       } catch (e) {}
@@ -1355,6 +1417,10 @@ async function fetchData(showToast = false) {
       actualizarConteoTurnoActualEnVivo();
       saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
       updateUI();
+
+      // Procesar cualquier acción que haya quedado pendiente en cola offline
+      procesarColaOffline();
+
       if (showToast) {
         showToastNotification(`Sincronizado con Google Sheets (${state.selectedTurno})`, 'success');
       }
@@ -1378,6 +1444,187 @@ async function fetchData(showToast = false) {
   } finally {
     setLoadingState(false);
   }
+}
+
+// ==========================================================================
+// MOTOR DE SINCRONIZACIÓN FUERA DE LÍNEA (OFFLINE QUEUE & RESILIENCIA)
+// ==========================================================================
+const OFFLINE_QUEUE_KEY = 'igr_asistencia_offline_queue';
+let isSyncingOfflineQueue = false;
+
+function getOfflineQueue() {
+  try {
+    const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveOfflineQueue(queue) {
+  try {
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(Array.isArray(queue) ? queue : []));
+  } catch (e) {
+    console.error('Error guardando cola offline:', e);
+  }
+}
+
+function enqueueOfflineAction(actionItem) {
+  try {
+    let queue = getOfflineQueue();
+    // Si es marcar o desmarcar para el mismo niño, fecha y turno, deduplicar manteniendo la última acción
+    if (actionItem.action === 'marcarAsistencia' || actionItem.action === 'desmarcarAsistencia') {
+      queue = queue.filter(item => !(
+        (item.action === 'marcarAsistencia' || item.action === 'desmarcarAsistencia') &&
+        String(item.idNino) === String(actionItem.idNino) &&
+        item.fecha === actionItem.fecha &&
+        item.turno === actionItem.turno
+      ));
+    }
+    queue.push(actionItem);
+    saveOfflineQueue(queue);
+    actualizarIndicadorColaSync();
+
+    // Disparar procesamiento en segundo plano si hay internet
+    if (navigator.onLine) {
+      procesarColaOffline();
+    }
+  } catch (e) {
+    console.error('Error al encolar acción offline:', e);
+  }
+}
+
+async function procesarColaOffline() {
+  if (isSyncingOfflineQueue) return;
+  const queue = getOfflineQueue();
+  if (!queue || queue.length === 0) {
+    actualizarIndicadorColaSync();
+    return;
+  }
+
+  if (!navigator.onLine || state.demoMode || !state.scriptUrl) {
+    actualizarIndicadorColaSync();
+    return;
+  }
+
+  isSyncingOfflineQueue = true;
+  actualizarIndicadorColaSync(true);
+
+  let processedCount = 0;
+  const remaining = [];
+
+  for (let i = 0; i < queue.length; i++) {
+    const item = queue[i];
+    let success = false;
+
+    try {
+      if (item.action === 'marcarAsistencia' || item.action === 'desmarcarAsistencia') {
+        const params = new URLSearchParams({
+          action: item.action,
+          idNino: item.idNino,
+          nombreNino: item.nombreNino || '',
+          nombrePapas: item.nombrePapas || '',
+          telefono: item.telefono || '',
+          sala: item.sala || 'General',
+          fecha: item.fecha,
+          hora: item.hora,
+          turno: item.turno,
+          estado: item.estado,
+          registradoPor: item.registradoPor || 'Recepción',
+          token: item.token || state.sessionToken || ''
+        });
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        await fetch(`${state.scriptUrl}?${params.toString()}`, {
+          mode: 'no-cors',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        success = true;
+      } else if (item.action === 'agregarNino') {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        await fetch(state.scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams(item.payload),
+          mode: 'no-cors',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        success = true;
+      } else {
+        success = true;
+      }
+    } catch (err) {
+      console.warn('[OfflineSync] Error enviando elemento:', err);
+      success = false;
+    }
+
+    if (success) {
+      processedCount++;
+    } else {
+      // Si falló por conexión, conservar este elemento y los restantes
+      remaining.push(item);
+      for (let j = i + 1; j < queue.length; j++) {
+        remaining.push(queue[j]);
+      }
+      break;
+    }
+  }
+
+  saveOfflineQueue(remaining);
+  isSyncingOfflineQueue = false;
+  actualizarIndicadorColaSync();
+
+  if (processedCount > 0 && remaining.length === 0) {
+    showToastNotification(`✅ Sincronizados ${processedCount} registros pendientes con Google Sheets`, 'success');
+  }
+}
+
+function actualizarIndicadorColaSync(isSyncing = false) {
+  const btn = document.getElementById('btnSyncQueue');
+  const countSpan = document.getElementById('btnSyncQueueCount');
+  if (!btn) return;
+
+  const queue = getOfflineQueue();
+  if (queue.length === 0) {
+    btn.classList.add('hidden');
+    return;
+  }
+
+  btn.classList.remove('hidden');
+  if (isSyncing) {
+    btn.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-sky-100 text-sky-900 border border-sky-300 shadow-xs cursor-pointer';
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-sky-700"></i> <span>Enviando (${queue.length})...</span>`;
+  } else {
+    btn.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-950 border border-amber-300 shadow-xs animate-pulse cursor-pointer';
+    btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-amber-700"></i> <span>${queue.length} pendiente${queue.length > 1 ? 's' : ''}</span>`;
+  }
+}
+
+function forzarSincronizacionOffline(event) {
+  if (event) event.stopPropagation();
+  const queue = getOfflineQueue();
+  if (queue.length === 0) {
+    showToastNotification('Todos los datos están al día con Google Sheets.', 'info');
+    return;
+  }
+
+  if (!navigator.onLine) {
+    Swal.fire({
+      icon: 'info',
+      title: 'Modo Fuera de Línea',
+      text: `Tenés ${queue.length} registro(s) guardado(s) de forma segura en la memoria de este celular. En cuanto tengas señal o te conectes a Wi-Fi, se enviarán automáticamente a Google Sheets sin perder ningún presente.`,
+      confirmButtonColor: '#ca8a04',
+      confirmButtonText: 'Entendido'
+    });
+    return;
+  }
+
+  showToastNotification(`Sincronizando ${queue.length} cambio(s) pendientes...`, 'info');
+  procesarColaOffline();
 }
 
 // Local Storage helpers for offline resilience with multi-turn support
@@ -1750,32 +1997,26 @@ async function toggleAsistencia(childId) {
     mostrarAlertaMedicaCheckin(child);
   }
 
-  // If live mode is connected, sync with Google Sheets backend
+  // Sincronizar mediante cola offline resiliente (nunca pierde un presente)
   if (!state.demoMode && state.scriptUrl) {
-    try {
-      const action = newState ? 'marcarAsistencia' : 'desmarcarAsistencia';
-      const registradoPorNombre = state.currentUser ? (state.currentUser.nombre || state.currentUser.usuario) : 'Recepción';
-      const params = new URLSearchParams({
-        action: action,
-        idNino: child.id,
-        nombreNino: child.nombre,
-        nombrePapas: child.nombrePapas,
-        telefono: child.telefono,
-        sala: child.salaActual || child.salaSugerida,
-        fecha: state.selectedDate,
-        hora: newTime || getCurrentTime(),
-        turno: state.selectedTurno,
-        estado: newState ? 'Presente' : 'Ausente',
-        registradoPor: registradoPorNombre,
-        token: state.sessionToken || ''
-      });
-
-      fetch(`${state.scriptUrl}?${params.toString()}`, { mode: 'no-cors' }).catch(err => {
-        console.warn('Sync in background:', err);
-      });
-    } catch (err) {
-      console.warn('Background sync failed:', err);
-    }
+    const action = newState ? 'marcarAsistencia' : 'desmarcarAsistencia';
+    const registradoPorNombre = state.currentUser ? (state.currentUser.nombre || state.currentUser.usuario) : 'Recepción';
+    enqueueOfflineAction({
+      id: `sync_${child.id}_${Date.now()}`,
+      action: action,
+      idNino: child.id,
+      nombreNino: child.nombre,
+      nombrePapas: child.nombrePapas,
+      telefono: child.telefono,
+      sala: child.salaActual || child.salaSugerida,
+      fecha: state.selectedDate,
+      hora: newTime || getCurrentTime(),
+      turno: state.selectedTurno,
+      estado: newState ? 'Presente' : 'Ausente',
+      registradoPor: registradoPorNombre,
+      token: state.sessionToken || '',
+      timestamp: Date.now()
+    });
   }
 }
 
@@ -2922,17 +3163,18 @@ async function handleNuevoNino(event) {
         payload.observaciones3 = ninosToRegister[2].observaciones;
       }
 
-      await fetch(state.scriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(payload),
-        mode: 'no-cors'
+      enqueueOfflineAction({
+        id: `sync_new_${Date.now()}`,
+        action: 'agregarNino',
+        payload: payload,
+        timestamp: Date.now()
       });
 
       if (autoMarcar) {
         const registradoPorNombre = state.currentUser ? (state.currentUser.nombre || state.currentUser.usuario) : 'Recepción';
         for (const child of newChildObjects) {
-          const asisParams = new URLSearchParams({
+          enqueueOfflineAction({
+            id: `sync_${child.id}_${Date.now()}`,
             action: 'marcarAsistencia',
             idNino: child.id,
             nombreNino: child.nombre,
@@ -2944,9 +3186,9 @@ async function handleNuevoNino(event) {
             turno: state.selectedTurno,
             estado: 'Presente',
             registradoPor: registradoPorNombre,
-            token: state.sessionToken || ''
+            token: state.sessionToken || '',
+            timestamp: Date.now()
           });
-          fetch(`${state.scriptUrl}?${asisParams.toString()}`, { mode: 'no-cors' });
         }
       }
     } catch (e) {
@@ -3008,7 +3250,7 @@ async function handleNuevoNino(event) {
 // MODAL QR & CARTEL DE INSCRIPCIÓN PARA FAMILIAS (GOOGLE FORMS)
 // ==========================================================================
 function abrirModalQRRegistro() {
-  const qrImgUrl = 'icons/qr-formulario-registro.png?v=83';
+  const qrImgUrl = 'icons/qr-formulario-registro.png?v=84';
 
   Swal.fire({
     title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-xl sm:text-2xl flex items-center justify-center gap-2">📱 Formulario de Inscripción de Familias</span>',
@@ -3516,7 +3758,7 @@ function updateConnectionBadge() {
       const bannerText = document.getElementById('statusBannerText');
       if (bannerText) {
         if (!isOnline) {
-          bannerText.textContent = 'Sin conexión a Internet. Las acciones se sincronizarán al reconectar.';
+          bannerText.textContent = 'Sin conexión a Internet. Los presentes se guardan de forma segura en el celular y se enviarán automáticamente a Google Sheets al reconectar.';
         } else if (state && state.demoMode) {
           bannerText.textContent = 'Modo de demostración activo con datos de prueba.';
         }
@@ -3525,6 +3767,8 @@ function updateConnectionBadge() {
       banner.classList.add('hidden');
     }
   }
+
+  actualizarIndicadorColaSync();
 }
 
 // ==========================================================================
