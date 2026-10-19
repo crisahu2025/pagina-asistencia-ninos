@@ -340,7 +340,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v86] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v87] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -355,9 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=86')
+      navigator.serviceWorker.register('./sw.js?v=87')
         .then(reg => {
-          console.log('[PWA v86] Service Worker registrado:', reg.scope);
+          console.log('[PWA v87] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -365,7 +365,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v86] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v87] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -3905,6 +3905,16 @@ function switchTab(tabId) {
   const activeBtn = document.getElementById(`tabBtn-${tabId}`);
   if (activeBtn) activeBtn.classList.add('active-tab');
 
+  // Actualizar estado visual del botón Inicio Universal en el header
+  const btnInicioUniversal = document.getElementById('btnNavInicioUniversal');
+  if (btnInicioUniversal) {
+    if (tabId === 'asistencia') {
+      btnInicioUniversal.className = 'flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-amber-950 font-black text-xs sm:text-sm border border-amber-300 shadow-sm active:scale-95 transition-all cursor-pointer';
+    } else {
+      btnInicioUniversal.className = 'flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-950 font-black text-xs sm:text-sm border border-amber-200/90 shadow-sm active:scale-95 transition-all cursor-pointer';
+    }
+  }
+
   document.querySelectorAll('.tab-content').forEach(content => {
     content.classList.add('hidden');
   });
@@ -3914,6 +3924,17 @@ function switchTab(tabId) {
   if (tabId === 'presentes') {
     renderPresentesList();
   }
+}
+
+function irAInicio() {
+  switchTab('asistencia');
+  closeHeaderMenu();
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput && searchInput.value) {
+    searchInput.value = '';
+    handleSearchInput('');
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ==========================================================================

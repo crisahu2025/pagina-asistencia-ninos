@@ -5,31 +5,31 @@
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v86';
+const CACHE_NAME = 'igr-kids-v87';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './pastores.html',
-  './styles.css?v=86',
-  './app.js?v=86',
-  './manifest.json?v=86',
+  './styles.css?v=87',
+  './app.js?v=87',
+  './manifest.json?v=87',
   './manifest.json',
-  './icons/favicon.png?v=86',
+  './icons/favicon.png?v=87',
   './icons/favicon.png',
-  './icons/apple-touch-icon.png?v=86',
+  './icons/apple-touch-icon.png?v=87',
   './icons/apple-touch-icon.png',
-  './icons/icon-192.png?v=86',
+  './icons/icon-192.png?v=87',
   './icons/icon-192.png',
-  './icons/icon-512.png?v=86',
+  './icons/icon-512.png?v=87',
   './icons/icon-512.png',
-  './icons/logo-icon.png?v=86',
+  './icons/logo-icon.png?v=87',
   './icons/logo-icon.png',
-  './icons/app-logo-full.png?v=86',
+  './icons/app-logo-full.png?v=87',
   './icons/app-logo-full.png',
-  './icons/qr-formulario-registro.png?v=86',
+  './icons/qr-formulario-registro.png?v=87',
   './icons/qr-formulario-registro.png',
-  './icons/qr-formulario-registro.svg?v=86',
+  './icons/qr-formulario-registro.svg?v=87',
   './icons/qr-formulario-registro.svg',
   'https://cdn.tailwindcss.com',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',

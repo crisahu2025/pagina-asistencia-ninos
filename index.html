@@ -6,14 +6,14 @@
   <title>IGR KIDS - Portal de Asistencia Infantil</title>
   <meta name="description" content="Portal de control de asistencia de niños conectado a Google Sheets con seguridad y tonos pastel">
     <!-- PWA & Mobile Web App Meta -->
-  <link rel="manifest" href="manifest.json?v=86">
+  <link rel="manifest" href="manifest.json?v=87">
   <meta name="theme-color" content="#FACC15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IGR KIDS">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=86">
-  <link rel="icon" type="image/png" href="icons/favicon.png?v=86">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=87">
+  <link rel="icon" type="image/png" href="icons/favicon.png?v=87">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=86">
+  <link rel="stylesheet" href="styles.css?v=87">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -86,7 +86,7 @@
 
       <!-- Icon & Portal Header -->
       <div class="text-center relative z-10">
-        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=86" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
+        <div class="w-20 h-20 mx-auto rounded-3xl bg-white p-1.5 shadow-lg shadow-amber-900/10 mb-3 border border-amber-200/80 flex items-center justify-center overflow-hidden"><img src="icons/logo-icon.png?v=87" alt="IGR KIDS Logo" class="w-full h-full object-contain"></div>
         <h2 class="text-2xl sm:text-3xl font-extrabold font-['Outfit'] text-slate-900 tracking-tight">
           IGR KIDS
         </h2>
@@ -282,10 +282,10 @@
         <!-- ROW 1: Brand & User Controls -->
         <div class="flex items-center justify-between py-2 sm:py-3 border-b border-amber-50 gap-1.5 sm:gap-2 max-w-full">
           
-          <!-- Logo & App Name -->
-          <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+          <!-- Logo & App Name (con click para volver al Inicio) -->
+          <div onclick="irAInicio()" class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0 cursor-pointer active:scale-95 transition-transform" title="Volver al Inicio">
             <div class="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-white p-1 border border-amber-200 shadow-sm flex items-center justify-center overflow-hidden shrink-0">
-              <img src="icons/logo-icon.png?v=86" alt="IGR KIDS" class="w-full h-full object-contain">
+              <img src="icons/logo-icon.png?v=87" alt="IGR KIDS" class="w-full h-full object-contain">
             </div>
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 sm:gap-2">
@@ -304,17 +304,31 @@
             </div>
           </div>
 
-          <!-- Top Actions: Hamburger Menu Container -->
-          <div class="relative shrink-0">
-            <!-- Botón Menú Cuadrado con 3 Líneas -->
+          <!-- Top Actions: Botón Inicio Universal & Hamburger Menu -->
+          <div class="flex items-center gap-2 shrink-0">
+            <!-- Botón de Inicio Universal (Visible y accesible para todos los usuarios) -->
             <button 
-              id="btnMenuHeader" 
-              onclick="toggleHeaderMenu(event)" 
-              title="Menú del Sistema" 
-              class="relative w-10 h-10 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 text-amber-950 flex items-center justify-center shadow-md shadow-amber-500/20 border border-amber-300 active:scale-95 transition-all cursor-pointer"
-              aria-expanded="false"
-              aria-haspopup="true"
+              id="btnNavInicioUniversal" 
+              type="button" 
+              onclick="irAInicio()" 
+              title="Volver a la pantalla principal / Tomar Asistencia" 
+              class="flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 text-amber-950 font-black text-xs sm:text-sm border border-amber-300 shadow-sm active:scale-95 transition-all cursor-pointer"
             >
+              <i class="fa-solid fa-house text-xs sm:text-sm text-amber-950"></i>
+              <span>Inicio</span>
+            </button>
+
+            <!-- Top Actions: Hamburger Menu Container -->
+            <div class="relative shrink-0">
+              <!-- Botón Menú Cuadrado con 3 Líneas -->
+              <button 
+                id="btnMenuHeader" 
+                onclick="toggleHeaderMenu(event)" 
+                title="Menú del Sistema" 
+                class="relative w-10 h-10 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 text-amber-950 flex items-center justify-center shadow-md shadow-amber-500/20 border border-amber-300 active:scale-95 transition-all cursor-pointer"
+                aria-expanded="false"
+                aria-haspopup="true"
+              >
               <i class="fa-solid fa-bars text-base"></i>
               <!-- Badge flotante con presentes si hay activos -->
               <span id="headerMenuBadge" class="hidden absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-emerald-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-white shadow-sm">0</span>
@@ -422,6 +436,7 @@
 
             </div>
           </div>
+        </div>
 
         </div>
 
@@ -1227,7 +1242,7 @@
         <!-- Encabezado con Logo Oficial y Título -->
         <div class="flex items-center gap-3.5 pr-8">
           <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 border-2 border-amber-300 shadow-md shadow-amber-900/10 flex items-center justify-center shrink-0 overflow-hidden">
-            <img src="icons/logo-icon.png?v=86" alt="IGR KIDS Logo" class="w-full h-full object-contain">
+            <img src="icons/logo-icon.png?v=87" alt="IGR KIDS Logo" class="w-full h-full object-contain">
           </div>
           <div>
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200 mb-1">
@@ -1275,6 +1290,6 @@
 
     </div>
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=86"></script>
+  <script src="app.js?v=87"></script>
 </body>
 </html>
