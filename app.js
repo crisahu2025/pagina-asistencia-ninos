@@ -340,7 +340,7 @@ function promptInstallPwa() {
 
 // Escuchar evento cuando la app ya fue instalada
 window.addEventListener('appinstalled', () => {
-  console.log('[PWA v87] App IGR KIDS instalada con éxito en el dispositivo.');
+  console.log('[PWA v88] App IGR KIDS instalada con éxito en el dispositivo.');
   sessionStorage.setItem('pwa_banner_dismissed', 'true');
   dismissPwaModal(false);
   const btnInstall = document.getElementById('btnInstallPwa');
@@ -355,9 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=87')
+      navigator.serviceWorker.register('./sw.js?v=88')
         .then(reg => {
-          console.log('[PWA v87] Service Worker registrado:', reg.scope);
+          console.log('[PWA v88] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
           console.warn('[PWA] Error registrando Service Worker:', err);
@@ -365,7 +365,7 @@ function initPWA() {
     });
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[PWA v87] Nuevo Service Worker activo, recargando...');
+      console.log('[PWA v88] Nuevo Service Worker activo, recargando...');
       window.location.reload();
     });
   }
@@ -495,7 +495,8 @@ function aplicarPermisosPorRol() {
     'btnPresentesExcel',
     'btnPresentesImprimir',
     'btnEmptyRegistrarNino',
-    'thPresentesTelefono'
+    'thPresentesTelefono',
+    'btnEditarTelEnModalWa'
   ];
 
   idsOcultarEnAuxiliar.forEach(id => {
@@ -1673,6 +1674,28 @@ async function procesarColaOffline() {
         });
         clearTimeout(timeoutId);
         success = true;
+      } else if (item.action === 'modificarTelefono') {
+        const payloadData = item.payload || {};
+        const params = new URLSearchParams({
+          action: 'modificarTelefono',
+          idNino: payloadData.idNino || item.idNino || '',
+          nombreNino: payloadData.nombreNino || item.nombreNino || '',
+          nombrePapas: payloadData.nombrePapas || item.nombrePapas || '',
+          nuevoTelefono: payloadData.nuevoTelefono || item.nuevoTelefono || '',
+          telefonoAnterior: payloadData.telefonoAnterior || item.telefonoAnterior || '',
+          modificadoPor: payloadData.modificadoPor || item.modificadoPor || 'Maestro',
+          rol: payloadData.rol || item.rol || 'maestro',
+          motivo: payloadData.motivo || item.motivo || 'Actualización desde App IGR KIDS',
+          token: payloadData.token || state.sessionToken || ''
+        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        await fetch(`${state.scriptUrl}?${params.toString()}`, {
+          mode: 'no-cors',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        success = true;
       } else {
         success = true;
       }
@@ -2507,7 +2530,17 @@ function createKidCardHTML(nino) {
               <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
                 <i class="fa-solid fa-phone text-amber-600/70"></i> Teléfono:
               </span>
-              <span class="font-mono font-bold text-amber-900 text-[11px] sm:text-xs">${escapeHtml(nino.telefono || 'Sin teléfono')}</span>
+              <div class="flex items-center gap-1.5">
+                <span class="font-mono font-bold text-amber-900 text-[11px] sm:text-xs">${escapeHtml(nino.telefono || 'Sin teléfono')}</span>
+                <button 
+                  type="button" 
+                  onclick="abrirModalEditarTelefono('${nino.id}', event)" 
+                  title="Modificar número de teléfono"
+                  class="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-amber-50 hover:bg-amber-200/80 active:scale-90 text-amber-700 border border-amber-300/80 transition-all shadow-2xs cursor-pointer"
+                >
+                  <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+                </button>
+              </div>
             </div>
           ` : ''}
 
@@ -2858,7 +2891,17 @@ function renderPresentesList() {
                     <span class="text-slate-400 font-medium flex items-center gap-1.5 text-[11px]">
                       <i class="fa-solid fa-phone text-emerald-600"></i> Teléfono:
                     </span>
-                    <span class="font-mono font-bold text-emerald-950 text-xs">${escapeHtml(nino.telefono || 'Sin teléfono')}</span>
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono font-bold text-emerald-950 text-xs">${escapeHtml(nino.telefono || 'Sin teléfono')}</span>
+                      <button 
+                        type="button" 
+                        onclick="abrirModalEditarTelefono('${nino.id}', event)" 
+                        title="Modificar número de teléfono"
+                        class="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-50 hover:bg-emerald-200/80 active:scale-90 text-emerald-700 border border-emerald-300/80 transition-all shadow-2xs cursor-pointer"
+                      >
+                        <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+                      </button>
+                    </div>
                   </div>
                 ` : ''}
               </div>
@@ -2882,6 +2925,183 @@ function renderPresentesList() {
       }).join('');
     }
   }
+}
+
+// ==========================================================================
+// MODIFICACIÓN DE TELÉFONOS (SOLO MAESTROS / ADMINS) CON AUDITORÍA
+// ==========================================================================
+async function abrirModalEditarTelefono(childId, event) {
+  if (event) {
+    try {
+      event.stopPropagation();
+      event.preventDefault();
+    } catch (e) {}
+  }
+
+  // 1. Verificación estricta de permisos (Regla Zero-Trust)
+  if (esRolAuxiliar()) {
+    showToastNotification('Acceso denegado: solo maestros y administradores pueden modificar teléfonos.', 'error');
+    return;
+  }
+
+  const child = state.ninos.find(n => n.id === childId);
+  if (!child) {
+    showToastNotification('No se encontró el registro del niño.', 'error');
+    return;
+  }
+
+  const telActual = child.telefono || '';
+  const papas = child.nombrePapas || 'Familia';
+
+  const { value: nuevoTelefono } = await Swal.fire({
+    title: '<span class="font-[\'Outfit\'] font-extrabold text-slate-900 text-lg sm:text-xl">✏️ Modificar Teléfono</span>',
+    html: `
+      <div class="text-left text-xs sm:text-sm space-y-2.5 p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200/90 mb-3 text-slate-700">
+        <div>
+          <span class="text-slate-400 font-semibold block text-[11px]">Niño / Niña:</span>
+          <strong class="text-amber-950 font-bold text-sm sm:text-base">${escapeHtml(child.nombre)}</strong>
+        </div>
+        <div>
+          <span class="text-slate-400 font-semibold block text-[11px]">Papás / Familia:</span>
+          <span class="text-slate-800 font-medium">${escapeHtml(papas)}</span>
+        </div>
+        <div class="pt-1.5 border-t border-amber-200/60 flex items-center justify-between">
+          <span class="text-slate-500 font-semibold text-[11px]">Número Actual:</span>
+          <span class="font-mono font-bold text-slate-900">${escapeHtml(telActual || 'Sin teléfono')}</span>
+        </div>
+      </div>
+      <p class="text-left text-[11px] text-slate-500 mb-2 leading-relaxed">
+        <i class="fa-solid fa-shield-halved text-emerald-600 mr-1"></i>
+        Solo maestros pueden modificarlo. Quedará registrado en la auditoría con el usuario que realice el cambio.
+      </p>
+    `,
+    input: 'tel',
+    inputValue: telActual ? String(telActual).replace(/\D/g, '') : '',
+    inputPlaceholder: 'Ej: 3364672786',
+    inputAttributes: {
+      maxlength: '20',
+      autocapitalize: 'off',
+      autocorrect: 'off',
+      class: 'swal2-input !w-full !m-0 !text-sm font-mono'
+    },
+    showCancelButton: true,
+    confirmButtonText: '<i class="fa-solid fa-floppy-disk mr-1"></i> Guardar Teléfono',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#059669',
+    cancelButtonColor: '#64748b',
+    focusConfirm: false,
+    inputValidator: (value) => {
+      if (!value || !value.trim()) {
+        return 'Por favor ingresa un número de teléfono';
+      }
+      const digitsOnly = value.replace(/\D/g, '');
+      if (digitsOnly.length < 6) {
+        return 'El teléfono debe contener al menos 6 dígitos numéricos';
+      }
+      return null;
+    }
+  });
+
+  if (!nuevoTelefono) return;
+
+  const telLimpio = nuevoTelefono.trim();
+  if (telLimpio === telActual) {
+    showToastNotification('El número ingresado es idéntico al actual.', 'info');
+    return;
+  }
+
+  await guardarModificacionTelefono(child, telLimpio, telActual);
+}
+
+async function guardarModificacionTelefono(child, nuevoTelefono, telAnterior) {
+  const modificadoPor = state.currentUser ? (state.currentUser.nombre || state.currentUser.usuario) : 'Maestro';
+  const userRol = state.currentUser?.rol || 'maestro';
+
+  // 1. Actualización optimista inmediata en memoria (Reactividad local)
+  // Actualizar niño actual y hermanitos que compartan la misma fila en Sheets
+  const filaOrigen = child.filaOriginal;
+  state.ninos.forEach(n => {
+    const esMismo = n.id === child.id;
+    const esHermanito = filaOrigen && n.filaOriginal === filaOrigen;
+    if (esMismo || esHermanito) {
+      n.telefono = nuevoTelefono;
+      n.telefonoRaw = nuevoTelefono;
+    }
+  });
+
+  // Si el modal de WhatsApp está abierto para este niño, actualizar el teléfono allí también
+  if (state.selectedChildForWa && state.selectedChildForWa.id === child.id) {
+    state.selectedChildForWa.telefono = nuevoTelefono;
+    state.selectedChildForWa.telefonoRaw = nuevoTelefono;
+    const waPhoneEl = document.getElementById('waModalPhone');
+    if (waPhoneEl) waPhoneEl.textContent = nuevoTelefono;
+  }
+
+  // Guardar en copia de seguridad local (localStorage)
+  saveLocalDataBackup();
+
+  // Re-renderizar listas para mostrar el cambio al instante
+  renderKidsList();
+  renderPresentesList();
+
+  // 2. Preparar payload de auditoría para Google Apps Script
+  const payload = {
+    action: 'modificarTelefono',
+    idNino: child.id,
+    nombreNino: child.nombre,
+    nombrePapas: child.nombrePapas || '',
+    nuevoTelefono: nuevoTelefono,
+    telefonoAnterior: telAnterior || 'Sin teléfono',
+    modificadoPor: modificadoPor,
+    rol: userRol,
+    motivo: 'Actualización desde App IGR KIDS',
+    token: state.sessionToken || ''
+  };
+
+  showToastNotification('Guardando nuevo teléfono...', 'info');
+
+  // 3. Enviar al servidor o encolar offline si no hay internet
+  try {
+    if (navigator.onLine && !state.demoMode && state.scriptUrl) {
+      const resp = await callGoogleAppsScript(payload, 20000);
+      if (resp && resp.success) {
+        showToastNotification(`¡Teléfono de ${child.nombre} actualizado a ${nuevoTelefono}!`, 'success');
+      } else {
+        throw new Error((resp && resp.message) ? resp.message : 'Error en el servidor');
+      }
+    } else {
+      // Modo offline: encolar para sincronización automática
+      enqueueOfflineAction({
+        id: `sync_tel_${child.id}_${Date.now()}`,
+        action: 'modificarTelefono',
+        payload: payload,
+        timestamp: Date.now()
+      });
+      showToastNotification('Teléfono guardado localmente. Se sincronizará con la planilla apenas haya conexión.', 'info');
+    }
+  } catch (err) {
+    console.warn('[ModificarTelefono] Error llamando a Apps Script, encolando offline:', err);
+    enqueueOfflineAction({
+      id: `sync_tel_${child.id}_${Date.now()}`,
+      action: 'modificarTelefono',
+      payload: payload,
+      timestamp: Date.now()
+    });
+    showToastNotification(`Teléfono guardado en el celular. Se sincronizará automáticamente.`, 'info');
+  }
+}
+
+function editarTelefonoDesdeModalWa(event) {
+  if (event) {
+    try {
+      event.stopPropagation();
+      event.preventDefault();
+    } catch (e) {}
+  }
+  if (esRolAuxiliar()) return;
+  const child = state.selectedChildForWa;
+  if (!child) return;
+  abrirModalEditarTelefono(child.id);
 }
 
 // ==========================================================================

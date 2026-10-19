@@ -25,6 +25,7 @@ const SHEET_ASISTENCIAS = "Asistencias";
 const SHEET_USUARIOS = "Usuarios";
 const SHEET_REGISTRO_ACCESOS = "Registro_Accesos";
 const SHEET_AVISOS_WHATSAPP = "Avisos WhatsApp";
+const SHEET_HISTORIAL_TELEFONOS = "Historial_Telefonos";
 
 // LISTA DE TURNOS DOMINICALES ESTÁNDAR
 const TURNOS_VALIDOS = [
@@ -136,6 +137,13 @@ function doGet(e) {
       responseData = agregarNuevoNino(params);
     } else if (action === "registrarAvisoWhatsApp" || action === "registroWhatsApp" || action === "logWhatsApp") {
       responseData = registrarAvisoWhatsApp(params);
+    } else if (action === "modificarTelefono" || action === "editarTelefono") {
+      responseData = modificarTelefono(params);
+    } else if (action === "getHistorialTelefonos") {
+      responseData = {
+        success: true,
+        historial: obtenerHistorialTelefonos(params.limite)
+      };
     } else if (action === "getTurnos") {
       responseData = {
         success: true,
@@ -206,6 +214,8 @@ function doPost(e) {
       responseData = agregarNuevoNino(payload);
     } else if (action === "registrarAvisoWhatsApp" || action === "registroWhatsApp" || action === "logWhatsApp") {
       responseData = registrarAvisoWhatsApp(payload);
+    } else if (action === "modificarTelefono" || action === "editarTelefono") {
+      responseData = modificarTelefono(payload);
     }
 
     return crearRespuestaJSON(responseData);
@@ -1421,6 +1431,263 @@ function registrarAvisoWhatsApp(params) {
     };
   } finally {
     lock.releaseLock();
+  }
+}
+
+/**
+ * Garantiza que la hoja "Historial_Telefonos" exista con sus encabezados correspondientes
+ */
+function asegurarHojaHistorialTelefonos() {
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_HISTORIAL_TELEFONOS);
+
+  const headers = [
+    "Timestamp",
+    "Fecha",
+    "Hora",
+    "ID Niño",
+    "Niño / Niña",
+    "Papás / Familia",
+    "Teléfono Anterior",
+    "Teléfono Nuevo",
+    "Modificado Por",
+    "Rol",
+    "Motivo"
+  ];
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_HISTORIAL_TELEFONOS);
+    sheet.appendRow(headers);
+    sheet.getRange("1:1").setFontWeight("bold").setBackground("#D97706").setFontColor("#FFFFFF");
+    sheet.setFrozenRows(1);
+  }
+
+  return sheet;
+}
+
+/**
+ * Modifica el número de teléfono de un niño/familia en la hoja "Registro de NIÑOS"
+ * y guarda la auditoría de antes y después en "Historial_Telefonos".
+ * REGLA DE SEGURIDAD (Zero-Trust): Solo maestros y administradores pueden modificar teléfonos.
+ */
+function modificarTelefono(datos) {
+  // 1. Verificación de permisos server-side
+  const rol = String(datos.rol || "").trim().toLowerCase();
+  if (rol === "auxiliar") {
+    return {
+      success: false,
+      message: "Acceso denegado: los auxiliares no tienen permisos para modificar números de teléfono."
+    };
+  }
+
+  const idNino = String(datos.idNino || "").trim();
+  const nombreNino = String(datos.nombreNino || "").trim();
+  const nuevoTelefono = normalizarTelefono(String(datos.nuevoTelefono || "").trim());
+  const modificadoPor = String(datos.modificadoPor || datos.maestro || "Maestro").trim();
+  const motivo = String(datos.motivo || "Actualización desde App IGR KIDS").trim();
+
+  if (!nuevoTelefono || nuevoTelefono.replace(/\D/g, '').length < 6) {
+    return {
+      success: false,
+      message: "El nuevo número de teléfono no es válido (debe tener al menos 6 dígitos numéricos)."
+    };
+  }
+
+  if (!idNino && !nombreNino) {
+    return {
+      success: false,
+      message: "Se requiere el ID o nombre del niño para identificar el registro."
+    };
+  }
+
+  const lock = LockService.getScriptLock();
+  const hasLock = lock.tryLock(30000);
+  if (!hasLock) {
+    return {
+      success: false,
+      message: "El servidor está ocupado procesando otra solicitud. Por favor intenta de nuevo en unos segundos."
+    };
+  }
+
+  try {
+    const ss = getSpreadsheet();
+    const sheetNinos = ss.getSheetByName(SHEET_REGISTRO_NINOS);
+    if (!sheetNinos) {
+      throw new Error("No se encontró la hoja: " + SHEET_REGISTRO_NINOS);
+    }
+
+    const data = sheetNinos.getDataRange().getValues();
+    if (data.length <= 1) {
+      return { success: false, message: "La base de datos de niños está vacía." };
+    }
+
+    // 2. Extraer fila candidata a partir del idNino (formato: NINO_R{fila}_S{slot}_slug)
+    let filaEncontrada = -1;
+    let slotEncontrado = -1;
+    const matchFila = idNino.match(/^NINO_R(\d+)_S(\d+)_/);
+
+    if (matchFila) {
+      const filaCand = parseInt(matchFila[1], 10);
+      const slotCand = parseInt(matchFila[2], 10);
+      if (filaCand >= 2 && filaCand <= data.length) {
+        const filaData = data[filaCand - 1];
+        const colNombre = (slotCand === 1 ? 1 : slotCand === 2 ? 4 : slotCand === 3 ? 7 : 10);
+        const nomEnFila = String(filaData[colNombre] || "").trim();
+        if (nomEnFila && (!nombreNino || sanitizarId(nomEnFila) === sanitizarId(nombreNino) || nomEnFila.toLowerCase().includes(nombreNino.toLowerCase()))) {
+          filaEncontrada = filaCand;
+          slotEncontrado = slotCand;
+        }
+      }
+    }
+
+    // Si no se encontró por fila rápida, buscar exhaustivamente por nombre o ID en toda la hoja
+    if (filaEncontrada === -1) {
+      const slotsNinos = [
+        { colNombre: 1, slot: 1 },
+        { colNombre: 4, slot: 2 },
+        { colNombre: 7, slot: 3 },
+        { colNombre: 10, slot: 4 }
+      ];
+
+      const nomBuscadoSan = sanitizarId(nombreNino);
+
+      for (let i = 1; i < data.length; i++) {
+        const filaData = data[i];
+        for (let s = 0; s < slotsNinos.length; s++) {
+          const sl = slotsNinos[s];
+          const nom = String(filaData[sl.colNombre] || "").trim();
+          if (!nom) continue;
+          const idGen = "NINO_R" + (i + 1) + "_S" + sl.slot + "_" + sanitizarId(nom);
+          if (idNino && (idGen === idNino || idNino.includes(sanitizarId(nom)))) {
+            filaEncontrada = i + 1;
+            slotEncontrado = sl.slot;
+            break;
+          }
+          if (nomBuscadoSan && sanitizarId(nom) === nomBuscadoSan) {
+            filaEncontrada = i + 1;
+            slotEncontrado = sl.slot;
+            break;
+          }
+        }
+        if (filaEncontrada !== -1) break;
+      }
+    }
+
+    if (filaEncontrada === -1) {
+      return {
+        success: false,
+        message: "No se encontró el registro del niño en la planilla para actualizar el teléfono."
+      };
+    }
+
+    // Fila encontrada (1-indexed)
+    const filaActual = data[filaEncontrada - 1];
+    const nombreEnFila = nombreNino || String(filaActual[1] || "").trim();
+    const papasEnFila = String(filaActual[13] || filaActual[14] || "").trim();
+    const telAnterior = String(filaActual[15] || filaActual[16] || "").trim();
+
+    // Actualizar Col P (16) en "Registro de NIÑOS"
+    sheetNinos.getRange(filaEncontrada, 16).setValue(sanitizarFormula(nuevoTelefono));
+
+    // Si el niño ya tenía asistencia hoy en la hoja "Asistencias", actualizar Col 7 (G) allí también
+    try {
+      const sheetAsis = ss.getSheetByName(SHEET_ASISTENCIAS);
+      if (sheetAsis) {
+        const asisData = sheetAsis.getDataRange().getValues();
+        const fechaHoy = getFechaActual();
+        for (let a = asisData.length - 1; a >= 1; a--) {
+          const aFila = asisData[a];
+          const aFecha = normalizarFecha(aFila[0]);
+          const aId = String(aFila[3] || "");
+          const aNom = String(aFila[4] || "");
+          if (aFecha === fechaHoy && (aId === idNino || (nombreNino && aNom.toLowerCase() === nombreNino.toLowerCase()))) {
+            sheetAsis.getRange(a + 1, 7).setValue(sanitizarFormula(nuevoTelefono));
+          }
+        }
+      }
+    } catch (errAsis) {
+      // Ignorar si falla actualización secundaria en Asistencias
+    }
+
+    // 3. Registrar auditoría completa en "Historial_Telefonos" (antes y después)
+    const sheetHistorial = asegurarHojaHistorialTelefonos();
+    const timestamp = new Date();
+    const fecha = getFechaActual();
+    const tz = Session.getScriptTimeZone() || "America/Argentina/Buenos_Aires";
+    const hora = Utilities.formatDate(timestamp, tz, "HH:mm:ss");
+
+    sheetHistorial.appendRow([
+      timestamp,                                       // A: Timestamp
+      sanitizarFormula(fecha),                         // B: Fecha
+      sanitizarFormula(hora),                          // C: Hora
+      sanitizarFormula(idNino),                        // D: ID Niño
+      sanitizarFormula(nombreEnFila),                  // E: Niño / Niña
+      sanitizarFormula(papasEnFila),                   // F: Papás / Familia
+      sanitizarFormula(telAnterior || "Sin teléfono"), // G: Teléfono Anterior
+      sanitizarFormula(nuevoTelefono),                 // H: Teléfono Nuevo
+      sanitizarFormula(modificadoPor),                 // I: Modificado Por
+      sanitizarFormula(rol || "Maestro"),              // J: Rol
+      sanitizarFormula(motivo)                         // K: Motivo
+    ]);
+
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      message: `Teléfono de ${nombreEnFila} actualizado con éxito.`,
+      idNino: idNino,
+      nombreNino: nombreEnFila,
+      papas: papasEnFila,
+      telefonoAnterior: telAnterior || "Sin teléfono",
+      nuevoTelefono: nuevoTelefono,
+      modificadoPor: modificadoPor,
+      fecha: fecha,
+      hora: hora
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Error al actualizar teléfono: " + error.toString()
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Obtiene las modificaciones recientes de teléfonos desde "Historial_Telefonos"
+ */
+function obtenerHistorialTelefonos(limite) {
+  try {
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_HISTORIAL_TELEFONOS);
+    if (!sheet) return [];
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return [];
+
+    const max = limite ? parseInt(limite, 10) : 50;
+    const historial = [];
+    const tz = Session.getScriptTimeZone() || "America/Argentina/Buenos_Aires";
+
+    for (let i = data.length - 1; i >= 1 && historial.length < max; i--) {
+      const f = data[i];
+      historial.push({
+        timestamp: f[0],
+        fecha: f[1] instanceof Date ? Utilities.formatDate(f[1], tz, "yyyy-MM-dd") : String(f[1] || ""),
+        hora: String(f[2] || ""),
+        idNino: String(f[3] || ""),
+        nombreNino: String(f[4] || ""),
+        nombrePapas: String(f[5] || ""),
+        telefonoAnterior: String(f[6] || ""),
+        telefonoNuevo: String(f[7] || ""),
+        modificadoPor: String(f[8] || ""),
+        rol: String(f[9] || ""),
+        motivo: String(f[10] || "")
+      });
+    }
+    return historial;
+  } catch (e) {
+    return [];
   }
 }
 

@@ -70,7 +70,7 @@
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   
-  <link rel="stylesheet" href="styles.css?v=87">
+  <link rel="stylesheet" href="styles.css?v=88">
 </head>
 <body class="bg-[#FCFCFA] text-slate-800 font-['Inter'] antialiased min-h-screen flex flex-col selection:bg-brand-200 selection:text-brand-900">
 
@@ -1165,9 +1165,18 @@
           <span class="text-slate-400 font-medium">Destinatario:</span>
           <span id="waModalPapas" class="font-bold text-slate-800 ml-1">Carlos Ahumada</span>
         </div>
-        <div>
+        <div class="flex items-center">
           <span class="text-slate-400 font-medium">Teléfono:</span>
           <span id="waModalPhone" class="font-mono font-bold text-amber-800 ml-1">11-3456-7890</span>
+          <button 
+            id="btnEditarTelEnModalWa"
+            type="button" 
+            onclick="editarTelefonoDesdeModalWa(event)" 
+            title="Modificar número de teléfono"
+            class="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-md bg-amber-100 hover:bg-amber-200 active:scale-90 text-amber-800 text-[10px] transition-all cursor-pointer"
+          >
+            <i class="fa-solid fa-pen-to-square"></i>
+          </button>
         </div>
       </div>
 
@@ -1290,6 +1299,6 @@
 
     </div>
   <!-- Main JavaScript Logic -->
-  <script src="app.js?v=87"></script>
+  <script src="app.js?v=88"></script>
 </body>
 </html>
