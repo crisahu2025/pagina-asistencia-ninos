@@ -1097,7 +1097,12 @@ function agregarNuevoNino(datos) {
     sheet.appendRow(nuevaFila);
     SpreadsheetApp.flush();
 
+    const nuevaFilaIndex = sheet.getLastRow();
+
     const ninosAgregados = [{
+      id: "NINO_R" + nuevaFilaIndex + "_S1_" + sanitizarId(nombreNino1),
+      filaOriginal: nuevaFilaIndex,
+      slot: 1,
       nombre: nombreNino1,
       edad: edadNino1,
       sala: salaNino1,
@@ -1110,6 +1115,9 @@ function agregarNuevoNino(datos) {
 
     if (nombreNino2) {
       ninosAgregados.push({
+        id: "NINO_R" + nuevaFilaIndex + "_S2_" + sanitizarId(nombreNino2),
+        filaOriginal: nuevaFilaIndex,
+        slot: 2,
         nombre: nombreNino2,
         edad: edadNino2,
         sala: salaNino2,
@@ -1123,6 +1131,9 @@ function agregarNuevoNino(datos) {
 
     if (nombreNino3) {
       ninosAgregados.push({
+        id: "NINO_R" + nuevaFilaIndex + "_S3_" + sanitizarId(nombreNino3),
+        filaOriginal: nuevaFilaIndex,
+        slot: 3,
         nombre: nombreNino3,
         edad: edadNino3,
         sala: salaNino3,
@@ -1136,6 +1147,9 @@ function agregarNuevoNino(datos) {
 
     if (nombreNino4) {
       ninosAgregados.push({
+        id: "NINO_R" + nuevaFilaIndex + "_S4_" + sanitizarId(nombreNino4),
+        filaOriginal: nuevaFilaIndex,
+        slot: 4,
         nombre: nombreNino4,
         edad: edadNino4,
         sala: salaNino4,
@@ -1144,6 +1158,37 @@ function agregarNuevoNino(datos) {
         observacionesMedicas: limpiarAlergiaBackend(observaciones4),
         extra: limpiarAlergiaBackend(observaciones4),
         fechaRegistro: getFechaActual()
+      });
+    }
+
+    // Registro de asistencia atómica inmediata si se solicitó autoMarcar
+    const debeMarcarPresente = (datos.autoMarcar === true || datos.autoMarcar === "true" || datos.marcarPresente === true || datos.marcarPresente === "true");
+    if (debeMarcarPresente) {
+      const fechaAsis = normalizarFecha(datos.fecha || getFechaActual());
+      const horaAsis = formatearHoraBackend(datos.hora || getHoraActual());
+      const turnoAsis = normalizarTurno(datos.turno || TURNO_DEFAULT);
+      const regPor = String(datos.registradoPor || "Recepción").trim();
+
+      ninosAgregados.forEach(n => {
+        try {
+          registrarAsistencia({
+            idNino: n.id,
+            nombreNino: n.nombre,
+            nombrePapas: n.nombrePapas,
+            telefono: n.telefono,
+            sala: n.sala,
+            fecha: fechaAsis,
+            hora: horaAsis,
+            turno: turnoAsis,
+            estado: "Presente",
+            registradoPor: regPor
+          });
+          n.presente = true;
+          n.horaIngreso = horaAsis;
+          n.turno = turnoAsis;
+        } catch (errAsis) {
+          // Log pero continuar
+        }
       });
     }
 
