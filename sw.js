@@ -5,23 +5,23 @@
  * ====================================================================================
  */
 
-const CACHE_NAME = 'igr-kids-v89';
+const CACHE_NAME = 'igr-kids-v90';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './pastores.html',
-  './styles.css?v=89',
-  './app.js?v=89',
-  './manifest.json?v=89',
+  './styles.css?v=90',
+  './app.js?v=90',
+  './manifest.json?v=90',
   './manifest.json',
-  './icons/favicon.png?v=89',
+  './icons/favicon.png?v=90',
   './icons/favicon.png',
-  './icons/apple-touch-icon.png?v=89',
+  './icons/apple-touch-icon.png?v=90',
   './icons/apple-touch-icon.png',
-  './icons/icon-192.png?v=89',
+  './icons/icon-192.png?v=90',
   './icons/icon-192.png',
-  './icons/icon-512.png?v=89',
+  './icons/icon-512.png?v=90',
   './icons/icon-512.png',
   './icons/logo-icon.png?v=87',
   './icons/logo-icon.png',
@@ -127,4 +127,17 @@ self.addEventListener('fetch', (event) => {
       return cachedResponse || fetchPromise;
     })
   );
+});
+
+// Background Sync Event (Chrome PWA)
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-offline-queue') {
+    event.waitUntil(
+      self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'PROCESS_OFFLINE_QUEUE' });
+        });
+      })
+    );
+  }
 });
