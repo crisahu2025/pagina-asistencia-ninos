@@ -158,6 +158,57 @@ function doGet(e) {
         turnos: TURNOS_VALIDOS,
         defaultTurno: TURNO_DEFAULT
       };
+    } else if (action === "diagnosticoDetallado") {
+      const ss = getSpreadsheet();
+      const allSheets = ss.getSheets().map(s => s.getName());
+      
+      let accesos = [];
+      const sAcc = ss.getSheetByName(SHEET_REGISTRO_ACCESOS);
+      if (sAcc) {
+        const dAcc = sAcc.getDataRange().getValues();
+        accesos = dAcc.slice(-40);
+      }
+
+      let ninosRaw = [];
+      const sNinos = ss.getSheetByName(SHEET_REGISTRO_NINOS);
+      if (sNinos) {
+        const dNinos = sNinos.getDataRange().getValues();
+        const start = Math.max(1, dNinos.length - 45);
+        ninosRaw = dNinos.slice(start).map((r, idx) => ({
+          filaReal: start + idx + 1,
+          colA_timestamp: String(r[0]),
+          colB_nom1: String(r[1] || ""),
+          colC_edad1: String(r[2] || ""),
+          colD_alergia1: String(r[3] || ""),
+          colE_nom2: String(r[4] || ""),
+          colN_papas: String(r[13] || r[14] || ""),
+          colP_tel: String(r[15] || r[16] || ""),
+          colQ_obs: String(r[16] || r[17] || "")
+        }));
+      }
+
+      let asistenciasAyer = [];
+      const sAsis = ss.getSheetByName(SHEET_ASISTENCIAS);
+      if (sAsis) {
+        const dAsis = sAsis.getDataRange().getValues();
+        asistenciasAyer = dAsis.slice(1).filter(r => normalizarFecha(r[1]) === "2026-11-01").map(r => ({
+          idAsis: String(r[0] || ""),
+          fecha: normalizarFecha(r[1]),
+          hora: String(r[2] || ""),
+          idNino: String(r[3] || ""),
+          nombreNino: String(r[4] || ""),
+          registradoPor: String(r[10] || ""),
+          turno: String(r[11] || "")
+        }));
+      }
+
+      responseData = {
+        success: true,
+        allSheets: allSheets,
+        accesos: accesos,
+        ninosRaw: ninosRaw,
+        asistenciasAyer: asistenciasAyer
+      };
     } else if (action === "ping") {
       responseData = { 
         success: true, 
