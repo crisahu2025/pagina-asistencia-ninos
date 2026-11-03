@@ -968,15 +968,24 @@ function registrarAsistencia(datos) {
 
     if (filaExistente > 0) {
       // Actualizar registro existente para esa MISMA fecha Y ESE MISMO turno (Upsert)
-      sheetAsis.getRange(filaExistente, 1).setValue(sanitizarFormula(idAsistencia));
-      sheetAsis.getRange(filaExistente, 3).setValue(sanitizarFormula(hora));
-      if (nombrePapas) sheetAsis.getRange(filaExistente, 6).setValue(sanitizarFormula(nombrePapas));
-      if (telefono) sheetAsis.getRange(filaExistente, 7).setValue(sanitizarFormula(telefono));
-      sheetAsis.getRange(filaExistente, 8).setValue(sanitizarFormula(sala));
-      sheetAsis.getRange(filaExistente, 9).setValue(sanitizarFormula(estado));
-      sheetAsis.getRange(filaExistente, 10).setValue(sanitizarFormula(observaciones));
-      sheetAsis.getRange(filaExistente, 11).setValue(sanitizarFormula(registradoPor));
-      sheetAsis.getRange(filaExistente, 12).setValue(sanitizarFormula(turno));
+      const prevRow = data[filaExistente - 1] || [];
+      const papaFinal = nombrePapas || prevRow[5] || "";
+      const telFinal = telefono || prevRow[6] || "";
+      const filaValores = [
+        sanitizarFormula(idAsistencia),
+        sanitizarFormula(fecha),
+        sanitizarFormula(hora),
+        sanitizarFormula(idNino || prevRow[3] || ""),
+        sanitizarFormula(nombreNino || prevRow[4] || ""),
+        sanitizarFormula(papaFinal),
+        sanitizarFormula(telFinal),
+        sanitizarFormula(sala),
+        sanitizarFormula(estado),
+        sanitizarFormula(observaciones),
+        sanitizarFormula(registradoPor),
+        sanitizarFormula(turno)
+      ];
+      sheetAsis.getRange(filaExistente, 1, 1, 12).setValues([filaValores]);
 
       SpreadsheetApp.flush();
 
@@ -1127,15 +1136,25 @@ function sincronizarLoteAsistencias(items) {
         const idAsistencia = "ASIS_" + fecha.replace(/-/g, "") + "_" + turnoClean + "_" + idIdentificador;
 
         if (filaExistente > 0) {
-          sheetAsis.getRange(filaExistente, 1).setValue(sanitizarFormula(idAsistencia));
-          sheetAsis.getRange(filaExistente, 3).setValue(sanitizarFormula(hora));
-          if (nombrePapas) sheetAsis.getRange(filaExistente, 6).setValue(sanitizarFormula(nombrePapas));
-          if (telefono) sheetAsis.getRange(filaExistente, 7).setValue(sanitizarFormula(telefono));
-          sheetAsis.getRange(filaExistente, 8).setValue(sanitizarFormula(sala));
-          sheetAsis.getRange(filaExistente, 9).setValue(sanitizarFormula(estado));
-          sheetAsis.getRange(filaExistente, 10).setValue(sanitizarFormula(observaciones));
-          sheetAsis.getRange(filaExistente, 11).setValue(sanitizarFormula(registradoPor));
-          sheetAsis.getRange(filaExistente, 12).setValue(sanitizarFormula(turno));
+          const prevRow = data[filaExistente - 1] || [];
+          const papaFinal = nombrePapas || prevRow[5] || "";
+          const telFinal = telefono || prevRow[6] || "";
+          const filaValores = [
+            sanitizarFormula(idAsistencia),
+            sanitizarFormula(fecha),
+            sanitizarFormula(hora),
+            sanitizarFormula(idNino || prevRow[3] || ""),
+            sanitizarFormula(nombreNino || prevRow[4] || ""),
+            sanitizarFormula(papaFinal),
+            sanitizarFormula(telFinal),
+            sanitizarFormula(sala),
+            sanitizarFormula(estado),
+            sanitizarFormula(observaciones),
+            sanitizarFormula(registradoPor),
+            sanitizarFormula(turno)
+          ];
+          sheetAsis.getRange(filaExistente, 1, 1, 12).setValues([filaValores]);
+          data[filaExistente - 1] = [idAsistencia, fecha, hora, idNino || prevRow[3] || "", nombreNino || prevRow[4] || "", papaFinal, telFinal, sala, estado, observaciones, registradoPor, turno];
         } else {
           sheetAsis.appendRow([
             sanitizarFormula(idAsistencia),

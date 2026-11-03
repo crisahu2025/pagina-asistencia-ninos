@@ -393,8 +393,9 @@ function initApp() {
     updateConnectionBadge();
     if (getOfflineQueue().length > 0) {
       procesarColaOffline();
+    } else {
+      syncAsistenciasDeltas(false);
     }
-    fetchData(false);
   });
   window.addEventListener('offline', updateConnectionBadge);
   window.addEventListener('focus', () => {
@@ -415,24 +416,25 @@ function initApp() {
     }
   }, 10000);
 
-  // Auto-sincronización multi-dispositivo silenciosa (cada 25s si la pestaña está activa y no está escribiendo)
+  // Auto-sincronización liviana por deltas en segundo plano (cada 25s si la pestaña está activa y no está escribiendo)
   setInterval(() => {
     if (navigator.onLine && state.isAuthenticated && !state.isLoading) {
       const searchInput = document.getElementById('searchInput');
       const isTyping = searchInput && (document.activeElement === searchInput || searchInput.value.trim().length > 0);
       if (!isTyping && document.visibilityState === 'visible') {
-        fetchData(false);
+        syncAsistenciasDeltas(false);
       }
     }
   }, 25000);
 
-  // Auto-sincronizar inmediatamente al volver a la app o desbloquear el celular
+  // Auto-sincronizar inmediatamente al volver a la app o desbloquear el celular (deltas ultralivianos)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && navigator.onLine && state.isAuthenticated) {
       if (getOfflineQueue().length > 0) {
         procesarColaOffline();
+      } else {
+        syncAsistenciasDeltas(false);
       }
-      fetchData(false);
     }
   });
 
@@ -1684,6 +1686,125 @@ function enqueueOfflineAction(actionItem) {
   }
 }
 
+let isSyncingDeltas = false;
+
+/**
+ * Sincronización ultraliviana de deltas de asistencia (0ms freeze, solo diffs de presentes)
+ * Pesa < 2 KB frente a 500 KB del padrón completo de 519 niños.
+ */
+async function syncAsistenciasDeltas(showToast = false) {
+  if (isSyncingDeltas) return;
+  if (!state.isAuthenticated || state.demoMode || !state.scriptUrl || !navigator.onLine) return;
+  if (!state.ninos || state.ninos.length === 0) {
+    return fetchData(showToast);
+  }
+
+  isSyncingDeltas = true;
+  try {
+    const res = await callGoogleAppsScript({
+      action: 'getAsistencias',
+      fecha: state.selectedDate,
+      turno: state.selectedTurno,
+      token: state.sessionToken || ''
+    });
+
+    if (res && res.success && Array.isArray(res.asistencias)) {
+      // 1. Proteger marcas pendientes en la cola local de este celular
+      const offlineQueue = getOfflineQueue();
+      const pendingMarks = {};
+      const pendingMarksByName = {};
+      offlineQueue.forEach(item => {
+        if ((item.action === 'marcarAsistencia' || item.action === 'desmarcarAsistencia') &&
+            item.fecha === state.selectedDate &&
+            item.turno === state.selectedTurno &&
+            item.idNino) {
+          pendingMarks[String(item.idNino)] = item;
+          if (item.nombreNino) {
+            pendingMarksByName[normalizarTexto(item.nombreNino)] = item;
+          }
+        }
+      });
+
+      // 2. Mapa de asistencias confirmadas por el servidor
+      const serverMap = new Map();
+      const serverMapByName = new Map();
+      res.asistencias.forEach(a => {
+        if (a.idNino) serverMap.set(String(a.idNino), a);
+        if (a.nombreNino) serverMapByName.set(normalizarTexto(a.nombreNino), a);
+      });
+
+      // 3. Fusionar deltas en la lista local de niños sin congelar pantalla
+      let huboCambios = false;
+      state.ninos.forEach(kid => {
+        const kidIdStr = String(kid.id);
+        const kidNormName = normalizarTexto(kid.nombre || '');
+        const pm = pendingMarks[kidIdStr] || (kidNormName ? pendingMarksByName[kidNormName] : null);
+
+        // Si el usuario local lo modificó y todavía está en cola, manda la acción local
+        if (pm) {
+          const nuevoPres = (pm.estado === 'Presente');
+          if (kid.presente !== nuevoPres) {
+            kid.presente = nuevoPres;
+            kid.horaIngreso = pm.hora || kid.horaIngreso;
+            kid.estadoAsistencia = pm.estado;
+            huboCambios = true;
+          }
+          return;
+        }
+
+        // Si no está en cola local, aplicar estado del servidor
+        const sa = serverMap.get(kidIdStr) || (kidNormName ? serverMapByName.get(kidNormName) : null);
+        if (sa) {
+          if (!kid.presente) {
+            kid.presente = true;
+            kid.horaIngreso = sa.hora || kid.horaIngreso;
+            kid.salaActual = sa.sala || kid.salaActual;
+            kid.estadoAsistencia = 'Presente';
+            huboCambios = true;
+          }
+        } else {
+          if (kid.presente) {
+            kid.presente = false;
+            kid.horaIngreso = null;
+            kid.estadoAsistencia = 'Ausente';
+            huboCambios = true;
+          }
+        }
+      });
+
+      if (huboCambios) {
+        saveLocalDataBackup(state.selectedDate, state.selectedTurno, state.ninos);
+        actualizarConteoTurnoActualEnVivo();
+        updateStats();
+
+        // Si el usuario no está tipeando en el buscador, refrescar vista limpia
+        const searchInput = document.getElementById('searchInput');
+        const isTyping = searchInput && (document.activeElement === searchInput || searchInput.value.trim().length > 0);
+        if (!isTyping) {
+          renderKidsList();
+          if (state.activeTab === 'presentes') {
+            renderPresentesList();
+          }
+        }
+      }
+
+      if (showToast) {
+        showToastNotification(`Sincronización al día (${res.totalPresentes || 0} presentes)`, 'info');
+      }
+    }
+  } catch (err) {
+    console.warn('[DeltaSync] Error al sincronizar deltas de asistencia:', err);
+  } finally {
+    isSyncingDeltas = false;
+  }
+}
+
+const LOTE_MAX_KIDS = 10;
+
+/**
+ * Procesa la cola offline en lotes de hasta 10 ítems (Distribución de carga por sub-lotes)
+ * Evita bloqueos de LockService en Google Apps Script y permite múltiples colaboradores simultáneos.
+ */
 async function procesarColaOffline() {
   if (isSyncingOfflineQueue) return;
   const queue = getOfflineQueue();
@@ -1700,16 +1821,17 @@ async function procesarColaOffline() {
   isSyncingOfflineQueue = true;
   actualizarIndicadorColaSync(true);
 
-  // 🚀 PASO 1: Intentar sincronización en lote atómica (todos juntos en 1 sola petición)
-  // Especialmente vital para Chrome PWA en teléfonos: sube 10 a 50 niños en 1.5s sin trabarse
-  let loteExitoso = false;
+  // Tomamos un lote de hasta LOTE_MAX_KIDS (10 ítems) para no saturar Apps Script ni bloquear a otros colaboradores
+  const batch = queue.slice(0, LOTE_MAX_KIDS);
+  let batchExitoso = false;
+
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 35000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     const bodyParams = new URLSearchParams({
       action: 'sincronizarLote',
-      data: JSON.stringify(queue),
+      data: JSON.stringify(batch),
       token: state.sessionToken || ''
     });
 
@@ -1721,33 +1843,45 @@ async function procesarColaOffline() {
       signal: controller.signal
     });
     clearTimeout(timeoutId);
-    loteExitoso = true;
+    batchExitoso = true;
   } catch (batchErr) {
-    console.warn('[OfflineSync] Batch sync error, pasando a reintento individual:', batchErr);
-    loteExitoso = false;
+    console.warn('[OfflineSync] Error en lote de 10, probando reintento individual:', batchErr);
+    batchExitoso = false;
   }
 
-  if (loteExitoso) {
-    const totalSubidos = queue.length;
-    saveOfflineQueue([]);
+  if (batchExitoso) {
+    // Desencolar los ítems procesados usando IDs
+    const currentQueue = getOfflineQueue();
+    const batchIds = new Set(batch.map(item => item.id));
+    const restantes = currentQueue.filter(item => !batchIds.has(item.id));
+    saveOfflineQueue(restantes);
     isSyncingOfflineQueue = false;
     actualizarIndicadorColaSync();
 
-    // Actualizar datos del servidor silenciosamente para reflejar presente en vivo
-    fetchData(false);
+    // Sincronizar deltas livianos
+    syncAsistenciasDeltas(false);
 
-    showToastNotification(`✅ Sincronizados automáticamente ${totalSubidos} presente(s) con Google Sheets`, 'success');
+    // Si aún quedan ítems en la cola, procesar la siguiente tanda con jitter aleatorio (350ms - 800ms)
+    if (restantes.length > 0) {
+      setTimeout(() => {
+        procesarColaOffline();
+      }, 350 + Math.random() * 450);
+    } else {
+      showToastNotification('✅ Cola de asistencias sincronizada con éxito con Google Sheets', 'success');
+    }
     return;
   }
 
-  // 🛡️ PASO 2: Fallback individual (uno a uno) si falló el lote por red intermitente
+  // Fallback individual si falló la petición en lote
   let processedCount = 0;
+  const currentQueue = getOfflineQueue();
+  const itemsToProcess = currentQueue.slice(0, LOTE_MAX_KIDS);
+  const otherItems = currentQueue.slice(LOTE_MAX_KIDS);
   const remaining = [];
 
-  for (let i = 0; i < queue.length; i++) {
-    const item = queue[i];
+  for (let i = 0; i < itemsToProcess.length; i++) {
+    const item = itemsToProcess[i];
     let success = false;
-
     try {
       if (item.action === 'marcarAsistencia' || item.action === 'desmarcarAsistencia') {
         const params = new URLSearchParams({
@@ -1766,7 +1900,7 @@ async function procesarColaOffline() {
         });
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         await fetch(`${state.scriptUrl}?${params.toString()}`, {
           mode: 'no-cors',
           signal: controller.signal
@@ -1811,30 +1945,32 @@ async function procesarColaOffline() {
         success = true;
       }
     } catch (err) {
-      console.warn('[OfflineSync] Error enviando elemento individual:', err);
+      console.warn('[OfflineSync] Error individual:', err);
       success = false;
     }
 
     if (success) {
       processedCount++;
     } else {
-      // Si falló por conexión, conservar este elemento y los restantes
       remaining.push(item);
-      for (let j = i + 1; j < queue.length; j++) {
-        remaining.push(queue[j]);
+      for (let j = i + 1; j < itemsToProcess.length; j++) {
+        remaining.push(itemsToProcess[j]);
       }
       break;
     }
   }
 
-  saveOfflineQueue(remaining);
+  const finalQueue = [...remaining, ...otherItems];
+  saveOfflineQueue(finalQueue);
   isSyncingOfflineQueue = false;
   actualizarIndicadorColaSync();
 
   if (processedCount > 0) {
-    fetchData(false);
-    if (remaining.length === 0) {
-      showToastNotification(`✅ Sincronizados automáticamente ${processedCount} presente(s) con Google Sheets`, 'success');
+    syncAsistenciasDeltas(false);
+    if (finalQueue.length > 0 && remaining.length === 0) {
+      setTimeout(() => {
+        procesarColaOffline();
+      }, 500 + Math.random() * 500);
     }
   }
 }
