@@ -880,10 +880,21 @@ async function sha256Hex(text) {
   return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-const ALLOWED_ADMIN_HASHES = [
-  'fe33cde082a09f4b3cbd1bac86207d72702819cf6cc51089e0ab49736e814e4a',
-  '635ec511880595551d4a52ee6fd2c02f61e0d8020dd224017ae64a0f7e0102cd'
-];
+function manejarTokenExpiradoOInvalido(mensaje) {
+  try {
+    sessionStorage.removeItem('asistencia_auth_token');
+    sessionStorage.removeItem('asistencia_auth_user');
+    sessionStorage.removeItem('asistencia_auth_expires');
+    localStorage.removeItem('asistencia_auth_token');
+    localStorage.removeItem('asistencia_auth_user');
+    localStorage.removeItem('asistencia_auth_expires');
+  } catch (e) {}
+  state.isAuthenticated = false;
+  state.sessionToken = null;
+  state.currentUser = null;
+  showLoginView();
+  showToastNotification(mensaje || 'Sesión actualizada por seguridad. Ingresá nuevamente.', 'warning');
+}
 
 async function handleLogin(event) {
   event.preventDefault();
@@ -913,62 +924,36 @@ async function handleLogin(event) {
     let expiresAt = null;
 
     if (state.scriptUrl && !state.demoMode) {
-      try {
-        const data = await callGoogleAppsScript({
-          action: 'login',
-          usuario: usuarioInput,
-          password: passwordInput,
-          userAgent: navigator.userAgent,
-          turno: state.selectedTurno
-        });
+      const data = await callGoogleAppsScript({
+        action: 'login',
+        usuario: usuarioInput,
+        password: passwordInput,
+        userAgent: navigator.userAgent,
+        turno: state.selectedTurno
+      });
 
-        if (data && data.pendingApproval === true) {
-          const pendingErr = new Error(
-            data.message || 'Tu usuario ya está registrado, pero todavía falta que el Administrador lo autorice desde su correo electrónico para que puedas ingresar.'
-          );
-          pendingErr.pendingApproval = true;
-          throw pendingErr;
-        }
+      if (data && data.pendingApproval === true) {
+        const pendingErr = new Error(
+          data.message || 'Tu usuario ya está registrado, pero todavía falta que el Administrador lo autorice desde su correo electrónico para que puedas ingresar.'
+        );
+        pendingErr.pendingApproval = true;
+        throw pendingErr;
+      }
 
-        if (data && data.success && data.token) {
-          loginSucceeded = true;
-          token = data.token;
-          authUser = data.user || { usuario: usuarioInput, nombre: 'Equipo IGR KIDS', rol: 'Maestra' };
-          expiresAt = data.expiresAt;
-        } else if (data && !data.success) {
-          const loginErr = new Error(data.message || 'Usuario o contraseña incorrectos.');
-          if (data.pendingApproval || (data.message && /autorizaci[oó]n|pendiente|aproba/i.test(data.message))) {
-            loginErr.pendingApproval = true;
-          }
-          throw loginErr;
+      if (data && data.success && data.token) {
+        loginSucceeded = true;
+        token = data.token;
+        authUser = data.user || { usuario: usuarioInput, nombre: 'Equipo IGR KIDS', rol: 'Maestra' };
+        expiresAt = data.expiresAt;
+      } else {
+        const loginErr = new Error((data && data.message) || 'Usuario o contraseña incorrectos.');
+        if (data && data.pendingApproval || (data && data.message && /autorizaci[oó]n|pendiente|aproba/i.test(data.message))) {
+          loginErr.pendingApproval = true;
         }
-      } catch (serverErr) {
-        if (serverErr && serverErr.pendingApproval) {
-          throw serverErr;
-        }
-        console.warn('Fallo login remoto, evaluando acceso con credenciales maestras:', serverErr);
-        const userClean = usuarioInput.toLowerCase();
-        const passHash = await sha256Hex(passwordInput);
-        if ((userClean === 'igrkids2026' || userClean === 'admin') && ALLOWED_ADMIN_HASHES.includes(passHash)) {
-          loginSucceeded = true;
-          token = 'TOKEN_SECURE_' + Date.now();
-          authUser = { usuario: 'igrkids2026', nombre: 'Equipo IGR KIDS', rol: 'Administrador' };
-          expiresAt = new Date(Date.now() + 24*3600*1000).toISOString();
-        } else {
-          throw serverErr;
-        }
+        throw loginErr;
       }
     } else {
-      const userClean = usuarioInput.toLowerCase();
-      const passHash = await sha256Hex(passwordInput);
-      if ((userClean === 'igrkids2026' || userClean === 'admin') && ALLOWED_ADMIN_HASHES.includes(passHash)) {
-        loginSucceeded = true;
-        token = 'TOKEN_SECURE_' + Date.now();
-        authUser = { usuario: 'igrkids2026', nombre: 'Equipo IGR KIDS (Modo Local)', rol: 'Administrador' };
-        expiresAt = new Date(Date.now() + 24*3600*1000).toISOString();
-      } else {
-        throw new Error('Credenciales incorrectas.');
-      }
+      throw new Error('Autenticación remota requerida para acceder a datos reales.');
     }
 
     if (loginSucceeded) {
@@ -1084,32 +1069,10 @@ async function handleRegister(event) {
     }
 
     // Nunca iniciar sesión automáticamente hasta que el administrador autorice la cuenta
+    // La notificación por correo se envía exclusivamente desde el servidor sin exponer el link al cliente
     state.isAuthenticated = false;
     state.sessionToken = null;
     state.currentUser = null;
-
-    // Si viene approvalUrl, enviar correo de respaldo al administrador en segundo plano
-    if (data && data.approvalUrl) {
-      fetch('https://formsubmit.co/ajax/cris.ahu777@gmail.com', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          _subject: '🔐 [IGR KIDS] Autorizar nuevo usuario: ' + nombre + ' (' + rol + ')',
-          _template: 'box',
-          Nombre: nombre,
-          Usuario: usuario,
-          Rol: rol,
-          Sala: sala,
-          Link_Para_Autorizar_Ingreso: data.approvalUrl,
-          Link_Para_Rechazar: data.rejectUrl || ''
-        })
-      }).catch(mailErr => {
-        console.warn('Respaldo de correo vía FormSubmit:', mailErr);
-      });
-    }
 
     const regForm = document.getElementById('registerForm');
     if (regForm) regForm.reset();
@@ -1434,6 +1397,11 @@ async function fetchData(showToast = false) {
       turno: state.selectedTurno,
       token: state.sessionToken || ''
     });
+
+    if (data && data.authError) {
+      manejarTokenExpiradoOInvalido(data.message);
+      return;
+    }
 
     if (data && data.success && Array.isArray(data.ninos)) {
       // 1. Obtener cola de sincronización pendiente y datos locales para PROTEGER marcas offline (por ID y por Nombre)
@@ -1782,6 +1750,11 @@ async function syncAsistenciasDeltas(showToast = false) {
       turno: state.selectedTurno,
       token: state.sessionToken || ''
     });
+
+    if (res && res.authError) {
+      manejarTokenExpiradoOInvalido(res.message);
+      return;
+    }
 
     if (res && res.success && Array.isArray(res.asistencias)) {
       // 1. Proteger marcas pendientes en la cola local de este celular
@@ -4188,6 +4161,11 @@ function imprimirCartelQR() {
 // ==========================================================================
 // EXPORT & REPORTING (EXCEL, PDF, WHATSAPP CON SOPORTE MULTI-TURNO)
 // ==========================================================================
+function sanitizarExcel(val) {
+  const str = String(val === null || val === undefined ? '' : val).trim();
+  return /^[=+\-@\t\r]/.test(str) ? "'" + str : str;
+}
+
 function exportToExcel() {
   if (esRolAuxiliar()) return;
   const presentes = state.ninos.filter(n => n.presente);
@@ -4203,14 +4181,14 @@ function exportToExcel() {
   const exportData = presentes.map((n, i) => ({
     'N°': i + 1,
     'Fecha': state.selectedDate,
-    'Turno / Reunión': state.selectedTurno,
+    'Turno / Reunión': sanitizarExcel(state.selectedTurno),
     'Hora Ingreso': formatearHora(n.horaIngreso) || '',
-    'Nombre Niño/a': n.nombre,
-    'Edad': formatearEdad(n.edad) || '',
-    'Sala / Grupo': n.salaActual || n.salaSugerida || 'General',
-    'Papás / Tutores': n.nombrePapas || '',
-    'Teléfono': n.telefono || '',
-    'Observaciones / Alergias': n.observacionesMedicas || ''
+    'Nombre Niño/a': sanitizarExcel(n.nombre),
+    'Edad': sanitizarExcel(formatearEdad(n.edad) || ''),
+    'Sala / Grupo': sanitizarExcel(n.salaActual || n.salaSugerida || 'General'),
+    'Papás / Tutores': sanitizarExcel(n.nombrePapas || ''),
+    'Teléfono': sanitizarExcel(n.telefono || ''),
+    'Observaciones / Alergias': sanitizarExcel(n.observacionesMedicas || '')
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -4723,14 +4701,15 @@ function getAvatarColor(name) {
 
 function highlightMatch(text, term) {
   if (!text) return '';
-  if (!term || !term.trim()) return String(text);
+  const rawStr = String(text);
+  if (!term || !term.trim()) return escapeHtml(rawStr);
 
   const termNorm = normalizarTexto(term);
-  if (!termNorm) return String(text);
+  if (!termNorm) return escapeHtml(rawStr);
 
   try {
     const rawWords = termNorm.split(/\s+/).filter(w => w.length > 0);
-    if (rawWords.length === 0) return String(text);
+    if (rawWords.length === 0) return escapeHtml(rawStr);
 
     const charMap = {
       'a': '[aáàäâã]',
@@ -4749,9 +4728,23 @@ function highlightMatch(text, term) {
     });
 
     const regex = new RegExp(`(${patterns.join('|')})`, 'gi');
-    return String(text).replace(regex, '<mark class="search-highlight">$1</mark>');
+    let result = '';
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(rawStr)) !== null) {
+      if (match.index > lastIndex) {
+        result += escapeHtml(rawStr.slice(lastIndex, match.index));
+      }
+      result += `<mark class="search-highlight">${escapeHtml(match[0])}</mark>`;
+      lastIndex = regex.lastIndex;
+      if (match[0].length === 0) regex.lastIndex++;
+    }
+    if (lastIndex < rawStr.length) {
+      result += escapeHtml(rawStr.slice(lastIndex));
+    }
+    return result;
   } catch (e) {
-    return String(text);
+    return escapeHtml(rawStr);
   }
 }
 
@@ -4895,17 +4888,26 @@ function abrirModalAuditoriaPrivada() {
         Swal.showValidationMessage('Debes ingresar la contraseña de seguridad.');
         return false;
       }
-      const hash = await sha256Hex(p);
-      const ALLOWED_HASHES = [
-        "988ed1daee9a1701690537030b01a1595dd4ffc13b3d374f8ce71ef2f8696c38",
-        "5b63849e9dc4c1532a7e78f47096dcebaf1ba858cdd90c589cdab34d7c4c9ba4"
-      ];
-      if (ALLOWED_HASHES.includes(hash) || (state.currentUser && state.currentUser.rol && state.currentUser.rol.includes('Admin'))) {
-        auditoriaState.sessionPass = p;
-        return true;
+      if (state.demoMode || !state.scriptUrl) {
+        Swal.showValidationMessage('Se requiere conexión con el servidor para validar acceso confidencial.');
+        return false;
       }
-      Swal.showValidationMessage('Contraseña de seguridad incorrecta.');
-      return false;
+      try {
+        const res = await callGoogleAppsScript({
+          action: 'loginPastores',
+          password: p,
+          userAgent: navigator.userAgent
+        });
+        if (res && res.success && res.token) {
+          auditoriaState.pastoresToken = res.token;
+          return true;
+        }
+        Swal.showValidationMessage((res && res.message) || 'Contraseña de seguridad incorrecta.');
+        return false;
+      } catch (err) {
+        Swal.showValidationMessage('Error de conexión al verificar credenciales.');
+        return false;
+      }
     }
   }).then((result) => {
     if (result.isConfirmed) {
@@ -4978,15 +4980,18 @@ async function ejecutarConsultaAuditoria() {
 
   try {
     if (state.scriptUrl && !state.demoMode) {
-      const passAuth = auditoriaState.sessionPass || '';
-      const url = `${state.scriptUrl}?action=getAuditoriaPeriodo&periodo=${tipo}&mes=${mes}&anio=${anio}&password=${encodeURIComponent(passAuth)}`;
-      const res = await fetch(url).catch(() => null);
-      if (res && res.ok) {
-        const json = await res.json();
-        if (json && json.success) {
-          ausentes = json.ausentes || [];
-          presentes = json.presentes || [];
-        }
+      const json = await callGoogleAppsScript({
+        action: 'getAuditoriaPeriodo',
+        periodo: tipo,
+        mes: mes,
+        anio: anio,
+        fecha: state.selectedDate,
+        turno: state.selectedTurno,
+        token: auditoriaState.pastoresToken || state.sessionToken || ''
+      });
+      if (json && json.success) {
+        ausentes = json.ausentes || [];
+        presentes = json.presentes || [];
       }
     }
   } catch (err) {
@@ -5168,12 +5173,12 @@ function exportarAuditoriaExcel() {
 
   const exportData = lista.map((n, i) => ({
     'N°': i + 1,
-    'Período': periodo,
+    'Período': sanitizarExcel(periodo),
     'Estado': auditoriaState.pestanaActiva === 'ausentes' ? 'Sin Asistencia' : 'Con Asistencia',
-    'Nombre Niño/a': n.nombre,
-    'Sala / Grupo': n.sala || 'General',
-    'Papás / Tutores': n.nombrePapas || '',
-    'Teléfono': n.telefono || ''
+    'Nombre Niño/a': sanitizarExcel(n.nombre),
+    'Sala / Grupo': sanitizarExcel(n.sala || 'General'),
+    'Papás / Tutores': sanitizarExcel(n.nombrePapas || ''),
+    'Teléfono': sanitizarExcel(n.telefono || '')
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);

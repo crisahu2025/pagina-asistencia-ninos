@@ -364,20 +364,40 @@
     const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzl8hch0DOszgJSZYHTV5KY705LJuOSyZKSZZiCfKWJGHvTqVqYppsd4A7q3uSDSaQ/exec";
     
     const estado = {
-      autenticado: sessionStorage.getItem('pastores_auth') === 'true',
+      token: sessionStorage.getItem('pastores_token') || '',
+      autenticado: !!sessionStorage.getItem('pastores_token'),
       tipoPeriodo: 'mes',
       valorFiltro: '2026-09',
       pestanaActual: 'ausentes',
       filtroBusqueda: '',
       ninos: [],
       datosAuditoria: {
-        totalPadron: 519,
+        totalPadron: 0,
         totalPresentes: 0,
         totalAusentes: 0,
         ausentes: [],
         presentes: []
       }
     };
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function sanitizarExcel(val) {
+      if (val === null || val === undefined) return '';
+      const str = String(val).replace(/\r?\n/g, ' ').trim();
+      if (/^[=+\-@\t\r]/.test(str)) {
+        return "'" + str;
+      }
+      return str;
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       verificarAutenticacionInicial();
@@ -395,38 +415,58 @@
       }
     }
 
-    async function sha256Hex(text) {
-      const msgBuffer = new TextEncoder().encode(text);
-      const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
-      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
-    }
-    const ALLOWED_HASHES = [
-      "988ed1daee9a1701690537030b01a1595dd4ffc13b3d374f8ce71ef2f8696c38",
-      "5b63849e9dc4c1532a7e78f47096dcebaf1ba858cdd90c589cdab34d7c4c9ba4"
-    ];
-
     async function validarAccesoPastores(e) {
       if (e) e.preventDefault();
       const pass = (document.getElementById('passPastoresInput')?.value || '').trim();
       const errorMsg = document.getElementById('loginErrorMsg');
+      const submitBtn = e?.target?.querySelector('button[type="submit"]');
 
-      const hash = await sha256Hex(pass);
-      if (ALLOWED_HASHES.includes(hash)) {
-        sessionStorage.setItem('pastores_auth', 'true');
-        sessionStorage.setItem('pastores_pass', pass);
-        estado.autenticado = true;
-        if (errorMsg) errorMsg.classList.add('hidden');
-        mostrarPanel();
-      } else {
+      if (!pass) {
         if (errorMsg) {
-          errorMsg.textContent = 'Contraseña de seguridad incorrecta. Acceso denegado.';
+          errorMsg.textContent = 'Ingresá la contraseña de seguridad.';
           errorMsg.classList.remove('hidden');
         }
+        return;
+      }
+
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        const res = await fetch(DEFAULT_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'loginPastores',
+            password: pass,
+            userAgent: navigator.userAgent
+          })
+        });
+        const data = await res.json();
+        if (data && data.success && data.token) {
+          sessionStorage.setItem('pastores_token', data.token);
+          sessionStorage.removeItem('pastores_auth');
+          sessionStorage.removeItem('pastores_pass');
+          estado.token = data.token;
+          estado.autenticado = true;
+          if (errorMsg) errorMsg.classList.add('hidden');
+          mostrarPanel();
+        } else {
+          if (errorMsg) {
+            errorMsg.textContent = (data && data.message) || 'Contraseña de seguridad incorrecta. Acceso denegado.';
+            errorMsg.classList.remove('hidden');
+          }
+        }
+      } catch (err) {
+        if (errorMsg) {
+          errorMsg.textContent = 'Error de conexión al validar credenciales con el servidor.';
+          errorMsg.classList.remove('hidden');
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
       }
     }
 
     function verificarAutenticacionInicial() {
-      if (estado.autenticado) {
+      if (estado.autenticado && estado.token) {
         mostrarPanel();
       } else {
         document.getElementById('pantallaBloqueada').classList.remove('hidden');
@@ -441,8 +481,11 @@
     }
 
     function cerrarSesionPastores() {
+      sessionStorage.removeItem('pastores_token');
       sessionStorage.removeItem('pastores_auth');
       sessionStorage.removeItem('pastores_pass');
+      estado.token = '';
+      estado.autenticado = false;
       window.location.reload();
     }
 
@@ -481,60 +524,37 @@
         }
       }
 
-      // Intentar obtener del backend
+      // Obtener datos autenticados por POST con token firmado (cero contraseñas en URL GET)
       let ausentes = [];
       let presentes = [];
 
       try {
-        const passAuth = sessionStorage.getItem('pastores_pass') || '';
-        const url = `${DEFAULT_SCRIPT_URL}?action=getAuditoriaPeriodo&periodo=${tipo}&mes=${mes}&anio=${anio}&password=${encodeURIComponent(passAuth)}`;
-        const res = await fetch(url).catch(() => null);
+        const res = await fetch(DEFAULT_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'getAuditoriaPeriodo',
+            periodo: tipo,
+            mes: mes,
+            anio: anio,
+            token: estado.token || ''
+          })
+        }).catch(() => null);
+
         if (res && res.ok) {
           const json = await res.json();
+          if (json && json.authError) {
+            cerrarSesionPastores();
+            return;
+          }
           if (json && json.success) {
             ausentes = json.ausentes || [];
             presentes = json.presentes || [];
-            estado.datosAuditoria.totalPadron = json.totalPadron || 519;
+            estado.datosAuditoria.totalPadron = json.totalPadron || 0;
           }
         }
       } catch (e) {
         console.warn('Backend fetch warning:', e);
-      }
-
-      // Si no devolvió datos remotos, obtener padrón completo de la hoja
-      if (ausentes.length === 0 && presentes.length === 0) {
-        try {
-          const resDatos = await fetch(`${DEFAULT_SCRIPT_URL}?action=getDatos`).catch(() => null);
-          if (resDatos && resDatos.ok) {
-            const json = await resDatos.json();
-            if (json && json.ninos && json.ninos.length > 0) {
-              estado.datosAuditoria.totalPadron = json.ninos.length;
-              json.ninos.forEach(n => {
-                if (n.presente) {
-                  presentes.push({
-                    id: n.id,
-                    nombre: n.nombre,
-                    edad: n.edad,
-                    sala: n.salaActual || n.salaSugerida || 'General',
-                    nombrePapas: n.nombrePapas || 'Familia',
-                    telefono: n.telefono || ''
-                  });
-                } else {
-                  ausentes.push({
-                    id: n.id,
-                    nombre: n.nombre,
-                    edad: n.edad,
-                    sala: n.salaActual || n.salaSugerida || 'General',
-                    nombrePapas: n.nombrePapas || 'Familia',
-                    telefono: n.telefono || ''
-                  });
-                }
-              });
-            }
-          }
-        } catch (err) {
-          console.warn('Fallback datos warning:', err);
-        }
       }
 
       estado.datosAuditoria.presentes = presentes;
@@ -636,14 +656,18 @@
           const esAusente = estado.pestanaActual === 'ausentes';
           const telDigits = (n.telefono || '').replace(/\D/g, '');
           const hasTel = telDigits.length >= 8;
+          const safeNombre = escapeHtml(n.nombre || '');
+          const safeSala = escapeHtml(n.sala || 'General');
+          const safePapas = escapeHtml(n.nombrePapas || 'Familia');
+          const safeTel = escapeHtml(n.telefono || '--');
 
           return `
             <div class="bg-slate-950/90 border border-slate-800 rounded-3xl p-5 flex flex-col justify-between hover:border-slate-700 transition-all shadow-md">
               <div>
                 <div class="flex items-start justify-between gap-2">
                   <div>
-                    <h4 class="text-base font-extrabold text-white">${n.nombre}</h4>
-                    <span class="inline-block mt-1 px-2.5 py-0.5 rounded-xl text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">${n.sala || 'General'}</span>
+                    <h4 class="text-base font-extrabold text-white">${safeNombre}</h4>
+                    <span class="inline-block mt-1 px-2.5 py-0.5 rounded-xl text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">${safeSala}</span>
                   </div>
                   ${esAusente ? '<span class="px-2.5 py-1 rounded-xl text-xs font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0">Sin Asistencia</span>' : '<span class="px-2.5 py-1 rounded-xl text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">Presente</span>'}
                 </div>
@@ -651,11 +675,11 @@
                 <div class="mt-4 pt-3 border-t border-slate-800/80 space-y-1.5 text-xs">
                   <p class="text-slate-400 flex items-center gap-2">
                     <i class="fa-solid fa-users text-amber-400 text-xs shrink-0"></i>
-                    <span><strong>Papás:</strong> <span class="text-slate-200 font-medium">${n.nombrePapas || 'Familia'}</span></span>
+                    <span><strong>Papás:</strong> <span class="text-slate-200 font-medium">${safePapas}</span></span>
                   </p>
                   <p class="text-slate-400 flex items-center gap-2 font-mono">
                     <i class="fa-solid fa-phone text-amber-400 text-xs shrink-0"></i>
-                    <span><strong>Tel:</strong> <span class="text-slate-200 font-bold">${n.telefono || '--'}</span></span>
+                    <span><strong>Tel:</strong> <span class="text-slate-200 font-bold">${safeTel}</span></span>
                   </p>
                 </div>
               </div>
@@ -663,7 +687,8 @@
               <div class="mt-4 pt-3 border-t border-slate-800/80">
                 ${hasTel ? `
                   <button 
-                    onclick="enviarWhatsApp('${telDigits}', '${(n.nombre || '').replace(/'/g, "\\'")}', '${(n.nombrePapas || '').replace(/'/g, "\\'")}')" 
+                    data-tel="${escapeHtml(telDigits)}" data-nom="${safeNombre}" data-papas="${safePapas}"
+                    onclick="enviarWhatsApp(this.dataset.tel, this.dataset.nom, this.dataset.papas)" 
                     class="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 text-white font-black text-xs rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <i class="fa-brands fa-whatsapp text-sm"></i>
@@ -686,21 +711,26 @@
           const esAusente = estado.pestanaActual === 'ausentes';
           const telDigits = (n.telefono || '').replace(/\D/g, '');
           const hasTel = telDigits.length >= 8;
+          const safeNombre = escapeHtml(n.nombre || '');
+          const safeSala = escapeHtml(n.sala || 'General');
+          const safePapas = escapeHtml(n.nombrePapas || 'Familia');
+          const safeTel = escapeHtml(n.telefono || '--');
 
           return `
             <tr class="hover:bg-slate-800/40 transition-colors">
               <td class="py-3 px-4 text-slate-500 font-mono text-[11px]">${i + 1}</td>
               <td class="py-3 px-4">
-                <span class="font-bold text-white">${n.nombre}</span>
+                <span class="font-bold text-white">${safeNombre}</span>
                 ${esAusente ? '<span class="ml-2 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30">Sin Asistencia</span>' : '<span class="ml-2 px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Presente</span>'}
               </td>
-              <td class="py-3 px-4 text-slate-400">${n.sala || 'General'}</td>
-              <td class="py-3 px-4 text-slate-300">${n.nombrePapas || 'Familia'}</td>
-              <td class="py-3 px-4 text-slate-400 font-mono text-[11px]">${n.telefono || '--'}</td>
+              <td class="py-3 px-4 text-slate-400">${safeSala}</td>
+              <td class="py-3 px-4 text-slate-300">${safePapas}</td>
+              <td class="py-3 px-4 text-slate-400 font-mono text-[11px]">${safeTel}</td>
               <td class="py-3 px-4 text-center">
                 ${hasTel ? `
                   <button 
-                    onclick="enviarWhatsApp('${telDigits}', '${(n.nombre || '').replace(/'/g, "\\'")}', '${(n.nombrePapas || '').replace(/'/g, "\\'")}')" 
+                    data-tel="${escapeHtml(telDigits)}" data-nom="${safeNombre}" data-papas="${safePapas}"
+                    onclick="enviarWhatsApp(this.dataset.tel, this.dataset.nom, this.dataset.papas)" 
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-sm transition-all cursor-pointer"
                   >
                     <i class="fa-brands fa-whatsapp text-sm"></i>
@@ -749,12 +779,12 @@
 
       const exportData = lista.map((n, i) => ({
         'N°': i + 1,
-        'Período': periodo,
+        'Período': sanitizarExcel(periodo),
         'Condición': estado.pestanaActual === 'ausentes' ? 'Sin Asistencia' : 'Con Asistencia',
-        'Nombre Niño/a': n.nombre,
-        'Sala / Grupo': n.sala || 'General',
-        'Papás / Tutores': n.nombrePapas || '',
-        'Teléfono': n.telefono || ''
+        'Nombre Niño/a': sanitizarExcel(n.nombre),
+        'Sala / Grupo': sanitizarExcel(n.sala || 'General'),
+        'Papás / Tutores': sanitizarExcel(n.nombrePapas || ''),
+        'Teléfono': sanitizarExcel(n.telefono || '')
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);

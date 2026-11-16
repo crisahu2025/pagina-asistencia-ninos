@@ -1,14 +1,17 @@
 .vercel
 .env
 .env.local
+.env*
 .DS_Store
 node_modules
 *.log
 
-.vercel
-
 *.gs
+Código.js
+Codigo.js
 google-apps-script/
+appsscript.json
+.clasp.json
+.claspignore
 *.txt
-
-.env*
+scratch/

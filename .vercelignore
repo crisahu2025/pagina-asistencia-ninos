@@ -1,5 +1,13 @@
-
+# Google Apps Script & Backend Files (NUNCA subir a Vercel)
 *.gs
+Código.js
+Codigo.js
 google-apps-script/
+appsscript.json
+.clasp.json
+.claspignore
 *.txt
-
+*.md
+.env*
+.gemini/
+scratch/
