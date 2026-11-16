@@ -19,8 +19,8 @@ const GOOGLE_FORMS_REGISTRO_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdmc
  * Detección Inteligente de Turno Dominical por Horario
  * Si la fecha es hoy:
  * - 00:00 a 13:59 hs -> '10:00 hs (Mañana)'
- * - 14:00 a 19:14 hs -> '18:00 hs (Tarde)'
- * - 19:15 a 23:59 hs -> '20:00 hs (Noche)' (ej. 19:30 hs selecciona automáticamente reunión 20:00)
+ * - 14:00 a 19:49 hs -> '18:00 hs (Tarde)'
+ * - 19:50 a 23:59 hs -> '20:00 hs (Noche)' (a las 19:50 hs cierra la asistencia de las 18 hs y habilita los nuevos ingresos de las 20 hs)
  */
 function calcularTurnoPorHora(fechaDeseada) {
   const hoyStr = getTodayString();
@@ -34,17 +34,19 @@ function calcularTurnoPorHora(fechaDeseada) {
     if (totalMinutos < 14 * 60) {
       return '10:00 hs (Mañana)';
     }
-    // 14:00 a 19:14 hs (840 a 1154 minutos)
-    if (totalMinutos < (19 * 60 + 15)) {
+    // 14:00 a 19:49 hs (840 a 1189 minutos)
+    if (totalMinutos < (19 * 60 + 50)) {
       return '18:00 hs (Tarde)';
     }
-    // 19:15 a 23:59 hs (1155 a 1439 minutos)
+    // 19:50 a 23:59 hs (1190 a 1439 minutos)
     return '20:00 hs (Noche)';
   }
 
   // Si es otra fecha diferente a hoy, retornar el turno activo o por defecto Mañana
   return (typeof state !== 'undefined' && state && state.selectedTurno) ? state.selectedTurno : '10:00 hs (Mañana)';
 }
+
+let ultimoTurnoAutoPorReloj = calcularTurnoPorHora(getTodayString());
 
 const state = {
   isAuthenticated: false,
@@ -382,6 +384,60 @@ function initPWA() {
   }, 1500);
 }
 
+/**
+ * Verifica en vivo si el reloj superó el corte de reunión (ej. 19:50 hs para pasar de 18:00 hs a 20:00 hs).
+ * Da de baja visualmente en la pantalla las asistencias de las 18 hs (conservándolas intactas en Google Sheets)
+ * para permitir el re-ingreso inmediato de los niños en el culto de las 20:00 hs sin necesidad de recargar la app.
+ */
+function verificarCambioTurnoAutomatico() {
+  if (!state.isAuthenticated) return false;
+  const hoyStr = getTodayString();
+  if (state.selectedDate !== hoyStr) return false;
+
+  const turnoPorReloj = calcularTurnoPorHora(hoyStr);
+  if (turnoPorReloj === ultimoTurnoAutoPorReloj) return false;
+
+  ultimoTurnoAutoPorReloj = turnoPorReloj;
+
+  if (state.selectedTurno !== turnoPorReloj) {
+    // 1. Enviar cualquier pendiente en cola offline del turno saliente antes de cambiar
+    if (navigator.onLine && getOfflineQueue().length > 0) {
+      procesarColaOffline();
+    }
+
+    // 2. Cambiar automáticamente al nuevo turno y actualizar el selector visual
+    state.selectedTurno = turnoPorReloj;
+    const turnoSelect = document.getElementById('selectedTurno');
+    if (turnoSelect) {
+      turnoSelect.value = turnoPorReloj;
+    }
+
+    // 3. Dar de baja visual las asistencias del turno anterior o cargar respaldo exacto del nuevo turno
+    cargarEstadoLocalReporte(state.selectedDate, turnoPorReloj);
+    const exactBackup = getLocalDataBackup(state.selectedDate, turnoPorReloj);
+    if (exactBackup && exactBackup.length > 0) {
+      state.ninos = prepareKidsIndex(exactBackup, false);
+    } else {
+      state.ninos = state.ninos.map(n => ({
+        ...n,
+        presente: false,
+        horaIngreso: null,
+        estadoAsistencia: 'Ausente',
+        turno: turnoPorReloj
+      }));
+    }
+
+    actualizarConteoTurnoActualEnVivo();
+    updateUI();
+    fetchData(false);
+
+    showToastNotification(`🕒 Cambio automático a ${turnoPorReloj}: lista reiniciada para nuevos ingresos`, 'info');
+    return true;
+  }
+
+  return false;
+}
+
 function initApp() {
   // Saneamiento proactivo de claves legacy no parametrizadas por turno
   try {
@@ -391,26 +447,30 @@ function initApp() {
   // Listeners reactivos para estado de red en vivo (Online / Offline)
   window.addEventListener('online', () => {
     updateConnectionBadge();
+    const cambioTurno = verificarCambioTurnoAutomatico();
     if (getOfflineQueue().length > 0) {
       procesarColaOffline();
-    } else {
+    } else if (!cambioTurno) {
       syncAsistenciasDeltas(false);
     }
   });
   window.addEventListener('offline', updateConnectionBadge);
   window.addEventListener('focus', () => {
+    verificarCambioTurnoAutomatico();
     if (navigator.onLine && getOfflineQueue().length > 0) {
       procesarColaOffline();
     }
   });
   window.addEventListener('pageshow', () => {
+    verificarCambioTurnoAutomatico();
     if (navigator.onLine && getOfflineQueue().length > 0) {
       procesarColaOffline();
     }
   });
 
-  // Reintento continuo y agresivo de sincronización offline en segundo plano (cada 10s si hay pendientes)
+  // Reintento continuo de cola offline + vigilancia de cambio de turno por horario (ej. 19:50 hs) cada 10s
   setInterval(() => {
+    verificarCambioTurnoAutomatico();
     if (navigator.onLine && getOfflineQueue().length > 0) {
       procesarColaOffline();
     }
@@ -419,6 +479,7 @@ function initApp() {
   // Auto-sincronización liviana por deltas en segundo plano (cada 25s si la pestaña está activa y no está escribiendo)
   setInterval(() => {
     if (navigator.onLine && state.isAuthenticated && !state.isLoading) {
+      if (verificarCambioTurnoAutomatico()) return;
       const searchInput = document.getElementById('searchInput');
       const isTyping = searchInput && (document.activeElement === searchInput || searchInput.value.trim().length > 0);
       if (!isTyping && document.visibilityState === 'visible') {
@@ -429,11 +490,14 @@ function initApp() {
 
   // Auto-sincronizar inmediatamente al volver a la app o desbloquear el celular (deltas ultralivianos)
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && navigator.onLine && state.isAuthenticated) {
-      if (getOfflineQueue().length > 0) {
-        procesarColaOffline();
-      } else {
-        syncAsistenciasDeltas(false);
+    if (document.visibilityState === 'visible' && state.isAuthenticated) {
+      const cambioTurno = verificarCambioTurnoAutomatico();
+      if (navigator.onLine) {
+        if (getOfflineQueue().length > 0) {
+          procesarColaOffline();
+        } else if (!cambioTurno) {
+          syncAsistenciasDeltas(false);
+        }
       }
     }
   });
@@ -471,6 +535,7 @@ function initApp() {
       state.selectedDate = e.target.value;
       if (state.selectedDate === getTodayString()) {
         state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
+        ultimoTurnoAutoPorReloj = state.selectedTurno;
         const tSel = document.getElementById('selectedTurno');
         if (tSel) tSel.value = state.selectedTurno;
       }
@@ -488,6 +553,9 @@ function initApp() {
 
   // Set turno input value con detección horaria inteligente
   state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
+  if (state.selectedDate === getTodayString()) {
+    ultimoTurnoAutoPorReloj = state.selectedTurno;
+  }
   const turnoSelect = document.getElementById('selectedTurno');
   if (turnoSelect) {
     turnoSelect.value = state.selectedTurno;
@@ -705,6 +773,9 @@ function checkSavedSession() {
 
       // Detección Inteligente de Turno al restaurar sesión
       state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
+      if (state.selectedDate === getTodayString()) {
+        ultimoTurnoAutoPorReloj = state.selectedTurno;
+      }
       const turnoSelect = document.getElementById('selectedTurno');
       if (turnoSelect) {
         turnoSelect.value = state.selectedTurno;
@@ -907,6 +978,9 @@ async function handleLogin(event) {
 
       // Detección Inteligente de Turno al iniciar sesión
       state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
+      if (state.selectedDate === getTodayString()) {
+        ultimoTurnoAutoPorReloj = state.selectedTurno;
+      }
       const turnoSelect = document.getElementById('selectedTurno');
       if (turnoSelect) {
         turnoSelect.value = state.selectedTurno;
@@ -1230,6 +1304,7 @@ function setTodayDate() {
 
   // Detección Inteligente de Turno al tocar 'Hoy'
   state.selectedTurno = calcularTurnoPorHora(state.selectedDate);
+  ultimoTurnoAutoPorReloj = state.selectedTurno;
   const turnoSelect = document.getElementById('selectedTurno');
   if (turnoSelect) turnoSelect.value = state.selectedTurno;
 
